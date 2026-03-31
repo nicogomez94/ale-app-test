@@ -1,0 +1,70 @@
+// Debug pre-fill data — only used when VITE_DEBUG_MODE=true
+export const DEBUG = import.meta.env.VITE_DEBUG_MODE === 'true';
+
+export const debugData = {
+  login: {
+    email: 'alejandro.rh.diaz@gmail.com',
+    password: '123456',
+  },
+  client: {
+    nombre: 'Carlos Rodríguez',
+    dni: '28456712',
+    telefono: '1156789012',
+    email: 'carlos.rodriguez@email.com',
+    direccion: 'Av. Corrientes 1234',
+    cp: '1043',
+  },
+  company: {
+    razonSocial: 'Transport Express S.A.',
+    cuit: '30-71234567-0',
+    ramo: 'Transporte y Logística',
+    cantidadVehiculos: '12',
+    cantidadEmpleados: '45',
+    aseguradora: 'Federación Patronal',
+    email: 'admin@transportexpress.com',
+    telefono: '1145678901',
+    direccion: 'Av. San Martín 2500',
+    cp: '1650',
+  },
+  lifePolicy: {
+    VIDA: {
+      cliente: 'María González',
+      cuit: '27-35678901-3',
+      aseguradora: 'Sancor Seguros',
+      sumaAsegurada: '5000000',
+      prima: '15000',
+      email: 'maria.gonzalez@email.com',
+      telefono: '1162345678',
+      cp: '1900',
+    },
+    RETIRO: {
+      cliente: 'Roberto Silva',
+      cuit: '20-28901234-1',
+      aseguradora: 'Zurich',
+      aporteMensual: '30000',
+      fondoAcumulado: '850000',
+      email: 'roberto.silva@email.com',
+      telefono: '1174567890',
+      cp: '5000',
+    },
+  },
+  policy: {
+    clienteNombre: 'Laura Martínez',
+    clienteDni: '31456789',
+    clienteTelefono: '1187654321',
+    aseguradora: 'Sancor Seguros',
+    rubro: 'Automotor',
+    numeroPoliza: 'POL-2026-00099',
+    fechaInicio: new Date().toISOString().split('T')[0],
+    fechaVencimiento: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    medioPago: 'Transferencia',
+    prima: 45000,
+    porcentajeComision: 15,
+  },
+  profile: {
+    nombre: 'Alejandro Díaz',
+    email: 'alejandro.rh.diaz@gmail.com',
+    telefono: '1123456789',
+    direccion: 'Av. Libertador 5500, CABA',
+  },
+};

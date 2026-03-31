@@ -8,6 +8,7 @@ import {
 import { Plus, Search, Edit2, Trash2, Building2, Download, MessageCircle, Mail, Users, Truck, Shield, Briefcase, Home, Store } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { api } from '../api';
+import { DEBUG, debugData } from '../data/debugData';
 
 const COMPANY_TYPES = [
   { label: 'ART', icon: <Shield size={18} />, value: 'ART' },
@@ -48,7 +49,9 @@ export const CompaniesPage: React.FC = () => {
 
   const handleOpen = (company?: any) => {
     setEditingCompany(company || null);
-    formRef.current = company ? { ...company } : { tipo: currentType };
+    formRef.current = company
+      ? { ...company }
+      : DEBUG ? { ...debugData.company, tipo: currentType } : { tipo: currentType };
     setOpen(true);
   };
 
@@ -170,24 +173,29 @@ export const CompaniesPage: React.FC = () => {
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>{editingCompany ? 'Editar Empresa' : `Nueva Empresa (${COMPANY_TYPES[tab].label})`}</DialogTitle>
         <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid size={{ xs: 12, md: 8 }}><TextField fullWidth label="Razón Social" defaultValue={editingCompany?.razonSocial} onChange={(e) => formRef.current.razonSocial = e.target.value} /></Grid>
-            <Grid size={{ xs: 12, md: 4 }}><TextField fullWidth label="CUIT" defaultValue={editingCompany?.cuit} onChange={(e) => formRef.current.cuit = e.target.value} /></Grid>
-            {(currentType === 'ART' || currentType === 'FLOTAS') && (
-              <Grid size={{ xs: 6, md: 4 }}>
-                <TextField fullWidth label={currentType === 'ART' ? "Cantidad de Empleados" : "Cantidad de Vehículos"} type="number"
-                  defaultValue={currentType === 'ART' ? editingCompany?.empleados : editingCompany?.vehiculos}
-                  onChange={(e) => { if (currentType === 'ART') formRef.current.empleados = e.target.value; else formRef.current.vehiculos = e.target.value; }}
-                />
+          {(() => {
+            const d = editingCompany ?? (DEBUG ? debugData.company : {}) as any;
+            return (
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Grid size={{ xs: 12, md: 8 }}><TextField key={open + 'rs'} fullWidth label="Razón Social" defaultValue={d.razonSocial} onChange={(e) => formRef.current.razonSocial = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 4 }}><TextField key={open + 'cuit'} fullWidth label="CUIT" defaultValue={d.cuit} onChange={(e) => formRef.current.cuit = e.target.value} /></Grid>
+                {(currentType === 'ART' || currentType === 'FLOTAS') && (
+                  <Grid size={{ xs: 6, md: 4 }}>
+                    <TextField key={open + 'cant'} fullWidth label={currentType === 'ART' ? 'Cantidad de Empleados' : 'Cantidad de Vehículos'} type="number"
+                      defaultValue={currentType === 'ART' ? (d.empleados ?? d.cantidadEmpleados) : (d.vehiculos ?? d.cantidadVehiculos)}
+                      onChange={(e) => { if (currentType === 'ART') formRef.current.empleados = e.target.value; else formRef.current.vehiculos = e.target.value; }}
+                    />
+                  </Grid>
+                )}
+                <Grid size={{ xs: 6, md: 4 }}><TextField key={open + 'aseg'} fullWidth label="Aseguradora" defaultValue={d.aseguradora} onChange={(e) => formRef.current.aseguradora = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 4 }}><TextField key={open + 'ramo'} fullWidth label="Rubro / Actividad" defaultValue={d.ramo} onChange={(e) => formRef.current.ramo = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 6 }}><TextField key={open + 'email'} fullWidth label="Email" defaultValue={d.email} onChange={(e) => formRef.current.email = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 6 }}><TextField key={open + 'tel'} fullWidth label="Teléfono" defaultValue={d.telefono} onChange={(e) => formRef.current.telefono = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 9 }}><TextField key={open + 'dir'} fullWidth label="Dirección" defaultValue={d.direccion} onChange={(e) => formRef.current.direccion = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 3 }}><TextField key={open + 'cp'} fullWidth label="Código Postal" defaultValue={d.cp} onChange={(e) => formRef.current.cp = e.target.value} /></Grid>
               </Grid>
-            )}
-            <Grid size={{ xs: 6, md: 4 }}><TextField fullWidth label="Aseguradora" defaultValue={editingCompany?.aseguradora} onChange={(e) => formRef.current.aseguradora = e.target.value} /></Grid>
-            <Grid size={{ xs: 12, md: 4 }}><TextField fullWidth label="Rubro / Actividad" defaultValue={editingCompany?.ramo} onChange={(e) => formRef.current.ramo = e.target.value} /></Grid>
-            <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth label="Email" defaultValue={editingCompany?.email} onChange={(e) => formRef.current.email = e.target.value} /></Grid>
-            <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth label="Teléfono" defaultValue={editingCompany?.telefono} onChange={(e) => formRef.current.telefono = e.target.value} /></Grid>
-            <Grid size={{ xs: 12, md: 9 }}><TextField fullWidth label="Dirección" defaultValue={editingCompany?.direccion} onChange={(e) => formRef.current.direccion = e.target.value} /></Grid>
-            <Grid size={{ xs: 12, md: 3 }}><TextField fullWidth label="Código Postal" defaultValue={editingCompany?.cp} onChange={(e) => formRef.current.cp = e.target.value} /></Grid>
-          </Grid>
+            );
+          })()}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={handleClose}>Cancelar</Button>

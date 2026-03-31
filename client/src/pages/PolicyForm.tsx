@@ -9,6 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import { DEBUG, debugData } from '../data/debugData';
 
 const schema = z.object({
   clienteNombre: z.string().min(3, 'Nombre requerido (mín. 3 caracteres)'),
@@ -34,7 +35,7 @@ export const PolicyForm: React.FC = () => {
 
   const { control, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: {
+    defaultValues: DEBUG ? debugData.policy : {
       prima: 0,
       porcentajeComision: 15,
       medioPago: '',

@@ -7,6 +7,7 @@ import {
 import { Camera, Save, User, Mail, Phone, MapPin, ShieldCheck } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { DEBUG, debugData } from '../data/debugData';
 
 export const ProfilePage: React.FC = () => {
   const { user, updateUser } = useAuth();
@@ -29,8 +30,8 @@ export const ProfilePage: React.FC = () => {
       setFormData({
         nombre: data.nombre || '',
         email: data.email || '',
-        telefono: data.telefono || '',
-        direccion: data.direccion || '',
+        telefono: data.telefono || (DEBUG ? debugData.profile.telefono : ''),
+        direccion: data.direccion || (DEBUG ? debugData.profile.direccion : ''),
         avatar: data.avatar || '',
       });
     }).catch(console.error).finally(() => setLoading(false));

@@ -7,6 +7,7 @@ import {
 } from '@mui/material';
 import { Plus, Search, Edit2, Trash2, HeartPulse, Download, MessageCircle, Mail, Coins } from 'lucide-react';
 import { api } from '../api';
+import { DEBUG, debugData } from '../data/debugData';
 
 const LIFE_TYPES = [
   { label: 'Seguros de Vida', icon: <HeartPulse size={18} />, value: 'VIDA' },
@@ -36,7 +37,9 @@ export const LifeAndFinancePage: React.FC = () => {
 
   const handleOpen = (policy?: any) => {
     setEditingPolicy(policy || null);
-    formRef.current = policy ? { ...policy } : { tipo: currentType };
+    formRef.current = policy
+      ? { ...policy }
+      : DEBUG ? { ...debugData.lifePolicy[currentType as 'VIDA' | 'RETIRO'], tipo: currentType } : { tipo: currentType };
     setOpen(true);
   };
 
@@ -155,26 +158,31 @@ export const LifeAndFinancePage: React.FC = () => {
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>{editingPolicy ? 'Editar Póliza' : `Nueva Póliza (${LIFE_TYPES[tab].label})`}</DialogTitle>
         <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid size={{ xs: 12, md: 8 }}><TextField fullWidth label="Nombre del Cliente" defaultValue={editingPolicy?.cliente} onChange={(e) => formRef.current.cliente = e.target.value} /></Grid>
-            <Grid size={{ xs: 12, md: 4 }}><TextField fullWidth label="CUIT" defaultValue={editingPolicy?.cuit} onChange={(e) => formRef.current.cuit = e.target.value} /></Grid>
-            <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth label="Aseguradora" defaultValue={editingPolicy?.aseguradora} onChange={(e) => formRef.current.aseguradora = e.target.value} /></Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField fullWidth label={currentType === 'VIDA' ? "Suma Asegurada" : "Aporte Mensual"} type="number"
-                defaultValue={currentType === 'VIDA' ? editingPolicy?.sumaAsegurada : editingPolicy?.aporteMensual}
-                onChange={(e) => { if (currentType === 'VIDA') formRef.current.sumaAsegurada = e.target.value; else formRef.current.aporteMensual = e.target.value; }}
-              />
-            </Grid>
-            {currentType === 'RETIRO' && (
-              <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth label="Fondo Acumulado" type="number" defaultValue={editingPolicy?.fondoAcumulado} onChange={(e) => formRef.current.fondoAcumulado = e.target.value} /></Grid>
-            )}
-            {currentType === 'VIDA' && (
-              <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth label="Prima Mensual" type="number" defaultValue={editingPolicy?.prima} onChange={(e) => formRef.current.prima = e.target.value} /></Grid>
-            )}
-            <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth label="Email" defaultValue={editingPolicy?.email} onChange={(e) => formRef.current.email = e.target.value} /></Grid>
-            <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth label="Teléfono" defaultValue={editingPolicy?.telefono} onChange={(e) => formRef.current.telefono = e.target.value} /></Grid>
-            <Grid size={{ xs: 12, md: 3 }}><TextField fullWidth label="Código Postal" defaultValue={editingPolicy?.cp} onChange={(e) => formRef.current.cp = e.target.value} /></Grid>
-          </Grid>
+          {(() => {
+            const d = editingPolicy ?? (DEBUG ? debugData.lifePolicy[currentType as 'VIDA' | 'RETIRO'] : {}) as any;
+            return (
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Grid size={{ xs: 12, md: 8 }}><TextField key={open + 'cli'} fullWidth label="Nombre del Cliente" defaultValue={d.cliente} onChange={(e) => formRef.current.cliente = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 4 }}><TextField key={open + 'cuit'} fullWidth label="CUIT" defaultValue={d.cuit} onChange={(e) => formRef.current.cuit = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 6 }}><TextField key={open + 'aseg'} fullWidth label="Aseguradora" defaultValue={d.aseguradora} onChange={(e) => formRef.current.aseguradora = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField key={open + 'monto'} fullWidth label={currentType === 'VIDA' ? 'Suma Asegurada' : 'Aporte Mensual'} type="number"
+                    defaultValue={currentType === 'VIDA' ? (d.sumaAsegurada) : (d.aporteMensual)}
+                    onChange={(e) => { if (currentType === 'VIDA') formRef.current.sumaAsegurada = e.target.value; else formRef.current.aporteMensual = e.target.value; }}
+                  />
+                </Grid>
+                {currentType === 'RETIRO' && (
+                  <Grid size={{ xs: 12, md: 6 }}><TextField key={open + 'fondo'} fullWidth label="Fondo Acumulado" type="number" defaultValue={d.fondoAcumulado} onChange={(e) => formRef.current.fondoAcumulado = e.target.value} /></Grid>
+                )}
+                {currentType === 'VIDA' && (
+                  <Grid size={{ xs: 12, md: 6 }}><TextField key={open + 'prima'} fullWidth label="Prima Mensual" type="number" defaultValue={d.prima} onChange={(e) => formRef.current.prima = e.target.value} /></Grid>
+                )}
+                <Grid size={{ xs: 12, md: 6 }}><TextField key={open + 'email'} fullWidth label="Email" defaultValue={d.email} onChange={(e) => formRef.current.email = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 6 }}><TextField key={open + 'tel'} fullWidth label="Teléfono" defaultValue={d.telefono} onChange={(e) => formRef.current.telefono = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 3 }}><TextField key={open + 'cp'} fullWidth label="Código Postal" defaultValue={d.cp} onChange={(e) => formRef.current.cp = e.target.value} /></Grid>
+              </Grid>
+            );
+          })()}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={handleClose}>Cancelar</Button>

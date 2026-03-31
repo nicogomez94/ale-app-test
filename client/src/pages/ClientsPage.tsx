@@ -8,6 +8,7 @@ import {
 import { Plus, Search, Edit2, Trash2, Download, MessageCircle, Building2, User, Mail } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import { DEBUG, debugData } from '../data/debugData';
 
 export const ClientsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -31,7 +32,9 @@ export const ClientsPage: React.FC = () => {
 
   const handleOpen = (client?: any) => {
     setEditingClient(client || null);
-    formRef.current = client ? { nombre: client.nombre, dni: client.dni, telefono: client.telefono, email: client.email, direccion: client.direccion || '', cp: client.cp || '' } : {};
+    formRef.current = client
+      ? { nombre: client.nombre, dni: client.dni, telefono: client.telefono, email: client.email, direccion: client.direccion || '', cp: client.cp || '' }
+      : DEBUG ? { ...debugData.client } : {};
     setOpen(true);
   };
 
@@ -137,14 +140,19 @@ export const ClientsPage: React.FC = () => {
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>{editingClient ? 'Editar Cliente' : 'Nuevo Cliente'}</DialogTitle>
         <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid size={{ xs: 12 }}><TextField fullWidth label="Nombre Completo" defaultValue={editingClient?.nombre} onChange={(e) => formRef.current.nombre = e.target.value} /></Grid>
-            <Grid size={{ xs: 6 }}><TextField fullWidth label="DNI" defaultValue={editingClient?.dni} onChange={(e) => formRef.current.dni = e.target.value} /></Grid>
-            <Grid size={{ xs: 6 }}><TextField fullWidth label="Teléfono" defaultValue={editingClient?.telefono} onChange={(e) => formRef.current.telefono = e.target.value} /></Grid>
-            <Grid size={{ xs: 12 }}><TextField fullWidth label="Email" defaultValue={editingClient?.email} onChange={(e) => formRef.current.email = e.target.value} /></Grid>
-            <Grid size={{ xs: 8 }}><TextField fullWidth label="Dirección" defaultValue={editingClient?.direccion} onChange={(e) => formRef.current.direccion = e.target.value} /></Grid>
-            <Grid size={{ xs: 4 }}><TextField fullWidth label="Código Postal" defaultValue={editingClient?.cp} onChange={(e) => formRef.current.cp = e.target.value} /></Grid>
-          </Grid>
+          {(() => {
+            const d = editingClient ?? (DEBUG ? debugData.client : {}) as any;
+            return (
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Grid size={{ xs: 12 }}><TextField key={open + 'nombre'} fullWidth label="Nombre Completo" defaultValue={d.nombre} onChange={(e) => formRef.current.nombre = e.target.value} /></Grid>
+                <Grid size={{ xs: 6 }}><TextField key={open + 'dni'} fullWidth label="DNI" defaultValue={d.dni} onChange={(e) => formRef.current.dni = e.target.value} /></Grid>
+                <Grid size={{ xs: 6 }}><TextField key={open + 'tel'} fullWidth label="Teléfono" defaultValue={d.telefono} onChange={(e) => formRef.current.telefono = e.target.value} /></Grid>
+                <Grid size={{ xs: 12 }}><TextField key={open + 'email'} fullWidth label="Email" defaultValue={d.email} onChange={(e) => formRef.current.email = e.target.value} /></Grid>
+                <Grid size={{ xs: 8 }}><TextField key={open + 'dir'} fullWidth label="Dirección" defaultValue={d.direccion} onChange={(e) => formRef.current.direccion = e.target.value} /></Grid>
+                <Grid size={{ xs: 4 }}><TextField key={open + 'cp'} fullWidth label="Código Postal" defaultValue={d.cp} onChange={(e) => formRef.current.cp = e.target.value} /></Grid>
+              </Grid>
+            );
+          })()}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={handleClose}>Cancelar</Button>

@@ -5,14 +5,15 @@ import {
 } from '@mui/material';
 import { Mail, Lock, Eye, EyeOff, Bell, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { DEBUG, debugData } from '../data/debugData';
 
 export const LoginPage: React.FC = () => {
   const { login, register } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [nombre, setNombre] = useState('');
+  const [email, setEmail] = useState(DEBUG ? debugData.login.email : '');
+  const [password, setPassword] = useState(DEBUG ? debugData.login.password : '');
+  const [nombre, setNombre] = useState(DEBUG ? 'Usuario Debug' : '');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 

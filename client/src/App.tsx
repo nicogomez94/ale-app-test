@@ -1,8 +1,26 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Component, ReactNode } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Box, CircularProgress } from '@mui/material';
+import { Box, CircularProgress, Alert, Button } from '@mui/material';
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <Box sx={{ p: 4 }}>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            Error: {(this.state.error as Error).message}
+          </Alert>
+          <Button variant="outlined" onClick={() => this.setState({ error: null })}>Reintentar</Button>
+        </Box>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { getTheme } from './theme';
 import { useAuth } from './context/AuthContext';
 import { Layout } from './components/Layout';
@@ -53,6 +71,7 @@ export default function App() {
           isDarkMode={isDarkMode}
           onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
         >
+          <ErrorBoundary>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/clientes" element={<ClientsPage />} />
@@ -65,6 +84,7 @@ export default function App() {
             <Route path="/perfil" element={<ProfilePage />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
+          </ErrorBoundary>
         </Layout>
       </Router>
     </ThemeProvider>

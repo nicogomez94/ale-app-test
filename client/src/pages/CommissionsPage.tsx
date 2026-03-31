@@ -65,7 +65,7 @@ export const CommissionsPage: React.FC = () => {
 
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress /></Box>;
 
-  const barData = monthly.map((m: any) => ({ name: m.mes, comision: m.comisionBruta }));
+  const barData = monthly.map((m: any) => ({ name: m.name || m.mes, comision: m.comision }));
   const pieData = summary?.distribucion || [];
   const objetivo = summary?.totalPrima > 0 ? Math.min(100, Math.round((summary.comisionProyectada / summary.totalPrima) * 100)) : 0;
 
@@ -218,9 +218,9 @@ export const CommissionsPage: React.FC = () => {
               <TableBody>
                 {monthly.length > 0 ? monthly.map((row: any, index: number) => (
                   <TableRow key={index} hover>
-                    <TableCell>{row.mes}</TableCell>
-                    <TableCell>$ {row.totalPrima.toLocaleString()}</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>$ {row.comisionBruta.toLocaleString()}</TableCell>
+                    <TableCell>{row.name || row.mes}</TableCell>
+                    <TableCell>$ {(row.totalPrima || 0).toLocaleString()}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>$ {(row.comision || 0).toLocaleString()}</TableCell>
                     <TableCell>
                       {row.crecimiento !== null ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: row.crecimiento >= 0 ? 'success.main' : 'error.main' }}>

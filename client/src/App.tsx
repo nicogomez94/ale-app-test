@@ -1,8 +1,9 @@
-import { useState, useMemo, Component, ReactNode } from 'react';
+import { useState, useEffect, useMemo, Component, ReactNode } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Box, CircularProgress, Alert, Button } from '@mui/material';
+import { Box, CircularProgress, Alert, Button, Card, Typography } from '@mui/material';
+import { api } from './api';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -38,8 +39,19 @@ import { LifeAndFinancePage } from './pages/LifeAndFinancePage';
 export default function App() {
   const { isAuthenticated, isLoading, logout, user } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [subscriptionExpired, setSubscriptionExpired] = useState(false);
 
   const theme = useMemo(() => createTheme(getTheme(isDarkMode ? 'dark' : 'light')), [isDarkMode]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    api.subscriptions.current().then((sub: any) => {
+      if (sub.accesoBloqueado) setSubscriptionExpired(true);
+    }).catch(() => {});
+    const handler = () => setSubscriptionExpired(true);
+    window.addEventListener('subscription_expired', handler);
+    return () => window.removeEventListener('subscription_expired', handler);
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (
@@ -85,6 +97,28 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
           </ErrorBoundary>
+          {subscriptionExpired && (
+            <Box sx={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              bgcolor: 'rgba(0,0,0,0.7)', zIndex: 9999,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Card sx={{ maxWidth: 500, p: 4, textAlign: 'center' }}>
+                <Typography variant="h5" gutterBottom fontWeight={700} color="error">
+                  Suscripción Vencida
+                </Typography>
+                <Typography sx={{ mb: 3 }}>
+                  Tu plan ha expirado. Renová tu suscripción para seguir usando PAS Alert.
+                </Typography>
+                <Button variant="contained" size="large" onClick={() => {
+                  setSubscriptionExpired(false);
+                  window.location.href = '/pagos';
+                }}>
+                  Ir a Suscripción
+                </Button>
+              </Card>
+            </Box>
+          )}
         </Layout>
       </Router>
     </ThemeProvider>

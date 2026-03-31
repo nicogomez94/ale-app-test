@@ -79,9 +79,8 @@ subscriptionsRouter.get("/current", authMiddleware, async (req: AuthRequest, res
       ? Math.max(0, Math.ceil((vencimiento.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
       : 0;
 
-    // Check if should show renewal warning (5 days before)
     const mostrarAviso = diasRestantes <= 5 && diasRestantes > 0;
-    const accesoBloqueado = diasRestantes <= 0 && user.plan !== "TRIAL";
+    const accesoBloqueado = vencimiento ? now > vencimiento : false;
 
     res.json({
       plan: user.plan,

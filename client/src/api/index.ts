@@ -29,6 +29,14 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     throw new Error("No autorizado");
   }
 
+  if (res.status === 403) {
+    const errorBody = await res.json().catch(() => ({ error: "forbidden" }));
+    if (errorBody.error === "subscription_expired") {
+      window.dispatchEvent(new CustomEvent("subscription_expired"));
+    }
+    throw new Error(errorBody.message || "Suscripción vencida");
+  }
+
   if (!res.ok) {
     const error = await res.json().catch(() => ({ error: "Error del servidor" }));
     throw new Error(error.error || "Error del servidor");

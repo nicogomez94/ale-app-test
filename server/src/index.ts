@@ -14,6 +14,8 @@ import { referralsRouter } from "./routes/referrals.js";
 import { subscriptionsRouter } from "./routes/subscriptions.js";
 import { profileRouter } from "./routes/profile.js";
 import { dashboardRouter } from "./routes/dashboard.js";
+import { authMiddleware } from "./middleware/auth.js";
+import { subscriptionGuard } from "./middleware/subscriptionGuard.js";
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3001");
@@ -21,17 +23,19 @@ const PORT = parseInt(process.env.PORT || "3001");
 app.use(cors({ origin: process.env.APP_URL || "http://localhost:5173", credentials: true }));
 app.use(express.json({ limit: "5mb" }));
 
-// Routes
+// Unguarded routes (accessible even with expired subscription)
 app.use("/api/auth", authRouter);
-app.use("/api/clients", clientsRouter);
-app.use("/api/companies", companiesRouter);
-app.use("/api/policies", policiesRouter);
-app.use("/api/life-policies", lifeFinanceRouter);
-app.use("/api/commissions", commissionsRouter);
-app.use("/api/referrals", referralsRouter);
 app.use("/api/subscriptions", subscriptionsRouter);
 app.use("/api/profile", profileRouter);
-app.use("/api/dashboard", dashboardRouter);
+
+// Guarded routes (blocked when subscription expired)
+app.use("/api/clients", authMiddleware, subscriptionGuard, clientsRouter);
+app.use("/api/companies", authMiddleware, subscriptionGuard, companiesRouter);
+app.use("/api/policies", authMiddleware, subscriptionGuard, policiesRouter);
+app.use("/api/life-policies", authMiddleware, subscriptionGuard, lifeFinanceRouter);
+app.use("/api/commissions", authMiddleware, subscriptionGuard, commissionsRouter);
+app.use("/api/referrals", authMiddleware, subscriptionGuard, referralsRouter);
+app.use("/api/dashboard", authMiddleware, subscriptionGuard, dashboardRouter);
 
 // Health check
 app.get("/api/health", (_req, res) => {

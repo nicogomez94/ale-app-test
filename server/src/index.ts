@@ -14,6 +14,7 @@ import { referralsRouter } from "./routes/referrals.js";
 import { subscriptionsRouter } from "./routes/subscriptions.js";
 import { profileRouter } from "./routes/profile.js";
 import { dashboardRouter } from "./routes/dashboard.js";
+import { adminRouter } from "./routes/admin.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { subscriptionGuard } from "./middleware/subscriptionGuard.js";
 
@@ -36,6 +37,7 @@ app.use("/api/life-policies", authMiddleware, subscriptionGuard, lifeFinanceRout
 app.use("/api/commissions", authMiddleware, subscriptionGuard, commissionsRouter);
 app.use("/api/referrals", authMiddleware, subscriptionGuard, referralsRouter);
 app.use("/api/dashboard", authMiddleware, subscriptionGuard, dashboardRouter);
+app.use("/api/admin", adminRouter);
 
 // Health check
 app.get("/api/health", (_req, res) => {

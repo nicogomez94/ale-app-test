@@ -7,6 +7,7 @@ interface User {
   nombre: string;
   plan: string;
   estado: string;
+  isAdmin?: boolean;
   avatar?: string;
   telefono?: string;
   direccion?: string;

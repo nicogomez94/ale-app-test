@@ -19,6 +19,7 @@ async function main() {
       telefono: "11 2233-4455",
       direccion: "Av. Corrientes 1234, CABA",
       matriculaPas: "12345",
+      isAdmin: true,
       plan: "TRIAL",
       trialInicio: new Date(),
       trialFin: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),

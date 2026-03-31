@@ -7,7 +7,7 @@ import {
 import {
   LayoutDashboard, FileText, Users, CreditCard, Bell, LogOut,
   Menu as MenuIcon, UserCircle, BarChart3, Sun, Moon, Building2, HeartPulse,
-  Calendar, Clock
+  Calendar, Clock, Shield, AlertTriangle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -20,6 +20,7 @@ interface LayoutProps {
   onLogout: () => void;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
+  subscriptionWarning?: { show: boolean; diasRestantes: number };
 }
 
 const drawerWidth = 260;
@@ -44,7 +45,7 @@ const Logo = () => (
   </Box>
 );
 
-export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDarkMode, onToggleDarkMode }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDarkMode, onToggleDarkMode, subscriptionWarning }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -70,6 +71,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
     { text: 'Comisiones', icon: <BarChart3 size={20} color="#10b981" />, path: '/comisiones' },
     { text: 'Referidos', icon: <Users size={20} color="#ec4899" />, path: '/referidos' },
     { text: 'Suscripción', icon: <CreditCard size={20} color="#6366f1" />, path: '/pagos' },
+    ...(user?.isAdmin ? [{ text: 'Administración', icon: <Shield size={20} color="#dc2626" />, path: '/admin' }] : []),
   ];
 
   const drawer = (
@@ -199,6 +201,21 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
       </Box>
 
       <Box component="main" sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` }, mt: '64px', bgcolor: 'background.default' }}>
+        {subscriptionWarning?.show && (
+          <Box sx={{
+            display: 'flex', alignItems: 'center', gap: 2, p: 2, mb: 2,
+            bgcolor: 'warning.light', borderRadius: 2, border: '1px solid',
+            borderColor: 'warning.main',
+          }}>
+            <AlertTriangle size={22} color="#ed6c02" />
+            <Typography variant="body2" sx={{ flexGrow: 1, fontWeight: 500 }}>
+              Tu suscripción vence en <strong>{subscriptionWarning.diasRestantes} día{subscriptionWarning.diasRestantes !== 1 ? 's' : ''}</strong>. Renová ahora para no perder acceso.
+            </Typography>
+            <Button variant="contained" color="warning" size="small" onClick={() => navigate('/pagos')}>
+              Renovar
+            </Button>
+          </Box>
+        )}
         {children}
       </Box>
     </Box>

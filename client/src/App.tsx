@@ -36,17 +36,24 @@ import { ProfilePage } from './pages/ProfilePage';
 import { CompaniesPage } from './pages/CompaniesPage';
 import { LifeAndFinancePage } from './pages/LifeAndFinancePage';
 
+import { AdminPage } from './pages/AdminPage';
+
 export default function App() {
   const { isAuthenticated, isLoading, logout, user } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [subscriptionExpired, setSubscriptionExpired] = useState(false);
+  const [subscriptionWarning, setSubscriptionWarning] = useState<{ show: boolean; diasRestantes: number }>({ show: false, diasRestantes: 0 });
 
   const theme = useMemo(() => createTheme(getTheme(isDarkMode ? 'dark' : 'light')), [isDarkMode]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
     api.subscriptions.current().then((sub: any) => {
-      if (sub.accesoBloqueado) setSubscriptionExpired(true);
+      if (sub.accesoBloqueado) {
+        setSubscriptionExpired(true);
+      } else if (sub.diasRestantes !== undefined && sub.diasRestantes <= 5 && sub.diasRestantes > 0) {
+        setSubscriptionWarning({ show: true, diasRestantes: sub.diasRestantes });
+      }
     }).catch(() => {});
     const handler = () => setSubscriptionExpired(true);
     window.addEventListener('subscription_expired', handler);
@@ -82,6 +89,7 @@ export default function App() {
           onLogout={logout}
           isDarkMode={isDarkMode}
           onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+          subscriptionWarning={subscriptionWarning}
         >
           <ErrorBoundary>
           <Routes>
@@ -94,6 +102,7 @@ export default function App() {
             <Route path="/referidos" element={<ReferralPage />} />
             <Route path="/pagos" element={<PaymentPage />} />
             <Route path="/perfil" element={<ProfilePage />} />
+            {user?.isAdmin && <Route path="/admin" element={<AdminPage />} />}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
           </ErrorBoundary>

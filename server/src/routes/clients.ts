@@ -1,6 +1,7 @@
 import { Router, Response } from "express";
 import prisma from "../lib/prisma.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
+import { checkPlanLimit } from "../middleware/planLimits.js";
 import * as XLSX from "xlsx";
 
 export const clientsRouter = Router();
@@ -38,6 +39,12 @@ clientsRouter.post("/", async (req: AuthRequest, res: Response) => {
 
     if (!nombre || !dni || !telefono || !email) {
       res.status(400).json({ error: "Nombre, DNI, teléfono y email son requeridos" });
+      return;
+    }
+
+    const limitCheck = await checkPlanLimit(req.userId!, "clientes");
+    if (!limitCheck.allowed) {
+      res.status(403).json({ error: limitCheck.message });
       return;
     }
 

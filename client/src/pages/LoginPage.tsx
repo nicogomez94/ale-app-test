@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import {
   Box, Typography, TextField, Button, Card, CardContent,
-  Divider, InputAdornment, IconButton, Link, Alert
+  Divider, InputAdornment, IconButton, Link, Alert,
+  Dialog, DialogTitle, DialogContent, DialogActions, Stepper, Step, StepLabel
 } from '@mui/material';
 import { Mail, Lock, Eye, EyeOff, Bell, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../api';
 import { DEBUG, debugData } from '../data/debugData';
 
 export const LoginPage: React.FC = () => {
@@ -16,6 +18,17 @@ export const LoginPage: React.FC = () => {
   const [nombre, setNombre] = useState(DEBUG ? 'Usuario Debug' : '');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Forgot password state
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotStep, setForgotStep] = useState(0);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotCode, setForgotCode] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotConfirm, setForgotConfirm] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [forgotSuccess, setForgotSuccess] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +46,49 @@ export const LoginPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForgotSendCode = async () => {
+    setForgotError('');
+    if (!forgotEmail) { setForgotError('Ingresa tu email.'); return; }
+    setForgotLoading(true);
+    try {
+      await api.auth.forgotPassword(forgotEmail);
+      setForgotStep(1);
+      setForgotSuccess('Si el email está registrado, recibirás un código. Revisá la consola del servidor en modo desarrollo.');
+    } catch (err: any) {
+      setForgotError(err.message);
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleForgotReset = async () => {
+    setForgotError('');
+    if (!forgotCode) { setForgotError('Ingresa el código.'); return; }
+    if (forgotNewPassword.length < 6) { setForgotError('La contraseña debe tener al menos 6 caracteres.'); return; }
+    if (forgotNewPassword !== forgotConfirm) { setForgotError('Las contraseñas no coinciden.'); return; }
+    setForgotLoading(true);
+    try {
+      const result = await api.auth.resetPassword(forgotEmail, forgotCode, forgotNewPassword);
+      setForgotStep(2);
+      setForgotSuccess(result.message);
+    } catch (err: any) {
+      setForgotError(err.message);
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const closeForgotDialog = () => {
+    setForgotOpen(false);
+    setForgotStep(0);
+    setForgotEmail('');
+    setForgotCode('');
+    setForgotNewPassword('');
+    setForgotConfirm('');
+    setForgotError('');
+    setForgotSuccess('');
   };
 
   return (
@@ -123,7 +179,7 @@ export const LoginPage: React.FC = () => {
 
               {!isRegister && (
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <Link href="#" variant="caption" sx={{ fontWeight: 600 }}>¿Olvidaste tu contraseña?</Link>
+                  <Link component="button" type="button" variant="caption" sx={{ fontWeight: 600 }} onClick={() => { setForgotOpen(true); setForgotEmail(email); }}>¿Olvidaste tu contraseña?</Link>
                 </Box>
               )}
 
@@ -160,6 +216,76 @@ export const LoginPage: React.FC = () => {
           © 2026 PAS Alert. Todos los derechos reservados.
         </Typography>
       </Box>
+
+      {/* Forgot Password Dialog */}
+      <Dialog open={forgotOpen} onClose={closeForgotDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Recuperar Contraseña</DialogTitle>
+        <DialogContent sx={{ pt: '16px !important' }}>
+          <Stepper activeStep={forgotStep} sx={{ mb: 3 }}>
+            <Step><StepLabel>Email</StepLabel></Step>
+            <Step><StepLabel>Código</StepLabel></Step>
+            <Step><StepLabel>Listo</StepLabel></Step>
+          </Stepper>
+
+          {forgotError && <Alert severity="error" sx={{ mb: 2 }}>{forgotError}</Alert>}
+          {forgotSuccess && <Alert severity="success" sx={{ mb: 2 }}>{forgotSuccess}</Alert>}
+
+          {forgotStep === 0 && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Ingresá tu email registrado. Te enviaremos un código de 6 dígitos para restablecer tu contraseña.
+              </Typography>
+              <TextField
+                fullWidth label="Correo electrónico" type="email"
+                value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)}
+                InputProps={{ startAdornment: <InputAdornment position="start"><Mail size={18} /></InputAdornment> }}
+              />
+            </Box>
+          )}
+
+          {forgotStep === 1 && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Ingresá el código de 6 dígitos y tu nueva contraseña.
+              </Typography>
+              <TextField
+                fullWidth label="Código de verificación" placeholder="123456"
+                value={forgotCode} onChange={(e) => setForgotCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                inputProps={{ maxLength: 6, style: { letterSpacing: 8, textAlign: 'center', fontSize: 24, fontWeight: 700 } }}
+              />
+              <TextField
+                fullWidth label="Nueva contraseña" type="password"
+                value={forgotNewPassword} onChange={(e) => setForgotNewPassword(e.target.value)}
+                InputProps={{ startAdornment: <InputAdornment position="start"><Lock size={18} /></InputAdornment> }}
+              />
+              <TextField
+                fullWidth label="Confirmar contraseña" type="password"
+                value={forgotConfirm} onChange={(e) => setForgotConfirm(e.target.value)}
+                InputProps={{ startAdornment: <InputAdornment position="start"><Lock size={18} /></InputAdornment> }}
+              />
+            </Box>
+          )}
+
+          {forgotStep === 2 && (
+            <Typography variant="body1" sx={{ textAlign: 'center', py: 2 }}>
+              Tu contraseña fue actualizada. Ya podés iniciar sesión.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeForgotDialog}>{forgotStep === 2 ? 'Cerrar' : 'Cancelar'}</Button>
+          {forgotStep === 0 && (
+            <Button variant="contained" onClick={handleForgotSendCode} disabled={forgotLoading}>
+              {forgotLoading ? 'Enviando...' : 'Enviar Código'}
+            </Button>
+          )}
+          {forgotStep === 1 && (
+            <Button variant="contained" onClick={handleForgotReset} disabled={forgotLoading}>
+              {forgotLoading ? 'Verificando...' : 'Restablecer Contraseña'}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -2,19 +2,29 @@ import React, { useState, useEffect } from 'react';
 import {
   Grid, Typography, Card, CardContent, Box, LinearProgress, Button,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Paper, Chip, IconButton, Alert, CircularProgress
+  Paper, Chip, IconButton, Alert, CircularProgress, ButtonGroup
 } from '@mui/material';
 import {
   FileCheck, AlertCircle, Clock, Users, ArrowUpRight, Plus,
-  MessageCircle, Edit2, X, Mail
+  MessageCircle, Edit2, X, Mail, Filter
 } from 'lucide-react';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 
-const StatCard = ({ title, value, icon, color, subtitle }: any) => (
-  <Card sx={{ height: '100%', position: 'relative', overflow: 'hidden' }}>
+const StatCard = ({ title, value, icon, color, subtitle, onClick, active }: any) => (
+  <Card
+    sx={{
+      height: '100%', position: 'relative', overflow: 'hidden',
+      cursor: onClick ? 'pointer' : 'default',
+      border: active ? 2 : 0,
+      borderColor: active ? `${color}.main` : 'transparent',
+      transition: 'all 0.2s',
+      '&:hover': onClick ? { transform: 'translateY(-2px)', boxShadow: 4 } : {},
+    }}
+    onClick={onClick}
+  >
     <CardContent>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Box>
@@ -149,10 +159,18 @@ export const Dashboard: React.FC = () => {
   const companyPolicies = policies.filter(p => p.tipo === 'Empresa');
   const lifeFinancePolicies = policies.filter(p => p.rubro === 'Vida' || p.rubro === 'Retiro');
 
+  const applyFilter = (newFilter: string | null) => {
+    if (newFilter) {
+      navigate(`/?filter=${newFilter}`);
+    } else {
+      navigate('/');
+    }
+  };
+
   const statCards = [
-    { title: 'Pólizas Activas', value: stats.polizasActivas, icon: <FileCheck size={24} />, color: 'primary' },
-    { title: 'Vencen en 7 días', value: stats.vencen7Dias, icon: <Clock size={24} />, color: 'warning', subtitle: 'Requieren atención' },
-    { title: 'Pólizas Vencidas', value: stats.polizasVencidas, icon: <AlertCircle size={24} />, color: 'error', subtitle: 'Acción inmediata' },
+    { title: 'Pólizas Activas', value: stats.polizasActivas, icon: <FileCheck size={24} />, color: 'primary', onClick: () => applyFilter(filter === 'active' ? null : 'active'), active: filter === 'active' },
+    { title: 'Vencen en 7 días', value: stats.vencen7Dias, icon: <Clock size={24} />, color: 'warning', subtitle: 'Requieren atención', onClick: () => applyFilter(filter === 'expiring' ? null : 'expiring'), active: filter === 'expiring' },
+    { title: 'Pólizas Vencidas', value: stats.polizasVencidas, icon: <AlertCircle size={24} />, color: 'error', subtitle: 'Acción inmediata', onClick: () => applyFilter(filter === 'expired' ? null : 'expired'), active: filter === 'expired' },
     { title: 'Clientes Totales', value: stats.clientesTotales, icon: <Users size={24} />, color: 'info', subtitle: 'Cartera activa' },
   ];
 
@@ -167,8 +185,8 @@ export const Dashboard: React.FC = () => {
           <Typography variant="h4" gutterBottom sx={{ fontWeight: 800 }}>Panel de Control</Typography>
           <Typography variant="body1" color="text.secondary">Bienvenido de nuevo. Aquí tienes un resumen de tu actividad.</Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          {filter === 'expiring' && (
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          {filter && (
             <Button variant="outlined" color="error" startIcon={<X size={20} />} onClick={() => navigate('/')}>
               Quitar Filtro
             </Button>
@@ -179,9 +197,21 @@ export const Dashboard: React.FC = () => {
         </Box>
       </Box>
 
-      {filter === 'expiring' && (
+      {filter && (
         <Box sx={{ mb: 3 }}>
-          <Alert severity="warning" sx={{ borderRadius: 2 }}>Mostrando solo pólizas que vencen en los próximos 7 días.</Alert>
+          <Alert
+            severity={filter === 'expired' ? 'error' : filter === 'expiring' ? 'warning' : 'info'}
+            sx={{ borderRadius: 2 }}
+            action={
+              <Button color="inherit" size="small" onClick={() => navigate('/')}>
+                Ver todas
+              </Button>
+            }
+          >
+            {filter === 'expiring' && 'Mostrando solo pólizas que vencen en los próximos 7 días.'}
+            {filter === 'expired' && 'Mostrando solo pólizas vencidas.'}
+            {filter === 'active' && 'Mostrando solo pólizas activas.'}
+          </Alert>
         </Box>
       )}
 

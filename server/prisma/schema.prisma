@@ -57,6 +57,8 @@ model User {
   avatar           String?
   matriculaPas     String?
   isAdmin          Boolean    @default(false)
+  resetToken       String?
+  resetTokenExpiry DateTime?
   plan             PlanType   @default(TRIAL)
   planVencimiento  DateTime?
   trialInicio      DateTime   @default(now())

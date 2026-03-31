@@ -1,6 +1,7 @@
 import { Router, Response } from "express";
 import prisma from "../lib/prisma.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
+import { checkPlanLimit } from "../middleware/planLimits.js";
 
 export const policiesRouter = Router();
 policiesRouter.use(authMiddleware);
@@ -69,6 +70,12 @@ policiesRouter.post("/", async (req: AuthRequest, res: Response) => {
 
     if (!clienteNombre || !aseguradora || !rubro || !numeroPoliza || !fechaInicio || !fechaVencimiento || prima == null || porcentajeComision == null) {
       res.status(400).json({ error: "Campos obligatorios faltantes" });
+      return;
+    }
+
+    const limitCheck = await checkPlanLimit(req.userId!, "polizas");
+    if (!limitCheck.allowed) {
+      res.status(403).json({ error: limitCheck.message });
       return;
     }
 

@@ -1,6 +1,7 @@
 import { Router, Response } from "express";
 import prisma from "../lib/prisma.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
+import { checkPlanLimit } from "../middleware/planLimits.js";
 import * as XLSX from "xlsx";
 
 export const companiesRouter = Router();
@@ -42,6 +43,12 @@ companiesRouter.post("/", async (req: AuthRequest, res: Response) => {
 
     if (!razonSocial || !cuit || !aseguradora || !email || !telefono || !tipo) {
       res.status(400).json({ error: "Razón social, CUIT, aseguradora, email, teléfono y tipo son requeridos" });
+      return;
+    }
+
+    const limitCheck = await checkPlanLimit(req.userId!, "empresas");
+    if (!limitCheck.allowed) {
+      res.status(403).json({ error: limitCheck.message });
       return;
     }
 

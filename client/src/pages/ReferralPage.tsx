@@ -25,11 +25,11 @@ export const ReferralPage: React.FC = () => {
 
   const handleShare = (method: string) => {
     api.referrals.trackShare(method).catch(() => {});
-    const msg = `¡Unite a PAS Alert! Usá mi código ${data?.referralCode || ''} y obtené beneficios. https://pasalert.com`;
+    const msg = `¡Unite a AD System! Usá mi código ${data?.referralCode || ''} y obtené beneficios. https://adsystem.com`;
     if (method === 'whatsapp') {
       window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
     } else {
-      window.open(`mailto:?subject=PAS Alert - Invitación&body=${encodeURIComponent(msg)}`, '_blank');
+      window.open(`mailto:?subject=AD System - Invitación&body=${encodeURIComponent(msg)}`, '_blank');
     }
   };
 

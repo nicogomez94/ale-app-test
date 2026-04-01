@@ -142,7 +142,7 @@ export const Dashboard: React.FC = () => {
 
   const handleWhatsApp = (policy: any) => {
     const pasName = user?.nombre || 'Tu Productor';
-    const message = `Hola ${policy.cliente}, te informamos que tu póliza N° ${policy.poliza} vence el día ${format(parseISO(policy.vencimiento), 'dd/MM/yyyy')}. Por favor, contáctanos para renovarla. Saludos, ${pasName} - PAS Alert.`;
+    const message = `Hola ${policy.cliente}, te informamos que tu póliza N° ${policy.poliza} vence el día ${format(parseISO(policy.vencimiento), 'dd/MM/yyyy')}. Por favor, contáctanos para renovarla. Saludos, ${pasName} - AD System.`;
     const phone = policy.telefono ? policy.telefono.replace(/\D/g, '') : '';
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
@@ -151,7 +151,7 @@ export const Dashboard: React.FC = () => {
   const handleEmail = (policy: any) => {
     const pasName = user?.nombre || 'Tu Productor';
     const subject = `Aviso de vencimiento - Póliza N° ${policy.poliza}`;
-    const body = `Hola ${policy.cliente},\n\nTe informamos que tu póliza N° ${policy.poliza} vence el día ${format(parseISO(policy.vencimiento), 'dd/MM/yyyy')}.\n\nPor favor, contáctanos para renovarla.\n\nSaludos,\n${pasName} - PAS Alert`;
+    const body = `Hola ${policy.cliente},\n\nTe informamos que tu póliza N° ${policy.poliza} vence el día ${format(parseISO(policy.vencimiento), 'dd/MM/yyyy')}.\n\nPor favor, contáctanos para renovarla.\n\nSaludos,\n${pasName} - AD System`;
     window.open(`mailto:${policy.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
   };
 
@@ -191,7 +191,7 @@ export const Dashboard: React.FC = () => {
               Quitar Filtro
             </Button>
           )}
-          <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => navigate('/polizas')} sx={{ px: 3, py: 1.5, borderRadius: 3 }}>
+          <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => navigate('/app/polizas')} sx={{ px: 3, py: 1.5, borderRadius: 3 }}>
             Nueva Póliza
           </Button>
         </Box>

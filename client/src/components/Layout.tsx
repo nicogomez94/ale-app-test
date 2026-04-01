@@ -36,7 +36,7 @@ const Logo = () => (
     </Box>
     <Box>
       <Typography variant="h6" sx={{ fontWeight: 900, letterSpacing: -1, lineHeight: 1, color: 'primary.main' }}>
-        PAS ALERT
+        AD System
       </Typography>
       <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: 1, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.6rem' }}>
         Insurance Tech
@@ -63,15 +63,15 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
   }, [location.pathname]);
 
   const menuItems = [
-    { text: 'Dashboard', icon: <LayoutDashboard size={20} color="#4f46e5" />, path: '/' },
-    { text: 'Clientes', icon: <UserCircle size={20} color="#0ea5e9" />, path: '/clientes' },
-    { text: 'Empresas', icon: <Building2 size={20} color="#8b5cf6" />, path: '/empresas' },
-    { text: 'Vida y Finanzas', icon: <HeartPulse size={20} color="#ef4444" />, path: '/vida-finanzas' },
-    { text: 'Pólizas', icon: <FileText size={20} color="#f59e0b" />, path: '/polizas' },
-    { text: 'Comisiones', icon: <BarChart3 size={20} color="#10b981" />, path: '/comisiones' },
-    { text: 'Referidos', icon: <Users size={20} color="#ec4899" />, path: '/referidos' },
-    { text: 'Suscripción', icon: <CreditCard size={20} color="#6366f1" />, path: '/pagos' },
-    ...(user?.isAdmin ? [{ text: 'Administración', icon: <Shield size={20} color="#dc2626" />, path: '/admin' }] : []),
+    { text: 'Dashboard', icon: <LayoutDashboard size={20} color="#4f46e5" />, path: '/app/dashboard' },
+    { text: 'Clientes', icon: <UserCircle size={20} color="#0ea5e9" />, path: '/app/clientes' },
+    { text: 'Empresas', icon: <Building2 size={20} color="#8b5cf6" />, path: '/app/empresas' },
+    { text: 'Vida y Finanzas', icon: <HeartPulse size={20} color="#ef4444" />, path: '/app/vida-finanzas' },
+    { text: 'Pólizas', icon: <FileText size={20} color="#f59e0b" />, path: '/app/polizas' },
+    { text: 'Comisiones', icon: <BarChart3 size={20} color="#10b981" />, path: '/app/comisiones' },
+    { text: 'Referidos', icon: <Users size={20} color="#ec4899" />, path: '/app/referidos' },
+    { text: 'Suscripción', icon: <CreditCard size={20} color="#6366f1" />, path: '/app/pagos' },
+    ...(user?.isAdmin ? [{ text: 'Administración', icon: <Shield size={20} color="#dc2626" />, path: '/app/admin' }] : []),
   ];
 
   const drawer = (
@@ -104,7 +104,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
               Plan Actual
             </Typography>
             <Typography variant="h6" sx={{ mb: 1 }}>{user?.plan || 'Gratis'}</Typography>
-            <Button variant="contained" color="secondary" fullWidth size="small" onClick={() => navigate('/pagos')}>
+            <Button variant="contained" color="secondary" fullWidth size="small" onClick={() => navigate('/app/pagos')}>
               Mejorar Plan
             </Button>
           </CardContent>
@@ -159,7 +159,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
             <IconButton onClick={onToggleDarkMode} color="inherit">
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
             </IconButton>
-            <IconButton color="inherit" onClick={() => navigate('/?filter=expiring')}>
+            <IconButton color="inherit" onClick={() => navigate('/app/dashboard?filter=expiring')}>
               <Badge badgeContent={expiringCount} color="error"><Bell size={20} /></Badge>
             </IconButton>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }} onClick={(e) => setAnchorEl(e.currentTarget)}>
@@ -178,7 +178,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
               transformOrigin={{ horizontal: 'right', vertical: 'top' }}
               anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
             >
-              <MenuItem onClick={() => { setAnchorEl(null); navigate('/perfil'); }}>Mi Perfil</MenuItem>
+              <MenuItem onClick={() => { setAnchorEl(null); navigate('/app/perfil'); }}>Mi Perfil</MenuItem>
               <Divider />
               <MenuItem onClick={onLogout}>Cerrar Sesión</MenuItem>
             </Menu>
@@ -211,7 +211,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
             <Typography variant="body2" sx={{ flexGrow: 1, fontWeight: 500 }}>
               Tu suscripción vence en <strong>{subscriptionWarning.diasRestantes} día{subscriptionWarning.diasRestantes !== 1 ? 's' : ''}</strong>. Renová ahora para no perder acceso.
             </Typography>
-            <Button variant="contained" color="warning" size="small" onClick={() => navigate('/pagos')}>
+            <Button variant="contained" color="warning" size="small" onClick={() => navigate('/app/pagos')}>
               Renovar
             </Button>
           </Box>

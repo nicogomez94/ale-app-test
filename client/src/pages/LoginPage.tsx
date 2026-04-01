@@ -109,7 +109,7 @@ export const LoginPage: React.FC = () => {
               <Bell size={40} />
             </Box>
             <Box>
-              <Typography variant="h3" sx={{ fontWeight: 900, letterSpacing: -2, lineHeight: 1 }}>PAS ALERT</Typography>
+              <Typography variant="h3" sx={{ fontWeight: 900, letterSpacing: -2, lineHeight: 1 }}>AD System</Typography>
               <Typography variant="subtitle1" sx={{ fontWeight: 700, letterSpacing: 2, opacity: 0.8 }}>INSURANCE TECH</Typography>
             </Box>
           </Box>
@@ -213,7 +213,7 @@ export const LoginPage: React.FC = () => {
         </Card>
 
         <Typography variant="caption" color="text.secondary" sx={{ mt: 4 }}>
-          © 2026 PAS Alert. Todos los derechos reservados.
+          © 2026 AD System. Todos los derechos reservados.
         </Typography>
       </Box>
 

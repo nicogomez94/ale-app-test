@@ -92,7 +92,7 @@ export const ClientsPage: React.FC = () => {
           <Button variant="contained" startIcon={<Plus size={20} />} onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ borderRadius: 3 }}>Nuevo...</Button>
           <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
             <MenuItem onClick={() => { setAnchorEl(null); handleOpen(); }} sx={{ gap: 1.5 }}><User size={18} />Nuevo Cliente (Individuo)</MenuItem>
-            <MenuItem onClick={() => { setAnchorEl(null); navigate('/empresas', { state: { openNew: true } }); }} sx={{ gap: 1.5 }}><Building2 size={18} />Nueva Empresa</MenuItem>
+            <MenuItem onClick={() => { setAnchorEl(null); navigate('/app/empresas', { state: { openNew: true } }); }} sx={{ gap: 1.5 }}><Building2 size={18} />Nueva Empresa</MenuItem>
           </Menu>
         </Box>
       </Box>

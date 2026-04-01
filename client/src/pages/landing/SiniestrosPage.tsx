@@ -17,96 +17,71 @@ export function SiniestrosPage() {
 
         <main>
           <section className="inner-hero scroll-anim" data-anim="slam-up">
-            <span className="eyebrow"><i className="fa-solid fa-scale-balanced" />Asistencia Juridica</span>
-            <h1>Te acompanamos con asesoramiento legal</h1>
+            <span className="eyebrow"><i className="fa-solid fa-scale-balanced" />Asistencia Jurídica</span>
+            <h1>Te acompañamos con asesoramiento legal</h1>
             <p>
-              Sabemos que un siniestro es un momento difícil. Por eso, nuestro equipo está disponible
-              las 24 horas para guiarte en cada paso del proceso con rapidez y claridad.
+              Ante un siniestro o accidente, nuestro equipo coordina todo el proceso jurídico y
+              de gestión para que no tengas que preocuparte por nada.
             </p>
-            <div className="hero-actions">
-              <a
-                className="btn btn-whatsapp-hero"
-                href="https://wa.me/541155551234"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <i className="fa-brands fa-whatsapp" />Reportar por WhatsApp
-              </a>
-              <a className="btn btn-white" href="tel:+541155551234">
-                <i className="fa-solid fa-phone" />Llamar ahora
-              </a>
-            </div>
           </section>
 
-          <section className="steps-section">
-            <h2 className="scroll-anim" data-anim="slam-up">
-              <i className="fa-solid fa-list-check" />Como gestionamos tu asistencia juridica
-            </h2>
-            <p className="scroll-anim" data-anim="slam-up" style={{ '--d': '80ms' } as React.CSSProperties}>
-              Un proceso claro, ágil y acompañado en cada etapa.
-            </p>
-            <div className="steps-row">
-              <article className="step-card scroll-anim" data-anim="bounce-left" style={{ '--d': '80ms' } as React.CSSProperties}>
-                <div className="step-number">1</div>
-                <i className="fa-solid fa-bell step-icon" />
-                <h4>Reportá el siniestro</h4>
-                <p>Avisanos por WhatsApp, teléfono o email dentro de las 72 hs de ocurrido el hecho. Te respondemos de inmediato.</p>
-              </article>
-              <article className="step-card scroll-anim" data-anim="slam-up" style={{ '--d': '160ms' } as React.CSSProperties}>
-                <div className="step-number">2</div>
-                <i className="fa-solid fa-camera step-icon" />
-                <h4>Documentá el incidente</h4>
-                <p>Te indicamos qué fotos y documentos necesitás: DNI, patente, croquis del accidente y fotos de los daños.</p>
-              </article>
-              <article className="step-card scroll-anim" data-anim="slam-up" style={{ '--d': '240ms' } as React.CSSProperties}>
-                <div className="step-number">3</div>
-                <i className="fa-solid fa-magnifying-glass step-icon" />
-                <h4>Peritaje y evaluación</h4>
-                <p>Coordinamos con la aseguradora el peritaje del vehículo. Te avisamos fecha, hora y lugar del perito designado.</p>
-              </article>
-              <article className="step-card scroll-anim" data-anim="bounce-right" style={{ '--d': '320ms' } as React.CSSProperties}>
-                <div className="step-number">4</div>
-                <i className="fa-solid fa-circle-check step-icon" />
-                <h4>Resolución y pago</h4>
-                <p>Una vez aprobado el siniestro, la aseguradora procede con la reparación o el pago en los plazos estipulados.</p>
-              </article>
-            </div>
-          </section>
-
-          <section className="insight-section scroll-anim" data-anim="slam-up" style={{ marginTop: '72px' }}>
-            <div className="insight-copy scroll-anim" data-anim="bounce-left" style={{ '--d': '80ms' } as React.CSSProperties}>
-              <span className="insight-kicker">Contacto urgente</span>
-              <h3>Estamos disponibles las 24 horas</h3>
+          <div className="asistencia-grid scroll-anim" data-anim="slam-up">
+            <article className="asistencia-card scroll-anim" data-anim="bounce-left" style={{ '--d': '80ms' } as React.CSSProperties}>
+              <div className="asistencia-card-icon">
+                <i className="fa-solid fa-car-burst" />
+              </div>
+              <h2>Accidente de Tránsito</h2>
               <p>
-                Ante cualquier siniestro, no estás solo. Nuestro equipo de gestión te asiste de forma
-                inmediata para que el proceso sea lo más simple y rápido posible.
+                Coordinamos la defensa jurídica y la gestión del siniestro vehicular de principio a
+                fin: desde la denuncia hasta la resolución con la aseguradora.
               </p>
-              <div className="insight-stats">
-                <article>
-                  <strong>24/7</strong>
-                  <span>disponibilidad para emergencias</span>
-                </article>
-                <article>
-                  <strong>&lt; 48hs</strong>
-                  <span>tiempo promedio de respuesta</span>
-                </article>
-              </div>
-              <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <a href="https://wa.me/541155551234" className="btn" target="_blank" rel="noopener noreferrer" style={{ width: 'fit-content' }}>
-                  <i className="fa-brands fa-whatsapp" />WhatsApp: +54 11 5555 1234
+              <ul>
+                <li><i className="fa-solid fa-circle-check" />Asistencia jurídica desde el primer momento</li>
+                <li><i className="fa-solid fa-circle-check" />Gestión del peritaje con la aseguradora</li>
+                <li><i className="fa-solid fa-circle-check" />Tramitación del reclamo por daños</li>
+                <li><i className="fa-solid fa-circle-check" />Coordinación de reparación o indemnización</li>
+                <li><i className="fa-solid fa-circle-check" />Seguimiento hasta el cierre del caso</li>
+              </ul>
+              <div style={{ marginTop: 20 }}>
+                <a
+                  className="btn btn-small"
+                  href="https://wa.me/5492994000000?text=Hola%2C+tuve+un+accidente+de+tr%C3%A1nsito+y+necesito+asistencia."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <i className="fa-brands fa-whatsapp" />Consultar ahora
                 </a>
-                <a href="tel:+541166667777" className="btn btn-secondary" style={{ width: 'fit-content' }}>
-                  <i className="fa-solid fa-phone" />Línea urgencias: +54 11 6666 7777
+              </div>
+            </article>
+
+            <article className="asistencia-card scroll-anim" data-anim="bounce-right" style={{ '--d': '160ms' } as React.CSSProperties}>
+              <div className="asistencia-card-icon">
+                <i className="fa-solid fa-helmet-safety" />
+              </div>
+              <h2>Accidente Laboral (ART)</h2>
+              <p>
+                Te asesoramos en el proceso de denuncia y gestión ante la ART, asegurándonos de que
+                recibas la cobertura y las prestaciones que te corresponden por ley.
+              </p>
+              <ul>
+                <li><i className="fa-solid fa-circle-check" />Asesoramiento en denuncia de accidentes laborales</li>
+                <li><i className="fa-solid fa-circle-check" />Gestión de prestaciones médicas</li>
+                <li><i className="fa-solid fa-circle-check" />Seguimiento de incapacidad laboral temporaria</li>
+                <li><i className="fa-solid fa-circle-check" />Tramitación de indemnización por incapacidad</li>
+                <li><i className="fa-solid fa-circle-check" />Orientación sobre derechos del trabajador</li>
+              </ul>
+              <div style={{ marginTop: 20 }}>
+                <a
+                  className="btn btn-small"
+                  href="https://wa.me/5492994000000?text=Hola%2C+tuve+un+accidente+laboral+y+necesito+asesoramiento+de+ART."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <i className="fa-brands fa-whatsapp" />Consultar ahora
                 </a>
               </div>
-            </div>
-            <div className="insight-grid scroll-anim" data-anim="zoom-spin" style={{ '--d': '160ms' } as React.CSSProperties}>
-              <img src="https://images.unsplash.com/photo-1547168026-bab22cac18cc?auto=format&fit=crop&w=700&q=80" alt="Accidente de autos" />
-              <img src="https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?auto=format&fit=crop&w=700&q=80" alt="Gestión digital" />
-              <img src="https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=700&q=80" alt="Firma de documentos" />
-              <img src="https://images.unsplash.com/photo-1598257006458-087169a1f08d?auto=format&fit=crop&w=700&q=80" alt="Asesor atendiendo" />
-            </div>
-          </section>
+            </article>
+          </div>
         </main>
 
         <LandingFooter />

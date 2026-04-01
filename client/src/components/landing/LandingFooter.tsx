@@ -27,9 +27,10 @@ export function LandingFooter() {
         </div>
         <div className="footer-col">
           <h4>Empresa</h4>
-          <Link to="/quienes-somos">Quienes somos</Link>
-          <Link to="/asistencia-juridica">Asistencia Juridica</Link>
-          <Link to="/gestoria-automotor">Gestoria Automotor</Link>
+          <Link to="/quienes-somos">Quiénes somos</Link>
+          <Link to="/asistencia-juridica">Asistencia Jurídica</Link>
+          <Link to="/gestoria-automotor">Gestoría Automotor</Link>
+          <Link to="/productores">Productores</Link>
           <Link to="/contacto">Contacto</Link>
         </div>
         <div className="footer-col">

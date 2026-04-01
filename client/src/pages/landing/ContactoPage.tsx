@@ -143,6 +143,27 @@ export function ContactoPage() {
               </div>
             </div>
           </section>
+
+          <section className="horario-section scroll-anim" data-anim="slam-up">
+            <h2><i className="fa-solid fa-clock" style={{ color: '#0baab2', marginRight: 8 }} />Horario de atención</h2>
+            <div className="horario-grid">
+              <div className="horario-card">
+                <i className="fa-solid fa-briefcase" />
+                <div className="horario-day">Lunes a Viernes</div>
+                <div className="horario-time">9:00 — 18:00 hs</div>
+              </div>
+              <div className="horario-card">
+                <i className="fa-solid fa-umbrella-beach" />
+                <div className="horario-day">Sábados</div>
+                <div className="horario-time">9:00 — 13:00 hs</div>
+              </div>
+              <div className="horario-card closed">
+                <i className="fa-solid fa-moon" />
+                <div className="horario-day">Domingos</div>
+                <div className="horario-time">Cerrado</div>
+              </div>
+            </div>
+          </section>
         </main>
 
         <LandingFooter />

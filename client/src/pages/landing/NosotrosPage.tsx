@@ -90,65 +90,6 @@ export function NosotrosPage() {
               </article>
             </div>
           </section>
-
-          <section className="team-section">
-            <h2 className="scroll-anim" data-anim="slam-up">
-              <i className="fa-solid fa-people-group" />El equipo detrás de AD SEGUROS
-            </h2>
-            <div className="team-grid">
-              <article className="team-card scroll-anim" data-anim="bounce-left" style={{ '--d': '60ms' } as React.CSSProperties}>
-                <img className="team-card-photo" src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80" alt="Alejandro Domínguez" />
-                <div className="team-card-body">
-                  <h4>Alejandro Domínguez</h4>
-                  <p>Fundador y Director</p>
-                </div>
-              </article>
-              <article className="team-card scroll-anim" data-anim="slam-up" style={{ '--d': '130ms' } as React.CSSProperties}>
-                <img className="team-card-photo" src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=400&q=80" alt="Carolina Méndez" />
-                <div className="team-card-body">
-                  <h4>Carolina Méndez</h4>
-                  <p>Asesora Comercial Senior</p>
-                </div>
-              </article>
-              <article className="team-card scroll-anim" data-anim="slam-up" style={{ '--d': '200ms' } as React.CSSProperties}>
-                <img className="team-card-photo" src="https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=400&q=80" alt="Lucas Ferreyra" />
-                <div className="team-card-body">
-                  <h4>Lucas Ferreyra</h4>
-                  <p>Gestor de Siniestros</p>
-                </div>
-              </article>
-              <article className="team-card scroll-anim" data-anim="bounce-right" style={{ '--d': '270ms' } as React.CSSProperties}>
-                <img className="team-card-photo" src="https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=400&q=80" alt="Valentina Ríos" />
-                <div className="team-card-body">
-                  <h4>Valentina Ríos</h4>
-                  <p>Atención al Cliente</p>
-                </div>
-              </article>
-            </div>
-          </section>
-
-          <section className="partners-section">
-            <h2 className="scroll-anim" data-anim="slam-up">
-              <i className="fa-solid fa-building-columns" />Trabajamos con las mejores compañías
-            </h2>
-            <div className="partners-grid">
-              <article className="partner-card scroll-anim" data-anim="bounce-left" style={{ '--d': '60ms' } as React.CSSProperties}>
-                <i className="fa-solid fa-shield-halved" /><span>MAPFRE</span>
-              </article>
-              <article className="partner-card scroll-anim" data-anim="slam-up" style={{ '--d': '110ms' } as React.CSSProperties}>
-                <i className="fa-solid fa-shield-halved" /><span>Zurich Seguros</span>
-              </article>
-              <article className="partner-card scroll-anim" data-anim="slam-up" style={{ '--d': '160ms' } as React.CSSProperties}>
-                <i className="fa-solid fa-shield-halved" /><span>La Segunda</span>
-              </article>
-              <article className="partner-card scroll-anim" data-anim="slam-up" style={{ '--d': '210ms' } as React.CSSProperties}>
-                <i className="fa-solid fa-shield-halved" /><span>Sancor Seguros</span>
-              </article>
-              <article className="partner-card scroll-anim" data-anim="bounce-right" style={{ '--d': '260ms' } as React.CSSProperties}>
-                <i className="fa-solid fa-shield-halved" /><span>Fed. Patronal</span>
-              </article>
-            </div>
-          </section>
         </main>
 
         <LandingFooter />

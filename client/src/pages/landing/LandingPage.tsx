@@ -121,6 +121,34 @@ export function LandingPage() {
             </div>
           </section>
 
+          {/* ── AD System Banner ── */}
+          <div className="pas-alert-banner scroll-anim" data-anim="slam-up">
+            <div className="pas-alert-icon">
+              <i className="fa-solid fa-gauge-high" />
+            </div>
+            <div className="pas-alert-copy">
+              <h2>AD System — Gestión para Productores Asesores</h2>
+              <p>
+                Plataforma digital exclusiva para productores de AD SEGUROS. Gestioná tus clientes, pólizas,
+                comisiones y siniestros desde un solo lugar.
+              </p>
+              <ul>
+                <li><i className="fa-solid fa-circle-check" />Cartera de clientes</li>
+                <li><i className="fa-solid fa-circle-check" />Control de pólizas</li>
+                <li><i className="fa-solid fa-circle-check" />Seguimiento de comisiones</li>
+                <li><i className="fa-solid fa-circle-check" />Alertas de vencimiento</li>
+              </ul>
+              <div className="pas-alert-actions">
+                <a className="btn btn-light btn-small" href="/app/login">
+                  <i className="fa-solid fa-arrow-right-to-bracket" />Ir al sistema
+                </a>
+                <a className="btn btn-outline-light btn-small" href="/productores">
+                  <i className="fa-solid fa-briefcase" />Soy productor
+                </a>
+              </div>
+            </div>
+          </div>
+
           <section className="cta scroll-anim" data-anim="slam-up">
             <div className="cta-image scroll-anim" data-anim="bounce-left" style={{ '--d': '90ms' } as React.CSSProperties}>
               <img

@@ -11,9 +11,8 @@ export function LandingHeader() {
         <div className="topbar-inner">
           <Link className="brand scroll-anim" data-anim="slam-up" to="/">
             <span className="brand-mark">
-              <i className="fa-solid fa-shield-halved" />
+              <img src="/assets/ad.svg" alt="AD Seguros" />
             </span>
-            <span className="brand-name">AD SEGUROS</span>
           </Link>
           <nav className="menu">
             <Link className="scroll-anim" data-anim="flip-in" style={{ '--d': '40ms' } as React.CSSProperties} to="/">

@@ -50,13 +50,18 @@
 .landing-page-root .topbar { position: sticky; top: 0; z-index: 200; width: 100%; background: rgba(247, 251, 253, 0.97); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid rgba(213, 232, 240, 0.6); }
 .landing-page-root .topbar-inner { width: min(1100px, calc(100% - 64px)); margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 32px 12px; }
 .landing-page-root .topbar-actions { display: flex; align-items: center; gap: 8px; }
-.landing-page-root .brand { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+.landing-page-root .brand { display: inline-flex; align-items: center; gap: 0; text-decoration: none; }
 .landing-page-root .brand-mark {
-  width: 22px; aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%;
-  background: conic-gradient(from 210deg, #03b8b0, #0e8ad8 70%, #00d7cb 95%, #03b8b0);
+  width: 64px;
+  display: block;
+  line-height: 0;
 }
-.landing-page-root .brand-mark i { color: #fff; font-size: 11px; }
-.landing-page-root .brand-name { color: #21314a; font-weight: 700; font-size: 16px; }
+.landing-page-root .brand-mark img {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
 
 .landing-page-root .menu { display: flex; align-items: center; justify-content: center; gap: 34px; }
 .landing-page-root .menu a { display: inline-flex; align-items: center; gap: 6px; color: #29384e; text-decoration: none; font-size: 13px; font-weight: 600; }
@@ -621,7 +626,6 @@
 @media (max-width: 700px) {
   .landing-page-root .page { width: calc(100% - 24px); margin-top: 14px; }
   .landing-page-root .topbar { align-items: flex-start; flex-wrap: wrap; gap: 10px; padding-bottom: 14px; }
-  .landing-page-root .brand-name { font-size: 15.5px; line-height: 1; letter-spacing: -0.2px; }
   .landing-page-root .btn-small { padding: 9px 14px; font-size: 11px; border-radius: 10px; }
   .landing-page-root .topbar-actions { width: 100%; }
   .landing-page-root .menu { order: 3; width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }

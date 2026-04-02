@@ -8,9 +8,7 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: pas-alert-db
-          property: connectionString
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: MP_ACCESS_TOKEN
@@ -36,9 +34,3 @@ services:
           type: web
           name: pas-alert-api
           envVarKey: RENDER_EXTERNAL_URL
-
-databases:
-  - name: pas-alert-db
-    plan: free
-    databaseName: pas_alert
-    user: pas_alert

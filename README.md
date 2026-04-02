@@ -25,14 +25,14 @@ Este repo incluye `render.yaml` para desplegar:
 
 1. `pas-alert-api` (Node + Prisma, carpeta `server/`)
 2. `pas-alert-web` (sitio estático Vite, carpeta `client/`)
-3. `pas-alert-db` (PostgreSQL en Render)
+3. Base PostgreSQL externa/compartida (no crea DB nueva en Render)
 
-Nota: en Blueprints de Render, si no definís `plan`, los recursos nuevos se crean con planes pagos por defecto. En este repo ya quedó configurado `plan: free` para API y DB.
+Nota: en Blueprints de Render, si no definís `plan`, los recursos nuevos se crean con planes pagos por defecto. En este repo ya quedó configurado `plan: free` para la API.
 
 ### Variables importantes
 
 - API (`pas-alert-api`)
-  - `DATABASE_URL`: se conecta automáticamente al Postgres del Blueprint
+  - `DATABASE_URL`: URL de la base compartida (se carga como secreto manual) incluyendo `?schema=pas_alert_nico` (o el schema único que elijas)
   - `JWT_SECRET`: se genera automáticamente
   - `MP_ACCESS_TOKEN`: se carga como secreto (`sync: false`)
   - `APP_URL`: toma la URL pública del frontend (`RENDER_EXTERNAL_URL`)
@@ -44,5 +44,9 @@ Nota: en Blueprints de Render, si no definís `plan`, los recursos nuevos se cre
 
 1. Hacer push del repo a GitHub.
 2. En Render, crear un **Blueprint** desde ese repo.
-3. Completar el secreto `MP_ACCESS_TOKEN` cuando Render lo solicite.
-4. Esperar a que termine el primer deploy de los 3 recursos.
+3. Cargar secretos en `pas-alert-api`:
+   - `DATABASE_URL` con tu conexión compartida + schema aislado, por ejemplo:
+     `postgresql://.../basefree?schema=pas_alert_nico`
+   - `MP_ACCESS_TOKEN`.
+4. Elegir un schema único (`pas_alert_nico`, `pas_alert_prod`, etc.) para no mezclar tablas con otros proyectos.
+5. Esperar a que termine el deploy de API + frontend.

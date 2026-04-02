@@ -2,6 +2,7 @@ services:
   - type: web
     name: pas-alert-api
     runtime: node
+    plan: free
     buildCommand: cd server && npm ci && npx prisma generate && npm run build
     startCommand: cd server && npx prisma migrate deploy && npm run start
     healthCheckPath: /api/health
@@ -38,5 +39,6 @@ services:
 
 databases:
   - name: pas-alert-db
+    plan: free
     databaseName: pas_alert
     user: pas_alert

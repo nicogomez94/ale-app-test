@@ -27,6 +27,8 @@ Este repo incluye `render.yaml` para desplegar:
 2. `pas-alert-web` (sitio estático Vite, carpeta `client/`)
 3. `pas-alert-db` (PostgreSQL en Render)
 
+Nota: en Blueprints de Render, si no definís `plan`, los recursos nuevos se crean con planes pagos por defecto. En este repo ya quedó configurado `plan: free` para API y DB.
+
 ### Variables importantes
 
 - API (`pas-alert-api`)

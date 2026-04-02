@@ -8,11 +8,11 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
-        sync: false
+        value: postgresql://basefree_user:5qKWDSyE5T9svRX1BwlRUabLM7IcU5L9@dpg-d6sqp1ia214c73c704qg-a/basefree?schema=pas_alert_nico
       - key: JWT_SECRET
         generateValue: true
       - key: MP_ACCESS_TOKEN
-        sync: false
+        value: REPLACE_WITH_MP_ACCESS_TOKEN
       - key: APP_URL
         fromService:
           type: web

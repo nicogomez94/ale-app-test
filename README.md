@@ -32,9 +32,9 @@ Nota: en Blueprints de Render, si no definís `plan`, los recursos nuevos se cre
 ### Variables importantes
 
 - API (`pas-alert-api`)
-  - `DATABASE_URL`: URL de la base compartida (se carga como secreto manual) incluyendo `?schema=pas_alert_nico` (o el schema único que elijas)
+  - `DATABASE_URL`: URL de la base compartida incluyendo `?schema=pas_alert_nico` (o el schema único que elijas)
   - `JWT_SECRET`: se genera automáticamente
-  - `MP_ACCESS_TOKEN`: se carga como secreto (`sync: false`)
+  - `MP_ACCESS_TOKEN`: token de Mercado Pago
   - `APP_URL`: toma la URL pública del frontend (`RENDER_EXTERNAL_URL`)
 
 - Frontend (`pas-alert-web`)

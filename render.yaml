@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: pas-alert-api
+    runtime: node
+    buildCommand: cd server && npm ci && npx prisma generate && npm run build
+    startCommand: cd server && npx prisma migrate deploy && npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pas-alert-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MP_ACCESS_TOKEN
+        sync: false
+      - key: APP_URL
+        fromService:
+          type: web
+          name: pas-alert-web
+          envVarKey: RENDER_EXTERNAL_URL
+
+  - type: web
+    name: pas-alert-web
+    runtime: static
+    buildCommand: cd client && npm ci && npm run build
+    staticPublishPath: client/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: pas-alert-api
+          envVarKey: RENDER_EXTERNAL_URL
+
+databases:
+  - name: pas-alert-db
+    databaseName: pas_alert
+    user: pas_alert

@@ -406,16 +406,22 @@ async function main() {
 
   console.log("Created 3 life policies");
 
-  // Create commission closes (historical data)
+  // Create commission closes (historical data) - idempotent
   await Promise.all([
-    prisma.commissionClose.create({
-      data: { userId: user.id, mes: 1, anio: 2026, totalPrima: 292500, comisionBruta: 45000, crecimiento: null },
+    prisma.commissionClose.upsert({
+      where: { userId_mes_anio: { userId: user.id, mes: 1, anio: 2026 } },
+      update: { totalPrima: 292500, comisionBruta: 45000, crecimiento: null },
+      create: { userId: user.id, mes: 1, anio: 2026, totalPrima: 292500, comisionBruta: 45000, crecimiento: null },
     }),
-    prisma.commissionClose.create({
-      data: { userId: user.id, mes: 2, anio: 2026, totalPrima: 338000, comisionBruta: 52000, crecimiento: 15.6 },
+    prisma.commissionClose.upsert({
+      where: { userId_mes_anio: { userId: user.id, mes: 2, anio: 2026 } },
+      update: { totalPrima: 338000, comisionBruta: 52000, crecimiento: 15.6 },
+      create: { userId: user.id, mes: 2, anio: 2026, totalPrima: 338000, comisionBruta: 52000, crecimiento: 15.6 },
     }),
-    prisma.commissionClose.create({
-      data: { userId: user.id, mes: 3, anio: 2026, totalPrima: 312000, comisionBruta: 48000, crecimiento: -7.7 },
+    prisma.commissionClose.upsert({
+      where: { userId_mes_anio: { userId: user.id, mes: 3, anio: 2026 } },
+      update: { totalPrima: 312000, comisionBruta: 48000, crecimiento: -7.7 },
+      create: { userId: user.id, mes: 3, anio: 2026, totalPrima: 312000, comisionBruta: 48000, crecimiento: -7.7 },
     }),
   ]);
 

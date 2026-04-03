@@ -52,7 +52,7 @@ export function LandingPage() {
             <div className="hero-art scroll-anim" data-anim="zoom-spin" style={{ '--d': '100ms' } as React.CSSProperties}>
               <div className="hero-circle">
                 <img
-                  src="https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80"
+                  src="https://pngimg.com/uploads/plane/plane_PNG101218.png"
                   alt="Paisaje aseguradora"
                 />
               </div>

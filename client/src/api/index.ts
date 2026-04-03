@@ -25,9 +25,14 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   });
 
   if (res.status === 401) {
-    localStorage.removeItem("pas_token");
-    window.location.href = "/";
-    throw new Error("No autorizado");
+    const isAuthEndpoint = endpoint.startsWith("/auth/");
+    const errorBody = await res.json().catch(() => ({ error: "No autorizado" }));
+
+    // Never hard-redirect on auth failures. Keep the user on the current view
+    // so UI components can render the exact backend error message.
+    if (!isAuthEndpoint) localStorage.removeItem("pas_token");
+
+    throw new Error(errorBody.error || "No autorizado");
   }
 
   if (res.status === 403) {

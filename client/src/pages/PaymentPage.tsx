@@ -3,16 +3,114 @@ import {
   Box, Typography, Grid, Card, CardContent, Button,
   List, ListItem, ListItemIcon, ListItemText, Divider, Chip,
   CircularProgress, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Paper
+  TableHead, TableRow, Paper, ToggleButtonGroup, ToggleButton
 } from '@mui/material';
 import { CheckCircle2, CreditCard, Shield, Clock } from 'lucide-react';
 import { api } from '../api';
+
+type BillingCycle = 'monthly' | 'annual';
+
+type PlanDefinition = {
+  key: string;
+  name: string;
+  monthlyPrice: number;
+  annualPrice: number;
+  oldMonthlyPrice?: number;
+  oldAnnualPrice?: number;
+  badge?: string;
+  buttonLabel: string;
+  accentColor: string;
+  buttonColor: string;
+  features: string[];
+};
+
+const PRICE_FORMATTER = new Intl.NumberFormat('es-AR');
+
+const PLAN_LABELS: Record<string, string> = {
+  TRIAL: 'Trial',
+  EMPRENDEDOR: 'Starter',
+  PROFESIONAL: 'Profesional',
+  AGENCIA: 'Agencia',
+};
+
+const PLANS: PlanDefinition[] = [
+  {
+    key: 'EMPRENDEDOR',
+    name: 'Starter',
+    monthlyPrice: 6900,
+    annualPrice: 69000,
+    buttonLabel: 'Empezar ahora',
+    accentColor: '#2e9b4b',
+    buttonColor: '#2e9b4b',
+    features: [
+      'Hasta 30 pólizas',
+      'Hasta 30 clientes',
+      'Hasta 30 empresas',
+      'CRM completo',
+      'Alertas de vencimiento',
+      'WhatsApp + Email',
+      'Exportación a Excel',
+    ],
+  },
+  {
+    key: 'PROFESIONAL',
+    name: 'Profesional',
+    monthlyPrice: 14900,
+    annualPrice: 149000,
+    oldMonthlyPrice: 19900,
+    oldAnnualPrice: 199000,
+    badge: 'Más Popular',
+    buttonLabel: 'Elegir plan',
+    accentColor: '#1f67bd',
+    buttonColor: '#1f67bd',
+    features: [
+      'Todo Starter',
+      'Hasta 150 pólizas',
+      'Análisis de comisiones',
+      'Cierre mensual',
+      'Reportes avanzados',
+      'Soporte prioritario',
+    ],
+  },
+  {
+    key: 'PRO_PLUS',
+    name: 'Pro+',
+    monthlyPrice: 22900,
+    annualPrice: 229000,
+    buttonLabel: 'Escalar ahora',
+    accentColor: '#6f42c1',
+    buttonColor: '#6f42c1',
+    features: [
+      'Todo Profesional',
+      'Hasta 300 pólizas',
+      'Automatizaciones',
+      'Métricas de crecimiento',
+    ],
+  },
+  {
+    key: 'AGENCIA',
+    name: 'Agencia',
+    monthlyPrice: 39900,
+    annualPrice: 399000,
+    buttonLabel: 'Crear equipo',
+    accentColor: '#cf3d3d',
+    buttonColor: '#cf3d3d',
+    features: [
+      'Todo Pro+',
+      '500+ pólizas',
+      'Multiusuario',
+      'Roles y permisos',
+      'Reportes por productor',
+    ],
+  },
+];
 
 export const PaymentPage: React.FC = () => {
   const [loading, setLoading] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<any>(null);
   const [payments, setPayments] = useState<any[]>([]);
   const [fetching, setFetching] = useState(true);
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>('annual');
 
   useEffect(() => {
     Promise.all([api.subscriptions.current(), api.subscriptions.payments()])
@@ -21,18 +119,12 @@ export const PaymentPage: React.FC = () => {
       .finally(() => setFetching(false));
   }, []);
 
-  const plans = [
-    { name: 'Gratis', key: 'TRIAL', price: 0, duration: '5 días', limit: 'Ilimitado (Prueba)', features: ['Todas las funciones habilitadas', 'Soporte básico', 'CRM Completo', 'Empresas ilimitadas (Prueba)'] },
-    { name: 'Emprendedor', key: 'EMPRENDEDOR', price: 4999, duration: 'mes', limit: '20 Pólizas / 20 Clientes', features: ['Gestión de clientes', 'Incluye 20 Empresas', 'Alertas WhatsApp', 'CRM más cómodo', 'Más control'] },
-    { name: 'Profesional', key: 'PROFESIONAL', price: 12999, duration: 'mes', limit: '100 Pólizas / 100 Clientes', features: ['Todo lo de Emprendedor', 'Incluye 100 Empresas', 'Análisis de comisiones', 'CRM más cómodo', 'Más control'] },
-    { name: 'Agencia', key: 'AGENCIA', price: 29999, duration: 'mes', limit: '500 Pólizas / 500 Clientes', features: ['Todo lo de Profesional', 'Incluye 500 Empresas', 'Múltiples usuarios', 'CRM más cómodo', 'Más control'] },
-  ];
-
-  const handleSubscribe = async (plan: any) => {
-    if (plan.price === 0) return;
-    setLoading(plan.name);
+  const handleSubscribe = async (plan: PlanDefinition) => {
+    setLoading(plan.key);
     try {
-      const data = await api.subscriptions.createPreference(plan.name, plan.price);
+      const selectedPrice = billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice;
+      const selectedBilling = billingCycle === 'annual' ? 'Anual' : 'Mensual';
+      const data = await api.subscriptions.createPreference(`${plan.name} (${selectedBilling})`, selectedPrice);
       if (data.init_point) {
         window.location.href = data.init_point;
       }
@@ -44,49 +136,116 @@ export const PaymentPage: React.FC = () => {
   };
 
   const currentPlan = subscription?.plan || 'TRIAL';
-  const planLabel = plans.find(p => p.key === currentPlan)?.name || 'Gratis';
+  const planLabel = PLAN_LABELS[currentPlan] || 'Trial';
 
   if (fetching) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress /></Box>;
 
   return (
     <Box>
       <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>Suscripción y Pagos</Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Elige el plan que mejor se adapte a tu volumen de negocio.
+      <Typography variant="h3" sx={{ fontWeight: 800, mb: 2, textAlign: 'center', fontSize: { xs: '2rem', md: '2.3rem' } }}>
+        Elige el plan perfecto para tu negocio
       </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
+        <ToggleButtonGroup
+          color="primary"
+          value={billingCycle}
+          exclusive
+          onChange={(_, value: BillingCycle | null) => value && setBillingCycle(value)}
+          size="small"
+          sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
+        >
+          <ToggleButton value="monthly" sx={{ px: 3, textTransform: 'none', fontWeight: 700 }}>
+            Mensual
+          </ToggleButton>
+          <ToggleButton value="annual" sx={{ px: 3, textTransform: 'none', fontWeight: 700 }}>
+            Anual (2 meses gratis)
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
 
       <Grid container spacing={3} sx={{ mb: 6 }}>
-        {plans.map((plan) => {
+        {PLANS.map((plan) => {
           const isCurrent = plan.key === currentPlan;
+          const isPopular = plan.key === 'PROFESIONAL';
+
           return (
             <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={plan.name}>
               <Card sx={{
-                height: '100%', display: 'flex', flexDirection: 'column',
-                border: plan.name === 'Profesional' ? '2px solid' : '1px solid',
-                borderColor: plan.name === 'Profesional' ? 'primary.main' : 'divider',
-                position: 'relative', overflow: 'visible'
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                border: isPopular ? '2px solid' : '1px solid',
+                borderColor: isPopular ? 'primary.main' : 'divider',
+                position: 'relative',
+                overflow: 'visible',
+                borderRadius: 3,
+                bgcolor: isPopular ? 'rgba(25,118,210,0.03)' : 'background.paper',
+                boxShadow: isPopular ? '0 10px 28px rgba(25, 118, 210, 0.18)' : '0 6px 18px rgba(16, 24, 40, 0.08)',
               }}>
-                {plan.name === 'Profesional' && (
+                {isPopular && (
                   <Box sx={{
-                    position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
-                    bgcolor: 'primary.main', color: 'white', px: 2, py: 0.5,
-                    borderRadius: 2, fontSize: '0.75rem', fontWeight: 700, zIndex: 1
+                    position: 'absolute',
+                    top: 12,
+                    right: 12,
+                    bgcolor: 'primary.main',
+                    color: 'white',
+                    px: 1.5,
+                    py: 0.5,
+                    borderRadius: 1.5,
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    zIndex: 1
                   }}>
-                    MÁS POPULAR
+                    {plan.badge}
                   </Box>
                 )}
                 <CardContent sx={{ p: 3, flexGrow: 1 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>{plan.name}</Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'baseline', mb: 2 }}>
-                    <Typography variant="h4" sx={{ fontWeight: 800 }}>${plan.price.toLocaleString()}</Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>/ {plan.duration}</Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                    <Box sx={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: '50%',
+                      bgcolor: plan.accentColor,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <Shield size={24} color="#fff" />
+                    </Box>
                   </Box>
-                  <Typography variant="body2" color="primary" sx={{ fontWeight: 700, mb: 3 }}>{plan.limit}</Typography>
+                  <Typography variant="h4" sx={{ fontWeight: 800, mb: 2, textAlign: 'center' }}>{plan.name}</Typography>
+
+                  {plan.oldMonthlyPrice && (
+                    <Typography sx={{ textAlign: 'center', color: 'text.secondary', textDecoration: 'line-through', mb: 0.5, fontSize: '1.05rem' }}>
+                      Antes ${PRICE_FORMATTER.format(plan.oldMonthlyPrice)}
+                    </Typography>
+                  )}
+
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0.5, mb: 1 }}>
+                    <Typography variant="h3" sx={{ fontWeight: 800, color: plan.accentColor }}>
+                      ${PRICE_FORMATTER.format(plan.monthlyPrice)}
+                    </Typography>
+                    <Typography variant="h6" color="text.secondary">/mes</Typography>
+                  </Box>
+
+                  {billingCycle === 'annual' && (
+                    <Typography sx={{ textAlign: 'center', color: isPopular ? 'primary.main' : 'text.secondary', fontWeight: isPopular ? 700 : 600, mb: 2 }}>
+                      o ${PRICE_FORMATTER.format(plan.annualPrice)} al año
+                    </Typography>
+                  )}
+
+                  {billingCycle === 'annual' && plan.oldAnnualPrice && (
+                    <Typography sx={{ textAlign: 'center', color: 'text.secondary', textDecoration: 'line-through', mb: 2, mt: -1, fontSize: '0.9rem' }}>
+                      Antes ${PRICE_FORMATTER.format(plan.oldAnnualPrice)} al año
+                    </Typography>
+                  )}
+
                   <Divider sx={{ mb: 3 }} />
                   <List sx={{ mb: 3 }}>
                     {plan.features.map((feature, idx) => (
                       <ListItem key={idx} sx={{ px: 0, py: 0.5 }}>
-                        <ListItemIcon sx={{ minWidth: 28, color: 'secondary.main' }}><CheckCircle2 size={16} /></ListItemIcon>
+                        <ListItemIcon sx={{ minWidth: 28, color: plan.accentColor }}><CheckCircle2 size={16} /></ListItemIcon>
                         <ListItemText primary={feature} primaryTypographyProps={{ variant: 'body2' }} />
                       </ListItem>
                     ))}
@@ -94,12 +253,22 @@ export const PaymentPage: React.FC = () => {
                 </CardContent>
                 <Box sx={{ p: 3, pt: 0 }}>
                   <Button
-                    variant={plan.name === 'Profesional' ? 'contained' : 'outlined'}
-                    fullWidth disabled={isCurrent || loading === plan.name}
+                    variant="contained"
+                    fullWidth
+                    disabled={isCurrent || loading === plan.key}
                     onClick={() => handleSubscribe(plan)}
-                    sx={{ borderRadius: 2, fontWeight: 700 }}
+                    sx={{
+                      borderRadius: 2,
+                      fontWeight: 700,
+                      textTransform: 'none',
+                      bgcolor: plan.buttonColor,
+                      '&:hover': {
+                        bgcolor: plan.buttonColor,
+                        opacity: 0.92,
+                      },
+                    }}
                   >
-                    {isCurrent ? 'Plan Actual' : loading === plan.name ? 'Cargando...' : 'Seleccionar'}
+                    {isCurrent ? 'Plan actual' : loading === plan.key ? 'Cargando...' : plan.buttonLabel}
                   </Button>
                 </Box>
               </Card>
@@ -107,6 +276,20 @@ export const PaymentPage: React.FC = () => {
           );
         })}
       </Grid>
+
+      <Box sx={{ textAlign: 'center', mb: 5 }}>
+        <Typography sx={{ fontSize: '1.05rem', mb: 1 }}>
+          ¿No estás seguro? <Box component="span" sx={{ fontWeight: 700 }}>Prueba 10 días gratis.</Box> <Box component="span" sx={{ color: 'primary.main', fontWeight: 700 }}>Garantía de devolución de 7 días.</Box>
+        </Typography>
+        <Divider sx={{ my: 2 }} />
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Pagos seguros con:</Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: 'center' }}>
+          <Chip label="Mercado Pago" variant="outlined" />
+          <Chip label="Transferencia" variant="outlined" />
+          <Chip label="VISA" variant="outlined" />
+          <Chip label="Mastercard" variant="outlined" />
+        </Box>
+      </Box>
 
       <Grid container spacing={4}>
         <Grid size={{ xs: 12, md: 6 }}>

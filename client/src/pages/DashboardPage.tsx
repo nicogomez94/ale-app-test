@@ -2,16 +2,20 @@ import React, { useState, useEffect } from 'react';
 import {
   Grid, Typography, Card, CardContent, Box, LinearProgress, Button,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Paper, Chip, IconButton, Alert, CircularProgress, ButtonGroup
+  Paper, Chip, IconButton, Alert, CircularProgress
 } from '@mui/material';
 import {
   FileCheck, AlertCircle, Clock, Users, ArrowUpRight, Plus,
-  MessageCircle, Edit2, X, Mail, Filter
+  MessageCircle, Edit2, X, Mail, HeartPulse
 } from 'lucide-react';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
+
+const SUPPORT_WHATSAPP_NUMBER = '541155551234';
+const SUPPORT_EMAIL = 'info@adseguros.com.ar';
+const VISIBLE_POLICIES_LIMIT = 5;
 
 const StatCard = ({ title, value, icon, color, subtitle, onClick, active }: any) => (
   <Card
@@ -51,12 +55,25 @@ const StatCard = ({ title, value, icon, color, subtitle, onClick, active }: any)
   </Card>
 );
 
-const PolicyTable = ({ title, policies, onWhatsApp, onEmail, headerColor = 'secondary.main' }: any) => (
+const PolicyTable = ({
+  title,
+  policies,
+  onWhatsApp,
+  onEmail,
+  headerColor = 'secondary.main',
+  showAll,
+  totalCount,
+  onToggleShowAll,
+}: any) => (
   <Card sx={{ mb: 4 }}>
     <CardContent>
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h6" sx={{ fontWeight: 700 }}>{title}</Typography>
-        <Button size="small" endIcon={<ArrowUpRight size={16} />}>Ver todas</Button>
+        {totalCount > VISIBLE_POLICIES_LIMIT && (
+          <Button size="small" endIcon={<ArrowUpRight size={16} />} onClick={onToggleShowAll}>
+            {showAll ? 'Ver menos' : 'Ver todas'}
+          </Button>
+        )}
       </Box>
       <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
         <Table>
@@ -127,6 +144,99 @@ const PolicyTable = ({ title, policies, onWhatsApp, onEmail, headerColor = 'seco
   </Card>
 );
 
+const formatMoney = (value?: number | null) => {
+  if (!value) return '$0';
+  return `$${value.toLocaleString('es-AR')}`;
+};
+
+const LifeFinanceTable = ({
+  policies,
+  showAll,
+  onToggleShowAll,
+  onWhatsApp,
+  onEmail,
+}: any) => (
+  <Card sx={{ mb: 4 }}>
+    <CardContent>
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+          Pólizas de Vida y Finanzas (Total: {policies.length})
+        </Typography>
+        {policies.length > VISIBLE_POLICIES_LIMIT && (
+          <Button size="small" endIcon={<ArrowUpRight size={16} />} onClick={onToggleShowAll}>
+            {showAll ? 'Ver menos' : 'Ver todas'}
+          </Button>
+        )}
+      </Box>
+      <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
+        <Table>
+          <TableHead sx={{ bgcolor: 'error.main' }}>
+            <TableRow>
+              <TableCell sx={{ color: 'white', fontWeight: 700 }}>Cliente</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 700 }}>Tipo</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 700 }}>Aseguradora</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 700 }}>Detalle</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 700 }}>Email</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 700, textAlign: 'right' }}>Acciones</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {(showAll ? policies : policies.slice(0, VISIBLE_POLICIES_LIMIT)).map((policy: any) => (
+              <TableRow key={policy.id} hover>
+                <TableCell sx={{ fontWeight: 600 }}>{policy.cliente}</TableCell>
+                <TableCell>
+                  <Chip
+                    label={policy.tipo === 'VIDA' ? 'Vida' : 'Retiro'}
+                    size="small"
+                    color={policy.tipo === 'VIDA' ? 'error' : 'primary'}
+                    variant="outlined"
+                  />
+                </TableCell>
+                <TableCell>{policy.aseguradora}</TableCell>
+                <TableCell>
+                  {policy.tipo === 'VIDA' ? (
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      Suma asegurada: {formatMoney(policy.sumaAsegurada)}
+                    </Typography>
+                  ) : (
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        Aporte mensual: {formatMoney(policy.aporteMensual)}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Fondo acumulado: {formatMoney(policy.fondoAcumulado)}
+                      </Typography>
+                    </Box>
+                  )}
+                </TableCell>
+                <TableCell>{policy.email || '-'}</TableCell>
+                <TableCell sx={{ textAlign: 'right' }}>
+                  <IconButton size="small" color="success" onClick={() => onWhatsApp(policy)}>
+                    <MessageCircle size={18} />
+                  </IconButton>
+                  <IconButton size="small" color="primary" onClick={() => onEmail(policy)}>
+                    <Mail size={18} />
+                  </IconButton>
+                  <IconButton size="small" color="info">
+                    <Edit2 size={18} />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+            {policies.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
+                  No hay pólizas de Vida y Finanzas para mostrar.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </CardContent>
+  </Card>
+);
+
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -136,18 +246,23 @@ export const Dashboard: React.FC = () => {
 
   const [stats, setStats] = useState({ polizasActivas: 0, vencen7Dias: 0, polizasVencidas: 0, clientesTotales: 0 });
   const [policies, setPolicies] = useState<any[]>([]);
+  const [lifePolicies, setLifePolicies] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAll, setShowAll] = useState({ clients: false, companies: false, lifeFinance: false });
 
   useEffect(() => {
+    setLoading(true);
     Promise.all([
       api.dashboard.stats(),
       api.dashboard.policies(filter || undefined),
       api.dashboard.alerts(),
-    ]).then(([s, p, a]) => {
+      api.lifePolicies.list(),
+    ]).then(([s, p, a, lp]) => {
       setStats(s);
       setPolicies(p);
       setAlerts(a);
+      setLifePolicies(lp);
     }).catch(console.error).finally(() => setLoading(false));
   }, [filter]);
 
@@ -166,15 +281,47 @@ export const Dashboard: React.FC = () => {
     window.open(`mailto:${policy.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
   };
 
-  const individualPolicies = policies.filter(p => p.tipo === 'Individual');
-  const companyPolicies = policies.filter(p => p.tipo === 'Empresa');
-  const lifeFinancePolicies = policies.filter(p => p.rubro === 'Vida' || p.rubro === 'Retiro');
+  const handleLifeWhatsApp = (policy: any) => {
+    const pasName = user?.nombre || 'Tu Productor';
+    const policyType = policy.tipo === 'VIDA' ? 'Vida' : 'Retiro';
+    const message = `Hola ${policy.cliente}, te contactamos por tu póliza de ${policyType} con ${policy.aseguradora}. Si querés revisar cobertura o actualizar datos, escribinos. Saludos, ${pasName} - AD System.`;
+    const phone = policy.telefono ? policy.telefono.replace(/\D/g, '') : '';
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  const handleLifeEmail = (policy: any) => {
+    const pasName = user?.nombre || 'Tu Productor';
+    const policyType = policy.tipo === 'VIDA' ? 'Vida' : 'Retiro';
+    const subject = `Seguimiento de póliza de ${policyType}`;
+    const body = `Hola ${policy.cliente},\n\nTe contactamos para dar seguimiento a tu póliza de ${policyType} con ${policy.aseguradora}.\n\nSi querés revisar cobertura o actualizar datos, respondé este correo.\n\nSaludos,\n${pasName} - AD System`;
+    window.open(`mailto:${policy.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+  };
+
+  const handleFeedbackWhatsApp = () => {
+    const pasName = user?.nombre || 'PAS';
+    const pasEmail = user?.email || 'Sin email';
+    const message = `Hola equipo AD System, quiero compartir una sugerencia/recomendación para mejorar el sistema.\n\nNombre: ${pasName}\nEmail: ${pasEmail}\n\nSugerencia: `;
+    window.open(`https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  const handleFeedbackEmail = () => {
+    const pasName = user?.nombre || 'PAS';
+    const pasEmail = user?.email || 'Sin email';
+    const subject = 'Sugerencias y recomendaciones - Sistema PAS Alert';
+    const body = `Hola equipo AD System,\n\nQuiero compartir una sugerencia/recomendación para mejorar el sistema.\n\nNombre: ${pasName}\nEmail: ${pasEmail}\n\nSugerencia: `;
+    window.open(`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+  };
+
+  const individualPolicies = policies.filter((p) => p.tipo === 'Individual');
+  const companyPolicies = policies.filter((p) => p.tipo === 'Empresa');
+  const visibleIndividualPolicies = showAll.clients ? individualPolicies : individualPolicies.slice(0, VISIBLE_POLICIES_LIMIT);
+  const visibleCompanyPolicies = showAll.companies ? companyPolicies : companyPolicies.slice(0, VISIBLE_POLICIES_LIMIT);
 
   const applyFilter = (newFilter: string | null) => {
     if (newFilter) {
-      navigate(`/?filter=${newFilter}`);
+      navigate(`/app/dashboard?filter=${newFilter}`);
     } else {
-      navigate('/');
+      navigate('/app/dashboard');
     }
   };
 
@@ -183,6 +330,7 @@ export const Dashboard: React.FC = () => {
     { title: 'Vencen en 7 días', value: stats.vencen7Dias, icon: <Clock size={24} />, color: 'warning', subtitle: 'Requieren atención', onClick: () => applyFilter(filter === 'expiring' ? null : 'expiring'), active: filter === 'expiring' },
     { title: 'Pólizas Vencidas', value: stats.polizasVencidas, icon: <AlertCircle size={24} />, color: 'error', subtitle: 'Acción inmediata', onClick: () => applyFilter(filter === 'expired' ? null : 'expired'), active: filter === 'expired' },
     { title: 'Clientes Totales', value: stats.clientesTotales, icon: <Users size={24} />, color: 'info', subtitle: 'Cartera activa' },
+    { title: 'Vida y Finanzas', value: lifePolicies.length, icon: <HeartPulse size={24} />, color: 'secondary', subtitle: 'Total de pólizas', onClick: () => navigate('/app/vida-finanzas') },
   ];
 
   if (loading) {
@@ -198,7 +346,7 @@ export const Dashboard: React.FC = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           {filter && (
-            <Button variant="outlined" color="error" startIcon={<X size={20} />} onClick={() => navigate('/')}>
+            <Button variant="outlined" color="error" startIcon={<X size={20} />} onClick={() => navigate('/app/dashboard')}>
               Quitar Filtro
             </Button>
           )}
@@ -213,11 +361,11 @@ export const Dashboard: React.FC = () => {
           <Alert
             severity={filter === 'expired' ? 'error' : filter === 'expiring' ? 'warning' : 'info'}
             sx={{ borderRadius: 2 }}
-            action={
-              <Button color="inherit" size="small" onClick={() => navigate('/')}>
+            action={(
+              <Button color="inherit" size="small" onClick={() => navigate('/app/dashboard')}>
                 Ver todas
               </Button>
-            }
+            )}
           >
             {filter === 'expiring' && 'Mostrando solo pólizas que vencen en los próximos 7 días.'}
             {filter === 'expired' && 'Mostrando solo pólizas vencidas.'}
@@ -228,7 +376,7 @@ export const Dashboard: React.FC = () => {
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {statCards.map((stat, index) => (
-          <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
             <StatCard {...stat} />
           </Grid>
         ))}
@@ -236,11 +384,33 @@ export const Dashboard: React.FC = () => {
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 9 }}>
-          <PolicyTable title="Pólizas Recientes de Clientes" policies={individualPolicies} onWhatsApp={handleWhatsApp} onEmail={handleEmail} headerColor="primary.main" />
-          <PolicyTable title="Pólizas Recientes de Empresas" policies={companyPolicies} onWhatsApp={handleWhatsApp} onEmail={handleEmail} headerColor="secondary.main" />
-          {lifeFinancePolicies.length > 0 && (
-            <PolicyTable title="Pólizas de Vida y Finanzas" policies={lifeFinancePolicies} onWhatsApp={handleWhatsApp} onEmail={handleEmail} headerColor="error.main" />
-          )}
+          <PolicyTable
+            title={`Pólizas Recientes de Clientes (Total: ${individualPolicies.length})`}
+            policies={visibleIndividualPolicies}
+            onWhatsApp={handleWhatsApp}
+            onEmail={handleEmail}
+            headerColor="primary.main"
+            showAll={showAll.clients}
+            totalCount={individualPolicies.length}
+            onToggleShowAll={() => setShowAll((prev) => ({ ...prev, clients: !prev.clients }))}
+          />
+          <PolicyTable
+            title={`Pólizas Recientes de Empresas (Total: ${companyPolicies.length})`}
+            policies={visibleCompanyPolicies}
+            onWhatsApp={handleWhatsApp}
+            onEmail={handleEmail}
+            headerColor="secondary.main"
+            showAll={showAll.companies}
+            totalCount={companyPolicies.length}
+            onToggleShowAll={() => setShowAll((prev) => ({ ...prev, companies: !prev.companies }))}
+          />
+          <LifeFinanceTable
+            policies={lifePolicies}
+            showAll={showAll.lifeFinance}
+            onToggleShowAll={() => setShowAll((prev) => ({ ...prev, lifeFinance: !prev.lifeFinance }))}
+            onWhatsApp={handleLifeWhatsApp}
+            onEmail={handleLifeEmail}
+          />
         </Grid>
 
         <Grid size={{ xs: 12, md: 3 }}>
@@ -283,6 +453,33 @@ export const Dashboard: React.FC = () => {
                   <Typography variant="body2" color="text.secondary">No hay alertas nuevas.</Typography>
                 )}
               </Box>
+            </CardContent>
+          </Card>
+
+          <Card sx={{ height: 'fit-content', mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>Sugerencias y Recomendaciones</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                ¿Tenés ideas de mejora? Enviánoslas para seguir actualizando el sistema.
+              </Typography>
+              <Button
+                fullWidth
+                variant="contained"
+                color="success"
+                startIcon={<MessageCircle size={18} />}
+                onClick={handleFeedbackWhatsApp}
+                sx={{ mb: 1.5 }}
+              >
+                Sugerencias y recomendaciones
+              </Button>
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<Mail size={18} />}
+                onClick={handleFeedbackEmail}
+              >
+                Enviar por Email
+              </Button>
             </CardContent>
           </Card>
 

@@ -45,8 +45,10 @@ dashboardRouter.get("/stats", async (req: AuthRequest, res: Response) => {
 // Get recent policies for dashboard tables
 dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
   try {
-    const { filter, rubro } = req.query;
+    const { filter, rubro, limit } = req.query;
     const where: any = { userId: req.userId };
+    const parsedLimit = Number(limit);
+    const take = Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : undefined;
 
     if (filter === "expiring") {
       where.estado = "VENCE_PRONTO";
@@ -63,7 +65,7 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
     const policies = await prisma.policy.findMany({
       where,
       orderBy: { fechaVencimiento: "asc" },
-      take: 50,
+      ...(take ? { take } : {}),
       include: {
         cliente: { select: { telefono: true, email: true } },
         company: { select: { telefono: true, email: true } },

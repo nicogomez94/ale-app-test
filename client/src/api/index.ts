@@ -106,8 +106,15 @@ export const api = {
   // Dashboard
   dashboard: {
     stats: () => request<any>("/dashboard/stats"),
-    policies: (filter?: string) =>
-      request<any[]>(`/dashboard/policies${filter ? `?filter=${filter}` : ""}`),
+    policies: (filter?: string, limit?: number) => {
+      const params = new URLSearchParams();
+      if (filter) params.set("filter", filter);
+      if (limit && Number.isInteger(limit) && limit > 0) {
+        params.set("limit", String(limit));
+      }
+      const qs = params.toString();
+      return request<any[]>(`/dashboard/policies${qs ? `?${qs}` : ""}`);
+    },
     alerts: () => request<any[]>("/dashboard/alerts"),
   },
 

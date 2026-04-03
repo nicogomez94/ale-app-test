@@ -21,11 +21,46 @@ const schema = z.object({
   fechaInicio: z.string(),
   fechaVencimiento: z.string(),
   medioPago: z.string().min(1, 'Medio de pago requerido'),
-  prima: z.number().min(1, 'Prima debe ser mayor a 0'),
+  moneda: z.enum(['ARS', 'USD']),
+  prima: z.number({ error: 'Prima requerida' }).min(1, 'Prima debe ser mayor a 0'),
   porcentajeComision: z.number().min(0).max(100),
 });
 
 type FormData = z.infer<typeof schema>;
+type CurrencyCode = 'ARS' | 'USD';
+
+const currencyPrefixMap: Record<CurrencyCode, string> = {
+  ARS: '$',
+  USD: 'USD',
+};
+
+const formatAmount = (value: number): string =>
+  new Intl.NumberFormat('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(value);
+
+const parseAmount = (rawValue: string): number | undefined => {
+  const cleaned = rawValue.replace(/[^\d.,]/g, '');
+  if (!cleaned) return undefined;
+
+  const hasComma = cleaned.includes(',');
+  const hasDot = cleaned.includes('.');
+
+  let normalized: string;
+  if (hasComma && hasDot) {
+    const decimalSeparator = cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.') ? ',' : '.';
+    const thousandSeparator = decimalSeparator === ',' ? '.' : ',';
+    normalized = cleaned.split(thousandSeparator).join('').replace(decimalSeparator, '.');
+  } else if (hasComma || hasDot) {
+    const separator = hasComma ? ',' : '.';
+    const parts = cleaned.split(separator);
+    const looksLikeDecimal = parts.length === 2 && parts[1].length > 0 && parts[1].length !== 3;
+    normalized = looksLikeDecimal ? `${parts[0]}.${parts[1]}` : parts.join('');
+  } else {
+    normalized = cleaned;
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
 
 export const PolicyForm: React.FC = () => {
   const navigate = useNavigate();
@@ -35,8 +70,8 @@ export const PolicyForm: React.FC = () => {
 
   const { control, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: DEBUG ? debugData.policy : {
-      prima: 0,
+    defaultValues: DEBUG ? { ...debugData.policy, moneda: 'ARS' } : {
+      moneda: 'ARS',
       porcentajeComision: 15,
       medioPago: '',
       fechaInicio: new Date().toISOString().split('T')[0],
@@ -45,8 +80,12 @@ export const PolicyForm: React.FC = () => {
   });
 
   const prima = watch('prima');
+  const moneda = watch('moneda');
   const porcentaje = watch('porcentajeComision');
-  const comisionCalculada = (prima * (porcentaje / 100)).toFixed(2);
+  const primaValue = typeof prima === 'number' && Number.isFinite(prima) ? prima : 0;
+  const porcentajeValue = typeof porcentaje === 'number' && Number.isFinite(porcentaje) ? porcentaje : 0;
+  const comisionCalculada = primaValue * (porcentajeValue / 100);
+  const prefijoMoneda = currencyPrefixMap[moneda ?? 'ARS'];
 
   const onSubmit = async (data: FormData) => {
     setSaving(true);
@@ -54,7 +93,7 @@ export const PolicyForm: React.FC = () => {
     try {
       await api.policies.create({
         ...data,
-        comisionCalculada: parseFloat(comisionCalculada),
+        comisionCalculada: parseFloat(comisionCalculada.toFixed(2)),
         tipo: 'INDIVIDUAL',
       });
       setSnackOpen(true);
@@ -69,6 +108,7 @@ export const PolicyForm: React.FC = () => {
   const aseguradoras = ['Sancor Seguros', 'Federación Patronal', 'La Segunda', 'Mercantil Andina', 'Zurich', 'Allianz', 'Prevención ART', 'Experta ART', 'Galicia Seguros'];
   const rubros = ['Automotor', 'Moto', 'Celular / Electrónica', 'Hogar', 'Vida', 'Retiro', 'ART', 'Integral de Comercio', 'TRO', 'Consorcio', 'Flotas'];
   const mediosPago = ['Transferencia', 'Tarjeta de crédito', 'Tarjeta de débito'];
+  const monedas: CurrencyCode[] = ['ARS', 'USD'];
 
   return (
     <Box>
@@ -163,9 +203,28 @@ export const PolicyForm: React.FC = () => {
                 <Typography variant="h6" gutterBottom>Resumen Económico</Typography>
                 <Divider sx={{ mb: 2, bgcolor: 'rgba(255,255,255,0.2)' }} />
                 <Box sx={{ mb: 3 }}>
+                  <Controller name="moneda" control={control} render={({ field }) => (
+                    <TextField {...field} fullWidth select label="Moneda" sx={{ '& .MuiOutlinedInput-root': { color: 'white' }, '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' }, '& .MuiSvgIcon-root': { color: 'white' } }}>
+                      {monedas.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                    </TextField>
+                  )} />
+                </Box>
+                <Box sx={{ mb: 3 }}>
                   <Controller name="prima" control={control} render={({ field }) => (
-                    <TextField {...field} fullWidth label="Prima (ARS)" type="number"
-                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    <TextField
+                      name={field.name}
+                      inputRef={field.ref}
+                      onBlur={field.onBlur}
+                      value={typeof field.value === 'number' && field.value > 0 ? formatAmount(field.value) : ''}
+                      fullWidth
+                      label={moneda === 'USD' ? 'Prima (USD)' : 'Prima (ARS)'}
+                      onChange={(e) => field.onChange(parseAmount(e.target.value))}
+                      placeholder="10.000"
+                      inputMode="decimal"
+                      InputProps={{ startAdornment: <InputAdornment position="start" sx={{ color: 'white' }}>{prefijoMoneda}</InputAdornment> }}
+                      error={!!errors.prima}
+                      helperText={errors.prima?.message}
+                      FormHelperTextProps={{ sx: { color: 'rgba(255,255,255,0.85)' } }}
                       sx={{ '& .MuiOutlinedInput-root': { color: 'white' }, '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' } }}
                     />
                   )} />
@@ -180,7 +239,7 @@ export const PolicyForm: React.FC = () => {
                 </Box>
                 <Box sx={{ p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
                   <Typography variant="body2" sx={{ opacity: 0.8 }}>Comisión Estimada</Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 700 }}>$ {comisionCalculada}</Typography>
+                  <Typography variant="h4" sx={{ fontWeight: 700 }}>{prefijoMoneda} {formatAmount(comisionCalculada)}</Typography>
                 </Box>
               </CardContent>
             </Card>

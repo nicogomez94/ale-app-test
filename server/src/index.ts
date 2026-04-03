@@ -15,6 +15,7 @@ import { subscriptionsRouter } from "./routes/subscriptions.js";
 import { profileRouter } from "./routes/profile.js";
 import { dashboardRouter } from "./routes/dashboard.js";
 import { adminRouter } from "./routes/admin.js";
+import { publicRouter } from "./routes/public.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { subscriptionGuard } from "./middleware/subscriptionGuard.js";
 
@@ -28,6 +29,7 @@ app.use(express.json({ limit: "5mb" }));
 app.use("/api/auth", authRouter);
 app.use("/api/subscriptions", subscriptionsRouter);
 app.use("/api/profile", profileRouter);
+app.use("/api/public", publicRouter);
 
 // Guarded routes (blocked when subscription expired)
 app.use("/api/clients", authMiddleware, subscriptionGuard, clientsRouter);

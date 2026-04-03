@@ -4,21 +4,21 @@ import { LandingFooter } from '../../components/landing/LandingFooter';
 import '../../styles/landing.css';
 
 const SEGUROS = [
-  { icon: 'fa-car', title: 'Seguro de Auto', desc: 'Terceros, Todo Riesgo, Robo e Incendio. Cobertura completa para tu vehículo.' },
-  { icon: 'fa-motorcycle', title: 'Seguro de Moto', desc: 'Cobertura para motocicletas: responsabilidad civil, robo e incendio.' },
-  { icon: 'fa-truck', title: 'Seguro de Camión', desc: 'Protección para vehículos de carga y transporte de mercaderías.' },
-  { icon: 'fa-house', title: 'Seguro de Hogar', desc: 'Protegé tu casa ante incendio, robo, desastres naturales y responsabilidad civil.' },
-  { icon: 'fa-building', title: 'Seguro Comercial / PyME', desc: 'Cobertura integral para comercios, oficinas y pequeñas y medianas empresas.' },
-  { icon: 'fa-person-walking', title: 'Accidentes Personales', desc: 'Cobertura ante accidentes que afecten tu integridad física durante el día a día.' },
-  { icon: 'fa-heart-pulse', title: 'Vida Individual', desc: 'Seguro de vida para proteger a tu familia ante una situación inesperada.' },
-  { icon: 'fa-people-group', title: 'Vida Colectivo', desc: 'Cobertura grupal de vida para empleados y asociaciones.' },
-  { icon: 'fa-briefcase-medical', title: 'ART (Riesgos del Trabajo)', desc: 'Aseguradora de Riesgos del Trabajo para proteger a tus empleados.' },
-  { icon: 'fa-anchor', title: 'Embarcaciones', desc: 'Seguro para lanchas, veleros y embarcaciones deportivas o de trabajo.' },
-  { icon: 'fa-box', title: 'Transporte de Mercadería', desc: 'Cobertura para cargas durante el transporte terrestre, aéreo o marítimo.' },
-  { icon: 'fa-tractor', title: 'Seguros Agropecuarios', desc: 'Cobertura para maquinaria agrícola, ganado y producción del campo.' },
-  { icon: 'fa-scale-balanced', title: 'Responsabilidad Civil', desc: 'Protección ante reclamos de terceros por daños materiales o corporales.' },
-  { icon: 'fa-umbrella', title: 'Seguro de Caucion', desc: 'Garantías para alquileres, licitaciones y contratos comerciales.' },
-  { icon: 'fa-stethoscope', title: 'Seguro de Salud', desc: 'Cobertura médica complementaria para vos y tu grupo familiar.' },
+  { icon: 'fa-car', title: 'Seguro Automotor', desc: 'Cobertura para autos particulares y comerciales con distintas opciones según tu necesidad.' },
+  { icon: 'fa-motorcycle', title: 'Seguros de Motos', desc: 'Protección para motocicletas con planes que incluyen responsabilidad civil y coberturas ampliadas.' },
+  { icon: 'fa-truck', title: 'Seguros de Transporte', desc: 'Cobertura para mercaderías y unidades de transporte terrestre en todo el país.' },
+  { icon: 'fa-store', title: 'Seguros de Comercio', desc: 'Respaldo para locales y negocios ante incendio, robo y responsabilidad civil.' },
+  { icon: 'fa-house', title: 'Seguros de Hogar', desc: 'Protección para viviendas frente a daños, robos y eventos climáticos.' },
+  { icon: 'fa-heart', title: 'Seguros de Vida', desc: 'Planes de vida para protección familiar y continuidad económica.' },
+  { icon: 'fa-briefcase-medical', title: 'Seguros de ART', desc: 'Cobertura de riesgos del trabajo para empleadores y trabajadores.' },
+  { icon: 'fa-person-falling-burst', title: 'Seguros de Accidentes Personales', desc: 'Amparo económico ante accidentes en la vida laboral o cotidiana.' },
+  { icon: 'fa-file-signature', title: 'Seguros de Caución', desc: 'Garantías para contratos, alquileres, licitaciones y obligaciones comerciales.' },
+  { icon: 'fa-tractor', title: 'Seguros Agropecuarios', desc: 'Cobertura para actividad rural, maquinaria y producción agropecuaria.' },
+  { icon: 'fa-shield-heart', title: 'Seguros de Vida Obligatorio', desc: 'Seguro obligatorio de vida para cumplimiento normativo empresarial.' },
+  { icon: 'fa-user-doctor', title: 'Responsabilidad Civil Praxis Médica', desc: 'Cobertura específica para profesionales de la salud.' },
+  { icon: 'fa-scale-balanced', title: 'Responsabilidad Civil Profesional', desc: 'Protección por reclamos de terceros en el ejercicio profesional.' },
+  { icon: 'fa-user-tie', title: 'Responsabilidad Civil para Gerentes y Directores', desc: 'Cobertura para cargos directivos frente a reclamos por decisiones de gestión.' },
+  { icon: 'fa-building', title: 'Cobertura Comercial', desc: 'Soluciones integrales para actividades comerciales, PyMEs y empresas.' },
 ];
 
 export function ProductosPage() {
@@ -35,11 +35,11 @@ export function ProductosPage() {
 
         <main>
           <section className="inner-hero scroll-anim" data-anim="slam-up">
-            <span className="eyebrow"><i className="fa-solid fa-shield-halved" />Productos</span>
+            <span className="eyebrow"><i className="fa-solid fa-shield-halved" />Seguros</span>
             <h1>Todos los seguros que necesitás, en un solo lugar</h1>
             <p>
-              Trabajamos con las principales aseguradoras del mercado para ofrecerte las mejores
-              coberturas a precios competitivos. Asesoramiento personalizado sin costo.
+              Te ofrecemos un resumen claro de cada tipo de cobertura para que elijas con información
+              completa y asesoramiento profesional.
             </p>
           </section>
 
@@ -50,7 +50,7 @@ export function ProductosPage() {
                   key={s.title}
                   className="seguro-card scroll-anim"
                   data-anim="bounce-left"
-                  style={{ '--d': `${i * 40}ms` } as React.CSSProperties}
+                  style={{ '--d': `${i * 35}ms` } as React.CSSProperties}
                 >
                   <i className={`fa-solid ${s.icon}`} />
                   <h3>{s.title}</h3>
@@ -62,23 +62,23 @@ export function ProductosPage() {
 
           <div className="faq-grid scroll-anim" data-anim="slam-up">
             <div className="faq-block">
-              <h3><i className="fa-solid fa-circle-question" style={{ color: '#0baab2', marginRight: 8 }} />¿Qué necesitamos para cotizar?</h3>
+              <h3><i className="fa-solid fa-circle-question" style={{ color: '#0baab2', marginRight: 8 }} />¿Qué necesitamos para cotizar su vehículo correctamente?</h3>
               <ul>
-                <li>Nombre completo y DNI del asegurado</li>
-                <li>Datos del bien a asegurar (patente, año, modelo para autos)</li>
-                <li>Localidad de guarda o uso habitual</li>
-                <li>Cobertura deseada (Terceros, Todo Riesgo, etc.)</li>
-                <li>Uso del vehículo (particular, comercial, etc.)</li>
+                <li>Nombre y apellido del titular</li>
+                <li>DNI del titular</li>
+                <li>Marca, modelo y año del vehículo</li>
+                <li>Localidad y provincia de guarda habitual</li>
+                <li>Cobertura deseada</li>
               </ul>
             </div>
             <div className="faq-block">
-              <h3><i className="fa-solid fa-file-alt" style={{ color: '#0baab2', marginRight: 8 }} />¿Qué documentación necesaria?</h3>
+              <h3><i className="fa-solid fa-file-alt" style={{ color: '#0baab2', marginRight: 8 }} />¿Qué documentación es necesaria para circular con su vehículo?</h3>
               <ul>
-                <li>DNI del titular del seguro</li>
-                <li>Título del vehículo (para seguros automotores)</li>
-                <li>Número de VIN / chasis (en algunos casos)</li>
-                <li>Constancia de CUIT/CUIL (para personas jurídicas)</li>
-                <li>Declaración jurada de uso (para seguros comerciales)</li>
+                <li>DNI vigente del conductor</li>
+                <li>Licencia de conducir vigente</li>
+                <li>Cédula verde o cédula azul</li>
+                <li>Comprobante de seguro vigente</li>
+                <li>Comprobante de RTO/VTV y patente al día</li>
               </ul>
             </div>
           </div>
@@ -90,18 +90,18 @@ export function ProductosPage() {
             <div className="why-us-grid">
               <div className="why-us-card">
                 <i className="fa-solid fa-magnifying-glass-dollar" />
-                <h3>Mejor precio garantizado</h3>
-                <p>Comparamos entre múltiples aseguradoras para darte la mejor relación cobertura-precio.</p>
+                <h3>Asesoramiento claro</h3>
+                <p>Te explicamos cada cobertura sin letra chica para que tomes decisiones informadas.</p>
               </div>
               <div className="why-us-card">
                 <i className="fa-solid fa-headset" />
-                <h3>Asesoramiento sin costo</h3>
-                <p>Nuestros productores te acompañan en cada decisión sin cargo adicional.</p>
+                <h3>Atención cercana</h3>
+                <p>Un equipo real responde tus dudas por los canales que uses todos los días.</p>
               </div>
               <div className="why-us-card">
-                <i className="fa-solid fa-clock-rotate-left" />
-                <h3>Gestión rápida de siniestros</h3>
-                <p>Te asistimos con la denuncia y seguimiento hasta la resolución de tu caso.</p>
+                <i className="fa-solid fa-shield" />
+                <h3>Respaldo profesional</h3>
+                <p>Trabajamos con aseguradoras líderes para ofrecer opciones sólidas y confiables.</p>
               </div>
             </div>
           </section>

@@ -27,6 +27,7 @@ import { SiniestrosPage } from './pages/landing/SiniestrosPage';
 import { GestoriaAutomotorPage } from './pages/landing/GestoriaAutomotorPage';
 import { ContactoPage } from './pages/landing/ContactoPage';
 import { ProductoresPage } from './pages/landing/ProductoresPage';
+import { PreguntasFrecuentesPage } from './pages/landing/PreguntasFrecuentesPage';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -152,6 +153,7 @@ export default function App() {
       <Route path="/gestoria-automotor" element={<GestoriaAutomotorPage />} />
       <Route path="/productores" element={<ProductoresPage />} />
       <Route path="/contacto" element={<ContactoPage />} />
+      <Route path="/preguntas-frecuentes" element={<PreguntasFrecuentesPage />} />
       {/* App system routes */}
       <Route path="/app/*" element={<AppSystem />} />
       {/* Fallback */}

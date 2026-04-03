@@ -64,8 +64,8 @@
   display: block;
 }
 
-.landing-page-root .menu { display: flex; align-items: center; justify-content: center; gap: 34px; }
-.landing-page-root .menu a { display: inline-flex; align-items: center; gap: 6px; color: #29384e; text-decoration: none; font-size: 13px; font-weight: 600; }
+.landing-page-root .menu { display: flex; align-items: center; justify-content: center; gap: 16px; }
+.landing-page-root .menu a { display: inline-flex; align-items: center; gap: 6px; color: #29384e; text-decoration: none; font-size: 12px; font-weight: 600; }
 .landing-page-root .menu a i { font-size: 11px; color: #2AB7A9; }
 
 .landing-page-root .btn {

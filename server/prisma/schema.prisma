@@ -235,3 +235,32 @@ model Payment {
 
   @@index([userId])
 }
+
+model LandingContactLead {
+  id        String   @id @default(uuid())
+  nombre    String
+  email     String
+  telefono  String?
+  asunto    String
+  mensaje   String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model LandingProducerLead {
+  id             String   @id @default(uuid())
+  nombre         String
+  email          String
+  telefono       String
+  provincia      String?
+  experiencia    String?
+  mensaje        String?
+  cvOriginalName String?
+  cvMimeType     String?
+  cvSizeBytes    Int?
+  cvContent      Bytes?
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+}

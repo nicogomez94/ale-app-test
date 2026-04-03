@@ -28,9 +28,7 @@ export function LandingFooter() {
           <h4>Empresa</h4>
           <Link to="/quienes-somos">Quiénes somos</Link>
           <Link to="/asistencia-juridica">Asistencia Jurídica</Link>
-          <Link to="/gestoria-automotor">Gestoría Automotor</Link>
-          <Link to="/productores">Productores</Link>
-          <Link to="/contacto">Contacto</Link>
+          <Link to="/preguntas-frecuentes">Preguntas frecuentes</Link>
         </div>
         <div className="footer-col">
           <h4>Contacto</h4>
@@ -39,13 +37,16 @@ export function LandingFooter() {
           <a href="https://wa.me/541155551234" target="_blank" rel="noopener noreferrer">
             <i className="fa-brands fa-whatsapp" />WhatsApp
           </a>
+          <a href="https://maps.google.com/?q=Ciudad+Autonoma+de+Buenos+Aires" target="_blank" rel="noopener noreferrer">
+            <i className="fa-solid fa-location-dot" />Ciudad Autónoma de Buenos Aires
+          </a>
         </div>
       </div>
       <div className="footer-bottom">
-        <span>&copy; {new Date().getFullYear()} AD Seguros. Todos los derechos reservados.</span>
+        <span>&copy; 2026 AD Seguros.</span>
         <div className="footer-legal">
-          <a href="#">Política de privacidad</a>
-          <a href="#">Términos y condiciones</a>
+          <a href="#">Términos</a>
+          <a href="#">Privacidad</a>
         </div>
       </div>
     </footer>

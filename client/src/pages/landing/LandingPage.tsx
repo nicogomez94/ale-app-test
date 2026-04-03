@@ -17,7 +17,7 @@ export function LandingPage() {
         <span className="orb orb-5" />
       </div>
       <div className="page">
-        <LandingHeader />
+        <LandingHeader showSystemLink />
 
         <main>
           <section className="hero">

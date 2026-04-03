@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useScrollAnim } from '../../hooks/useScrollAnim';
 import { LandingHeader } from '../../components/landing/LandingHeader';
 import { LandingFooter } from '../../components/landing/LandingFooter';
+import { api } from '../../api';
 import '../../styles/landing.css';
 
 interface ContactForm {
@@ -15,15 +16,33 @@ interface ContactForm {
 export function ContactoPage() {
   useScrollAnim();
   const [sent, setSent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [form, setForm] = useState<ContactForm>({ nombre: '', email: '', telefono: '', asunto: '', mensaje: '' });
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
+    setSubmitError('');
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSent(true);
+    setIsSubmitting(true);
+    setSubmitError('');
+    try {
+      await api.landing.submitContacto({
+        nombre: form.nombre,
+        email: form.email,
+        telefono: form.telefono || undefined,
+        asunto: form.asunto,
+        mensaje: form.mensaje,
+      });
+      setSent(true);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'No se pudo enviar la consulta.');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -97,9 +116,14 @@ export function ContactoPage() {
                         <label htmlFor="mensaje">Mensaje</label>
                         <textarea id="mensaje" name="mensaje" className="form-input" placeholder="Contanos en qué podemos ayudarte..." value={form.mensaje} onChange={handleChange} required />
                       </div>
-                      <button className="btn" type="submit" style={{ width: '100%', justifyContent: 'center' }}>
-                        <i className="fa-solid fa-paper-plane" />Enviar consulta
+                      <button className="btn" type="submit" disabled={isSubmitting} style={{ width: '100%', justifyContent: 'center', opacity: isSubmitting ? 0.8 : 1 }}>
+                        <i className="fa-solid fa-paper-plane" />{isSubmitting ? 'Enviando...' : 'Enviar consulta'}
                       </button>
+                      {submitError && (
+                        <p style={{ color: '#c94b4b', fontSize: 13, marginTop: 10, marginBottom: 0 }}>
+                          {submitError}
+                        </p>
+                      )}
                     </form>
                   </>
                 )}

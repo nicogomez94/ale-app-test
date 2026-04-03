@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useScrollAnim } from '../../hooks/useScrollAnim';
 import { LandingHeader } from '../../components/landing/LandingHeader';
 import { LandingFooter } from '../../components/landing/LandingFooter';
+import { api } from '../../api';
 import '../../styles/landing.css';
 
 const BENEFITS = [
@@ -30,6 +31,8 @@ const BENEFITS = [
 export function ProductoresPage() {
   useScrollAnim();
   const [sent, setSent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [telefono, setTelefono] = useState('');
@@ -37,18 +40,41 @@ export function ProductoresPage() {
   const [experiencia, setExperiencia] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [cvName, setCvName] = useState('');
+  const [cvFile, setCvFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) setCvName(file.name);
+    if (file) {
+      setCvName(file.name);
+      setCvFile(file);
+      setSubmitError('');
+    }
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const text = `*Consulta de Productor Asesor*\n• Nombre: ${nombre}\n• Teléfono: ${telefono}\n• Email: ${email}\n• Provincia: ${provincia}\n• Experiencia: ${experiencia}\n• Mensaje: ${mensaje}${cvName ? `\n• CV adjunto: ${cvName}` : ''}`;
-    window.open(`https://wa.me/5492994000000?text=${encodeURIComponent(text)}`, '_blank');
-    setSent(true);
+    setIsSubmitting(true);
+    setSubmitError('');
+    try {
+      const data = new FormData();
+      data.append('nombre', nombre);
+      data.append('email', email);
+      data.append('telefono', telefono);
+      data.append('provincia', provincia);
+      data.append('experiencia', experiencia);
+      data.append('mensaje', mensaje);
+      if (cvFile) {
+        data.append('cv', cvFile);
+      }
+
+      await api.landing.submitProductor(data);
+      setSent(true);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'No se pudo enviar la consulta.');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -111,8 +137,19 @@ export function ProductoresPage() {
                 <div style={{ textAlign: 'center', padding: '32px 0' }}>
                   <i className="fa-solid fa-circle-check" style={{ fontSize: 48, color: '#0daeb2', marginBottom: 16, display: 'block' }} />
                   <h3 style={{ marginBottom: 10 }}>¡Consulta enviada!</h3>
-                  <p style={{ color: '#637082', fontSize: 14 }}>Te respondemos en breve por WhatsApp.</p>
-                  <button className="btn btn-small" style={{ marginTop: 20 }} onClick={() => setSent(false)}>
+                  <p style={{ color: '#637082', fontSize: 14 }}>Recibimos tus datos. Te contactamos en breve.</p>
+                  <button className="btn btn-small" style={{ marginTop: 20 }} onClick={() => {
+                    setSent(false);
+                    setNombre('');
+                    setEmail('');
+                    setTelefono('');
+                    setProvincia('');
+                    setExperiencia('');
+                    setMensaje('');
+                    setCvName('');
+                    setCvFile(null);
+                    if (fileRef.current) fileRef.current.value = '';
+                  }}>
                     Enviar otra consulta
                   </button>
                 </div>
@@ -176,9 +213,14 @@ export function ProductoresPage() {
                       onChange={handleFile}
                     />
 
-                    <button type="submit" className="btn" style={{ marginTop: 4, justifyContent: 'center' }}>
-                      <i className="fa-brands fa-whatsapp" />Enviar por WhatsApp
+                    <button type="submit" className="btn" disabled={isSubmitting} style={{ marginTop: 4, justifyContent: 'center', opacity: isSubmitting ? 0.8 : 1 }}>
+                      <i className="fa-solid fa-paper-plane" />{isSubmitting ? 'Enviando...' : 'Enviar consulta'}
                     </button>
+                    {submitError && (
+                      <p style={{ color: '#c94b4b', fontSize: 13, marginTop: 6, marginBottom: 0 }}>
+                        {submitError}
+                      </p>
+                    )}
                   </form>
                 </>
               )}

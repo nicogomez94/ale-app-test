@@ -6,7 +6,7 @@ interface Props {
   onClose: () => void;
 }
 
-const WA_NUMBER = '5492994000000'; // replace with actual number
+const WA_NUMBER = '5492994000000';
 
 const tabLabels: { key: Tab; label: string; icon: string }[] = [
   { key: 'auto', label: 'Auto', icon: 'fa-car' },
@@ -15,37 +15,55 @@ const tabLabels: { key: Tab; label: string; icon: string }[] = [
   { key: 'otros', label: 'Otros seguros', icon: 'fa-shield-halved' },
 ];
 
-function buildWAUrl(tab: Tab, fields: Record<string, string>): string {
-  let text = `Hola! Quiero cotizar un seguro de *${tab.toUpperCase()}*.\n`;
-  for (const [key, val] of Object.entries(fields)) {
-    if (val) text += `• ${key}: ${val}\n`;
-  }
-  return `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(text)}`;
+function openWhatsApp(message: string): void {
+  window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
 }
 
 export default function CotizacionModal({ onClose }: Props) {
   const [tab, setTab] = useState<Tab>('auto');
   const [nombre, setNombre] = useState('');
-  const [telefono, setTelefono] = useState('');
+  const [dni, setDni] = useState('');
+
   const [marca, setMarca] = useState('');
   const [modelo, setModelo] = useState('');
   const [anio, setAnio] = useState('');
-  const [localidad, setLocalidad] = useState('');
-  const [tipoSeguro, setTipoSeguro] = useState('');
-  const [consulta, setConsulta] = useState('');
+  const [localidadAutoMoto, setLocalidadAutoMoto] = useState('');
+  const [provinciaAutoMoto, setProvinciaAutoMoto] = useState('');
+
+  const [tipoVivienda, setTipoVivienda] = useState('');
+  const [superficie, setSuperficie] = useState('');
+  const [localidadHogar, setLocalidadHogar] = useState('');
+  const [provinciaHogar, setProvinciaHogar] = useState('');
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const base = { Nombre: nombre, Teléfono: telefono };
-    let extra: Record<string, string> = {};
+
     if (tab === 'auto' || tab === 'moto') {
-      extra = { Marca: marca, Modelo: modelo, Año: anio, Localidad: localidad };
-    } else if (tab === 'hogar') {
-      extra = { Localidad: localidad, Consulta: consulta };
-    } else {
-      extra = { 'Tipo de seguro': tipoSeguro, Consulta: consulta };
+      const mensaje = [
+        `Hola, quiero cotizar un seguro de *${tab === 'auto' ? 'AUTO' : 'MOTO'}*.`,
+        `• Nombre y apellido: ${nombre}`,
+        `• DNI: ${dni}`,
+        `• Marca: ${marca}`,
+        `• Modelo: ${modelo}`,
+        `• Año: ${anio}`,
+        `• Localidad: ${localidadAutoMoto}`,
+        `• Provincia: ${provinciaAutoMoto}`,
+      ].join('\n');
+      openWhatsApp(mensaje);
+      return;
     }
-    window.open(buildWAUrl(tab, { ...base, ...extra }), '_blank');
+
+    const mensajeHogar = [
+      'Hola, quiero cotizar un seguro de *HOGAR*.',
+      `• Nombre y apellido: ${nombre}`,
+      `• DNI: ${dni}`,
+      `• Tipo de vivienda: ${tipoVivienda}`,
+      `• Superficie cubierta (m²): ${superficie}`,
+      `• Localidad: ${localidadHogar}`,
+      `• Provincia: ${provinciaHogar}`,
+    ].join('\n');
+
+    openWhatsApp(mensajeHogar);
   }
 
   return (
@@ -72,58 +90,62 @@ export default function CotizacionModal({ onClose }: Props) {
           ))}
         </div>
 
-        <form className="cotizacion-form" onSubmit={handleSubmit}>
-          <label>Nombre y apellido</label>
-          <input required placeholder="Juan García" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+        {tab === 'otros' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <p style={{ margin: 0, color: '#4a6279', fontSize: 14, lineHeight: 1.5 }}>
+              Para otros tipos de seguros, escribinos por WhatsApp y te asesoramos de forma personalizada.
+            </p>
+            <button
+              type="button"
+              className="cotizacion-submit"
+              onClick={() => openWhatsApp('Hola, quiero cotizar otro tipo de seguro.')}
+            >
+              <i className="fa-brands fa-whatsapp" />
+              Consultar por WhatsApp
+            </button>
+          </div>
+        ) : (
+          <form className="cotizacion-form" onSubmit={handleSubmit}>
+            <label>Nombre y apellido</label>
+            <input required placeholder="Juan García" value={nombre} onChange={(e) => setNombre(e.target.value)} />
 
-          <label>Teléfono / WhatsApp</label>
-          <input required type="tel" placeholder="+54 9 299 4000000" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
+            <label>DNI</label>
+            <input required placeholder="30111222" value={dni} onChange={(e) => setDni(e.target.value)} />
 
-          {(tab === 'auto' || tab === 'moto') && (
-            <>
-              <label>Marca</label>
-              <input placeholder="Toyota" value={marca} onChange={(e) => setMarca(e.target.value)} />
-              <label>Modelo</label>
-              <input placeholder="Corolla XLI" value={modelo} onChange={(e) => setModelo(e.target.value)} />
-              <label>Año</label>
-              <input type="number" placeholder="2022" value={anio} onChange={(e) => setAnio(e.target.value)} />
-              <label>Localidad</label>
-              <input placeholder="Neuquén" value={localidad} onChange={(e) => setLocalidad(e.target.value)} />
-            </>
-          )}
+            {(tab === 'auto' || tab === 'moto') && (
+              <>
+                <label>Marca</label>
+                <input required placeholder="Toyota" value={marca} onChange={(e) => setMarca(e.target.value)} />
+                <label>Modelo</label>
+                <input required placeholder="Corolla XLI" value={modelo} onChange={(e) => setModelo(e.target.value)} />
+                <label>Año</label>
+                <input required type="number" placeholder="2022" value={anio} onChange={(e) => setAnio(e.target.value)} />
+                <label>Localidad</label>
+                <input required placeholder="Neuquén" value={localidadAutoMoto} onChange={(e) => setLocalidadAutoMoto(e.target.value)} />
+                <label>Provincia</label>
+                <input required placeholder="Neuquén" value={provinciaAutoMoto} onChange={(e) => setProvinciaAutoMoto(e.target.value)} />
+              </>
+            )}
 
-          {tab === 'hogar' && (
-            <>
-              <label>Localidad</label>
-              <input placeholder="Neuquén" value={localidad} onChange={(e) => setLocalidad(e.target.value)} />
-              <label>Consulta / detalles</label>
-              <input placeholder="Casa propia, 3 ambientes..." value={consulta} onChange={(e) => setConsulta(e.target.value)} />
-            </>
-          )}
+            {tab === 'hogar' && (
+              <>
+                <label>Tipo de vivienda</label>
+                <input required placeholder="Casa / Departamento" value={tipoVivienda} onChange={(e) => setTipoVivienda(e.target.value)} />
+                <label>Superficie cubierta (m²)</label>
+                <input required type="number" placeholder="120" value={superficie} onChange={(e) => setSuperficie(e.target.value)} />
+                <label>Localidad</label>
+                <input required placeholder="Neuquén" value={localidadHogar} onChange={(e) => setLocalidadHogar(e.target.value)} />
+                <label>Provincia</label>
+                <input required placeholder="Neuquén" value={provinciaHogar} onChange={(e) => setProvinciaHogar(e.target.value)} />
+              </>
+            )}
 
-          {tab === 'otros' && (
-            <>
-              <label>Tipo de seguro</label>
-              <select value={tipoSeguro} onChange={(e) => setTipoSeguro(e.target.value)}>
-                <option value="">Seleccioná una opción</option>
-                <option>Accidentes personales</option>
-                <option>Vida individual</option>
-                <option>Comercial / PyME</option>
-                <option>ART</option>
-                <option>Transporte de mercadería</option>
-                <option>Embarcaciones</option>
-                <option>Otro</option>
-              </select>
-              <label>Consulta / detalles</label>
-              <input placeholder="Contanos tu caso..." value={consulta} onChange={(e) => setConsulta(e.target.value)} />
-            </>
-          )}
-
-          <button type="submit" className="cotizacion-submit">
-            <i className="fa-brands fa-whatsapp" />
-            Enviar consulta por WhatsApp
-          </button>
-        </form>
+            <button type="submit" className="cotizacion-submit">
+              <i className="fa-brands fa-whatsapp" />
+              Enviar consulta por WhatsApp
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

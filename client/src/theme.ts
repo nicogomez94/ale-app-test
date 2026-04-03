@@ -4,16 +4,21 @@ export const getTheme = (mode: 'light' | 'dark'): ThemeOptions => ({
   palette: {
     mode,
     primary: {
-      main: '#1a237e',
-      light: '#534bae',
-      dark: '#000051',
+      main: '#00453D',
+      light: '#2AB7A9',
+      dark: '#002d27',
     },
     secondary: {
-      main: '#00c853',
+      main: '#2AB7A9',
+      light: '#4ECDC4',
+      dark: '#1e9387',
+    },
+    info: {
+      main: '#1A96D4',
     },
     background: {
-      default: mode === 'light' ? '#f4f6f8' : '#0a0a0a',
-      paper: mode === 'light' ? '#ffffff' : '#121212',
+      default: mode === 'light' ? '#f4fbf9' : '#0a0f0e',
+      paper: mode === 'light' ? '#ffffff' : '#121a18',
     },
   },
   typography: {

@@ -10,9 +10,10 @@ The North Star of this system is the tension between structural solidity (the de
 ## 2. Colors: Tonal Atmosphere
 The color palette is extracted directly from the AD SEGUROS mark, utilizing a sophisticated Material Design logic to ensure accessibility while maintaining a signature aesthetic.
 
-*   **Primary (#002d27):** Use this Deep Forest Green to anchor the experience. It represents the "Guardian"—stable, deep, and authoritative.
-*   **Secondary (#006a61):** The Vibrant Turquoise is our bridge to the user. Use this for interaction points and to draw attention to growth-oriented content.
-*   **Tertiary (#002a40):** This deep Sky Blue variant provides a secondary layer of trust, perfect for information-heavy sections or alternative call-to-actions.
+*   **Primary (#00453D):** Use this Deep Forest Green to anchor the experience. It represents the "Guardian"—stable, deep, and authoritative.
+*   **Secondary (#2AB7A9):** The Vibrant Turquoise is our bridge to the user. Use this for interaction points and to draw attention to growth-oriented content.
+*   **Tertiary (#1A96D4):** This Sky Blue variant provides a secondary layer of trust, perfect for information-heavy sections or alternative call-to-actions.
+*   **Neutral (#5C6362):** Use this warm gray-green for muted text and secondary labels.
 
 ### The "No-Line" Rule
 To maintain a high-end editorial look, **1px solid borders are strictly prohibited for sectioning content.** Boundaries must be defined solely through background color shifts. For example, a `surface-container-low` section should sit directly against a `surface` background. The change in tone is the divider.

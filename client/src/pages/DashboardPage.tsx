@@ -31,7 +31,18 @@ const StatCard = ({ title, value, icon, color, subtitle, onClick, active }: any)
           <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: 1 }}>{title}</Typography>
           <Typography variant="h4" sx={{ mt: 1, fontWeight: 700 }}>{value}</Typography>
         </Box>
-        <Box sx={{ p: 1.5, borderRadius: 3, bgcolor: `${color}.light`, color: `${color}.main`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Box
+          sx={{
+            p: 1.5,
+            borderRadius: '50%',
+            bgcolor: `${color}.main`,
+            color: 'common.white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            '& svg': { color: 'common.white' }
+          }}
+        >
           {icon}
         </Box>
       </Box>
@@ -243,11 +254,26 @@ export const Dashboard: React.FC = () => {
                     sx={{
                       p: 2, mb: 2, borderRadius: 2,
                       bgcolor: alert.type === 'error' ? 'error.light' : alert.type === 'warning' ? 'warning.light' : 'info.light',
-                      color: alert.type === 'error' ? 'error.dark' : alert.type === 'warning' ? 'warning.dark' : 'info.dark',
+                      color: 'common.white',
                       display: 'flex', gap: 2
                     }}
                   >
-                    <Box sx={{ mt: 0.5 }}><AlertCircle size={18} /></Box>
+                    <Box
+                      sx={{
+                        mt: 0.25,
+                        width: 28,
+                        height: 28,
+                        minWidth: 28,
+                        borderRadius: '50%',
+                        bgcolor: alert.type === 'error' ? 'error.main' : alert.type === 'warning' ? 'warning.main' : 'info.main',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        '& svg': { color: 'common.white' }
+                      }}
+                    >
+                      <AlertCircle size={16} />
+                    </Box>
                     <Box>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>{alert.message}</Typography>
                     </Box>

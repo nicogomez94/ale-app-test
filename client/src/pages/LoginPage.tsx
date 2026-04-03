@@ -4,7 +4,7 @@ import {
   Divider, InputAdornment, IconButton, Link, Alert,
   Dialog, DialogTitle, DialogContent, DialogActions, Stepper, Step, StepLabel
 } from '@mui/material';
-import { Mail, Lock, Eye, EyeOff, Bell, ArrowRight } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import { DEBUG, debugData } from '../data/debugData';
@@ -100,18 +100,8 @@ export const LoginPage: React.FC = () => {
         p: 8, position: 'relative', overflow: 'hidden'
       }}>
         <Box sx={{ position: 'relative', zIndex: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
-            <Box sx={{
-              width: 64, height: 64, bgcolor: 'white', borderRadius: 3,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'primary.main', boxShadow: '0 8px 24px rgba(0,0,0,0.1)'
-            }}>
-              <Bell size={40} />
-            </Box>
-            <Box>
-              <Typography variant="h3" sx={{ fontWeight: 900, letterSpacing: -2, lineHeight: 1 }}>AD System</Typography>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, letterSpacing: 2, opacity: 0.8 }}>INSURANCE TECH</Typography>
-            </Box>
+          <Box sx={{ mb: 4 }}>
+            <Box component="img" src="/assets/adsystemlogo.svg" alt="AD System" sx={{ height: 64, width: 'auto', display: 'block' }} />
           </Box>
           <Typography variant="h4" sx={{ mb: 2, fontWeight: 600 }}>
             La herramienta definitiva para el Productor de Seguros moderno.

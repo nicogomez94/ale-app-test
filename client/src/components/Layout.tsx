@@ -26,22 +26,13 @@ interface LayoutProps {
 const drawerWidth = 260;
 
 const Logo = () => (
-  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-    <Box sx={{
-      width: 40, height: 40, bgcolor: 'primary.main', borderRadius: 2.5,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      boxShadow: '0 4px 12px rgba(26, 35, 126, 0.3)'
-    }}>
-      <Bell size={24} color="white" />
-    </Box>
-    <Box>
-      <Typography variant="h6" sx={{ fontWeight: 900, letterSpacing: -1, lineHeight: 1, color: 'primary.main' }}>
-        AD System
-      </Typography>
-      <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: 1, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.6rem' }}>
-        Insurance Tech
-      </Typography>
-    </Box>
+  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+    <Box
+      component="img"
+      src="/assets/adsystemlogo.svg"
+      alt="AD System"
+      sx={{ height: { xs: 64, sm: 72 }, width: 'auto', display: 'block' }}
+    />
   </Box>
 );
 
@@ -76,7 +67,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
 
   const drawer = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: 3 }}><Logo /></Box>
+      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center' }}><Logo /></Box>
       <Divider sx={{ opacity: 0.5 }} />
       <List sx={{ px: 2, py: 3, flexGrow: 1 }}>
         {menuItems.map((item) => (

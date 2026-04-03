@@ -1,5 +1,27 @@
-// Debug pre-fill data — only used when VITE_DEBUG_MODE=true
-export const DEBUG = import.meta.env.VITE_DEBUG_MODE === 'true';
+// Debug pre-fill data.
+// Enabled by:
+// 1) VITE_DEBUG_MODE=true at build time
+// 2) URL query param ?debug=1 | true | on
+// 3) localStorage.setItem('debug_mode', 'true')
+const DEBUG_FROM_ENV = import.meta.env.VITE_DEBUG_MODE === 'true';
+
+const DEBUG_FROM_RUNTIME = (() => {
+  if (typeof window === 'undefined') return false;
+
+  const params = new URLSearchParams(window.location.search);
+  const q = (params.get('debug') || '').toLowerCase();
+  const fromQuery = q === '1' || q === 'true' || q === 'on';
+  const fromStorage = window.localStorage.getItem('debug_mode') === 'true';
+
+  if (fromQuery) {
+    window.localStorage.setItem('debug_mode', 'true');
+    return true;
+  }
+
+  return fromStorage;
+})();
+
+export const DEBUG = DEBUG_FROM_ENV || DEBUG_FROM_RUNTIME;
 
 export const debugData = {
   login: {

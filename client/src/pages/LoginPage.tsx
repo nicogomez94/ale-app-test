@@ -101,7 +101,7 @@ export const LoginPage: React.FC = () => {
       }}>
         <Box sx={{ position: 'relative', zIndex: 1 }}>
           <Box sx={{ mb: 4 }}>
-            <Box component="img" src="/assets/adsystemlogo.svg" alt="AD System" sx={{ height: 64, width: 'auto', display: 'block' }} />
+            <Box component="img" src="/assets/ADSYSTEMA (100 x 80 px).svg" alt="AD System" sx={{ height: 64, width: 'auto', display: 'block' }} />
           </Box>
           <Typography variant="h4" sx={{ mb: 2, fontWeight: 600 }}>
             La herramienta definitiva para el Productor de Seguros moderno.

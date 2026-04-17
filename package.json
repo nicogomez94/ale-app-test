@@ -44,6 +44,7 @@
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
     "docx": "^9.6.1",
+    "pdf-parse": "^2.4.5",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",

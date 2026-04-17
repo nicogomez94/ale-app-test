@@ -1,0 +1,350 @@
+PAS ALERT
+ZIGO DEV
+─────────────────────────────────
+DOCUMENTO DE REQUERIMIENTOS DE PRODUCTO
+(PRD — Product Requirements Document)
+Versión 1.1 | Marzo 2026
+Preparado por: Equipo de Desarrollo
+Cliente: Productor de Seguros (PAS)
+
+1. RESUMEN EJECUTIVO
+PAS Alert es una plataforma web diseñada exclusivamente para Productores Asesores de Seguros (PAS) de
+Argentina. Su objetivo es digitalizar y automatizar la gestión de la cartera de pólizas, reemplazando planillas
+de Excel o anotaciones manuales por un sistema profesional, seguro y accesible desde cualquier dispositivo.
+La plataforma permite que cada productor tenga su propio panel privado donde puede cargar, organizar y
+hacer seguimiento de todas sus pólizas: vencimientos, comisiones, clientes y empresas, todo en un solo
+lugar.
+Dato Detalle
+Nombre del producto PAS Alert – Insurance Tech
+Tipo de sistema Aplicación web, accesible desde cualquier navegador sin instalar nada
+Usuarios objetivo Productores Asesores de Seguros (PAS) de Argentina
+Período de prueba gratuita 10 días con todas las funciones habilitadas
+Pagos en línea MercadoPago — transferencia, tarjeta de crédito (cobro automático
+mensual) o tarjeta de débito
+Exportación de datos Excel (.xlsx) — disponible en todas las secciones
+Idioma Español
+
+2. OPCIONES DE DESARROLLO
+Se acordaron dos versiones del sistema, con diferente nivel de funcionalidad y precio.
+Opción 1 — Sistema Lite
+Precio de desarrollo: $150.000 + hosting + dominio
+● Landing Page profesional con secciones y diseño optimizado
+● Login de usuarios (registro e inicio de sesión seguros)
+● Panel privado por productor (cada usuario solo ve sus propios datos)
+● Carga de pólizas de seguros
+● Organización de pólizas por rubros (Automóvil, Moto, Celular / Electrónica, Hogar, ART, Flotas, etc.).
+● Visualización de pólizas vigentes y vencidas
+● Alertas cuando una póliza está por vencer o ya venció
+● Sistema de membresía paga (distintos planes de suscripción)
+● Edición y eliminación de pólizas
+● Panel administrador para gestionar todos los productores
+Opción 2 — Sistema Pro
+Precio de desarrollo: $200.000 + hosting + dominio
+Incluye todo lo de la versión Lite, más:
+● Dashboard con estadísticas de la cartera
+● Filtros avanzados por rubros, vencimientos y estado
+● Exportación de pólizas a Excel / CSV
+● Sistema de recordatorios automáticos por email
+● Reportes y métricas del sistema
+Comparativo rápido
+Funcionalidad Lite Pro
+
+Landing Page profesional ✓ ✓
+Login y panel privado por PAS ✓ ✓
+Carga y gestión de pólizas ✓ ✓
+Prima y % de comisión por rubro/compañía ✓ ✓
+Medio de pago en cada póliza ✓ ✓
+Organización por rubros ✓ ✓
+Alertas de vencimiento ✓ ✓
+Contacto por WhatsApp y Email ✓ ✓
+Sistema de membresía paga ✓ ✓
+Panel administrador ✓ ✓
+Dashboard con estadísticas — ✓
+Filtros avanzados — ✓
+Exportación a Excel — ✓
+Cierres de comisión mensuales — ✓
+Recordatorios automáticos por email — ✓
+Reportes y métricas — ✓
+Precio de desarrollo $150.000 $200.000
+
+3. FUNCIONALIDADES DETALLADAS
+A continuación se describe cada módulo de la aplicación tal como está construido en el prototipo
+entregado.
+3.1 Pantalla de Login
+Es la puerta de entrada a la plataforma. Diseñada con imagen de marca y formulario de acceso seguro.
+Lo que ve el usuario:
+● Lado izquierdo: logo PAS Alert, slogan y descripción de la plataforma.
+● Lado derecho: formulario con campo de email, contraseña (con opción de mostrar/ocultar) y botón
+"Ingresar".
+● Link de "¿Olvidaste tu contraseña?" y opción de registro para nuevos usuarios.
+Lo que hace el sistema:
+● Verifica las credenciales contra la base de datos.
+● Si son correctas, redirige al panel del productor.
+● Si son incorrectas, muestra un mensaje de error claro.
+3.2 Panel Principal y Navegación
+Una vez dentro, el productor accede a su espacio de trabajo. La interfaz tiene:
+● Barra lateral izquierda (menú) con acceso a todas las secciones.
+● Barra superior con: reloj en tiempo real, notificación de pólizas por vencer (badge con número), avatar
+del usuario y opción de cerrar sesión.
+● Modo oscuro / modo claro activable con un botón.
+● Diseño responsive: funciona en computadora, tablet y celular.
+Ítems del menú:
+○ Dashboard
+○ Clientes
+○ Empresas
+○ Vida y Finanzas
+
+○ Pólizas (agregar nuevas)
+○ Comisiones
+○ Referidos
+○ Suscripción
+3.3 Dashboard (Panel de Control)
+Vista general del estado de la cartera del productor. Es la primera pantalla que ve al ingresar.
+Tarjetas de resumen (parte superior):
+● Pólizas Activas: total de pólizas en vigencia.
+● Vencen en 7 días: cantidad que requieren atención inmediata (con alerta visual).
+● Pólizas Vencidas: las que ya expiraron.
+● Clientes Totales: tamaño de la cartera activa.
+Tablas de pólizas:
+● Tabla de pólizas de clientes individuales.
+● Tabla de pólizas de empresas.
+● Tabla de pólizas de Vida y Retiro.
+● Cada fila muestra: cliente, rubro (Auto, Moto, Hogar, etc.), aseguradora, fecha de vencimiento, días
+restantes, medio de pago, estado (Activa / Vence pronto / Vencida) y acciones.
+Acciones desde las tablas:
+● Botón WhatsApp: abre WhatsApp con un mensaje pre-armado al cliente avisando del vencimiento.
+● Botón Email: abre el cliente de correo con un mensaje pre-armado al cliente.
+● Botón Editar: accede al formulario de edición de la póliza.
+● Botón "Agregar Póliza": acceso rápido al formulario de nueva póliza.
+Alertas del sistema:
+● Se muestran notificaciones en pantalla con avisos como "La póliza #XXXX de Juan Pérez vence en 3
+días" o "Póliza vencida".
+● Filtro rápido para ver solo las pólizas que vencen pronto.
+3.4 Gestión de Clientes (Individuales)
+
+Sección para administrar la cartera de personas físicas del productor.
+Datos de cada cliente:
+● Nombre completo
+● DNI
+● Teléfono
+● Email
+● Dirección
+● Código Postal (C.P.)
+Funcionalidades:
+● Buscar por nombre o DNI en tiempo real.
+● Agregar nuevo cliente (individuo) o redirigir a "Nueva Empresa".
+● Editar datos de un cliente existente.
+● Eliminar cliente (con confirmación para evitar errores).
+● Contactar por WhatsApp con un clic.
+● Enviar email directamente desde la plataforma con un clic.
+● Exportar toda la lista a Excel (.xlsx).
+3.5 Gestión de Empresas
+Sección para administrar clientes corporativos, organizada en pestañas por tipo de seguro empresarial.
+Tipos de empresa (pestañas):
+● ART (Aseguradora de Riesgos del Trabajo)
+● Flotas (vehículos de empresa)
+● TRO (Todo Riesgo Operativo)
+● Consorcio
+● Integral de Comercio
+Datos de cada empresa:
+● Razón social
+● CUIT
+● Rubro / actividad
+● Cantidad de empleados o vehículos (según tipo)
+
+● Aseguradora
+● Email y teléfono
+● Código Postal (C.P.)
+Funcionalidades:
+● Buscar por razón social o CUIT.
+● Agregar, editar y eliminar empresas.
+● Contactar por WhatsApp con un clic.
+● Enviar email directamente desde la plataforma con un clic.
+● Exportar la pestaña activa a Excel (por tipo de empresa).
+3.6 Vida y Finanzas
+Sección dedicada a seguros de largo plazo, separada en dos categorías con campos específicos.
+Pestaña: Seguros de Vida
+● Datos del asegurado: nombre, CUIT, aseguradora.
+● Suma asegurada (capital en caso de fallecimiento).
+● Prima mensual.
+Pestaña: Seguros de Retiro
+● Datos del asegurado: nombre, CUIT, aseguradora.
+● Aporte mensual.
+● Fondo acumulado (se muestra en verde para destacar el progreso).
+Funcionalidades comunes:
+● Buscar por cliente o CUIT.
+● Agregar, editar y eliminar pólizas.
+● Contactar por WhatsApp o Email con un clic.
+● Exportar a Excel por tipo.
+3.7 Formulario de Nueva Póliza
+Formulario para cargar pólizas generales (individuales, hogar, automotor, etc.). Incluye validación
+automática de todos los campos.
+
+Sección: Datos del Cliente
+● Nombre completo (mínimo 3 caracteres)
+● DNI (mínimo 7 dígitos)
+● Teléfono (mínimo 8 dígitos)
+Sección: Detalles de la Póliza
+● Aseguradora (con autocompletado): Sancor, Federación Patronal, La Segunda, Mercantil Andina, Zurich,
+etc.
+● Rubro (con autocompletado): Automóvil, Moto, Celular / Electrónica, Hogar, Vida, Retiro, ART, Integral
+de Comercio, TRO, Consorcio, Flotas y más. El productor también puede escribir un rubro
+personalizado.
+● Número de póliza
+● Fecha de inicio
+● Fecha de vencimiento (por defecto: 1 año desde hoy)
+● Medio de pago de la póliza: Transferencia, Tarjeta de crédito o Tarjeta de débito.
+Sección: Comisión
+● Prima (monto en pesos que paga el asegurado).
+● Porcentaje de comisión: editable manualmente. Cada compañía aseguradora tiene su propio
+porcentaje por rubro (por ejemplo, Automotor puede ser 15% pero Moto puede ser 10%, según lo que
+pague la aseguradora).
+● Comisión calculada automáticamente en tiempo real (Prima × % comisión).
+El productor puede modificar el porcentaje libremente en cada póliza. Si algún campo no está completo o es inválido, el
+sistema lo resalta en rojo con un mensaje explicativo antes de guardar.
+3.8 Análisis de Comisiones
+Vista de rendimiento económico de la cartera. El productor puede ver en un solo lugar cuánto está ganando
+y cerrar su período mensual.
+Porcentajes configurables por compañía y rubro:
+Cada compañía aseguradora paga un porcentaje distinto según el tipo de póliza. Por ejemplo:
+● Sancor — Automotor: 15%
+● Sancor — Moto: 10%
+● Zurich — Hogar: 12%
+
+El productor puede definir y modificar estos porcentajes desde el sistema. Al cargar una póliza, el % se
+puede ajustar manualmente y la comisión se recalcula de forma automática.
+Cierre mensual de comisiones:
+● Al final de cada mes, el productor puede realizar el "cierre mensual", que congela los datos de ese
+período para llevar un historial ordenado.
+● Cada cierre queda guardado y se puede consultar en cualquier momento.
+● Los cierres permiten comparar la evolución mes a mes de forma clara.
+Tarjetas de resumen:
+● Comisión proyectada del mes (basada en renovaciones pendientes).
+● Progreso hacia el objetivo mensual (barra de porcentaje).
+● Comisión promedio por póliza.
+Gráficos:
+● Gráfico de barras: evolución mensual de comisiones.
+● Gráfico de torta: distribución de comisiones por rubro (Auto, Moto, Hogar, Vida, Otros).
+Tabla de detalle mensual:
+● Mes a mes: total de prima, comisión bruta y porcentaje de crecimiento respecto al mes anterior.
+● Exportación a Excel de todos los datos de comisiones.
+3.9 Programa de Referidos
+Sistema de incentivos para que los productores recomienden la plataforma a sus colegas PAS.
+Código de referido:
+● Cada usuario tiene un código único y personalizado.
+● Se puede copiar con un clic o compartir directamente por WhatsApp o email.
+Beneficios por cantidad de referidos en el mes:
+● 1 referido → 10% de descuento en la próxima cuota.
+● 5 referidos → 50% de descuento en la próxima cuota.
+
+● 10 referidos → Mes 100% bonificado (gratis).
+Panel de estado:
+● Contador de referidos del mes actual.
+● Barra de progreso hacia el próximo objetivo.
+● Total histórico de referidos desde la creación de la cuenta.
+Los referidos se reinician el día 1 de cada mes.
+3.10 Suscripción y Pagos
+Sección donde el productor puede ver su plan actual, los planes disponibles y pagar dentro de la misma
+plataforma. Los pagos se procesan a través de MercadoPago y se aceptan: transferencia bancaria, tarjeta
+de crédito y tarjeta de débito.
+Planes disponibles:
+Plan Precio Límite Incluye
+Gratis $0 — 10 días Ilimitado (prueba) Todas las funciones habilitadas
+Emprendedor $4.999/mes 20 pólizas / 20 clientes / 20
+empresas
+CRM, alertas WhatsApp y Email, gestión
+completa
+Profesional $12.999/mes 100 pólizas / 100 clientes / 100
+empresas
+Todo Emprendedor + análisis de
+comisiones y cierres mensuales
+Agencia $29.999/mes 500 pólizas / 500 clientes / 500
+empresas Todo Profesional + múltiples usuarios
+Funcionalidades:
+● Al hacer clic en "Seleccionar", el sistema redirige a MercadoPago para completar el pago.
+● Métodos de pago aceptados via MercadoPago: transferencia bancaria, tarjeta de crédito o tarjeta de
+débito.
+● Pago con tarjeta de crédito: se configura como cobro automático mensual. El sistema renueva la
+suscripción automáticamente hasta que el productor solicite la baja.
+● El plan "Profesional" aparece destacado como "Más popular".
+● Se muestra el estado de la cuenta: plan actual, fecha de vencimiento y días restantes.
+● Historial de pagos realizados.
+Recordatorios de vencimiento de suscripción:
+
+● A partir de los 5 días previos al vencimiento, el sistema muestra dentro de la plataforma un aviso con la
+opción de renovar/pagar directamente.
+● Si el productor no renueva, recibe una notificación diaria indicando cuántos días le quedan ("Te quedan
+4 días", "Te quedan 3 días", etc.).
+● El día del vencimiento, el acceso queda restringido hasta que se realice el pago.
+Este sistema aplica a todos los planes pagos. El plan de prueba (10 días) también avisa con anticipación antes de
+bloquearse.
+3.11 Mi Perfil
+Sección donde el productor puede actualizar su información personal y de contacto.
+Datos editables:
+● Foto de perfil (carga desde el dispositivo).
+● Nombre completo
+● Correo electrónico
+● Teléfono de contacto
+● Dirección de oficina
+Información fija visible:
+● Número de matrícula PAS.
+● Último inicio de sesión.
+● Opción de cambiar contraseña.
+Al guardar los cambios, el sistema confirma la actualización con un mensaje verde en pantalla.
+
+4. FLUJOS PRINCIPALES
+Flujo 1 — Registrarse e ingresar por primera vez
+● 1. El productor entra a la URL de la plataforma.
+● 2. Hace clic en "Registrarse" e ingresa nombre, email y contraseña.
+● 3. Accede automáticamente con 10 días de prueba gratuita (todas las funciones activas).
+● 4. Es redirigido al Dashboard con su cartera vacía.
+Flujo 2 — Cargar una póliza nueva
+● 1. Desde el menú, hace clic en "Pólizas".
+● 2. Completa el formulario: datos del cliente, aseguradora, rubro, fechas y prima.
+● 3. El sistema calcula la comisión automáticamente.
+● 4. Hace clic en "Guardar". La póliza aparece en el Dashboard y en la sección correspondiente.
+Flujo 3 — Aviso de vencimiento por WhatsApp o Email
+● 1. El productor ve en el Dashboard que una póliza "Vence pronto".
+● 2. Hace clic en el ícono de WhatsApp o Email en esa fila.
+● 3. Se abre WhatsApp Web/móvil (o el cliente de correo) con un mensaje pre-armado dirigido al cliente.
+● 4. El productor lo envía con un clic.
+Flujo 4 — Suscribirse a un plan pago
+● 1. El productor entra a "Suscripción".
+● 2. Elige el plan (Emprendedor, Profesional o Agencia).
+● 3. Hace clic en "Seleccionar". El sistema lo redirige a MercadoPago.
+● 4. Elige el método de pago: transferencia, tarjeta de crédito o débito.
+● 5. Si paga con tarjeta de crédito, el cobro se renueva automáticamente cada mes hasta que solicite la
+baja.
+● 6. Al volver, su plan queda activo automáticamente.
+Flujo 5 — Recordatorios de vencimiento de suscripción
+
+● 1. Faltan 5 días para que venza el plan: el sistema muestra un aviso dentro de la plataforma con la
+opción de renovar.
+● 2. Si el productor no renueva, cada día recibe una notificación indicando cuántos días le quedan.
+● 3. Al vencer, el acceso queda bloqueado hasta completar el pago.
+● 4. El productor puede reactivar su plan desde la sección de Suscripción en cualquier momento.
+
+5. FUERA DEL ALCANCE
+Las siguientes funcionalidades NO están incluidas en ninguna de las dos opciones cotizadas, y requerirían
+una cotización adicional:
+● Aplicación móvil nativa (iOS / Android).
+● Envío automático de emails o WhatsApp (bot automatizado).
+● Integración con sistemas de aseguradoras externas.
+● Módulo contable o de facturación.
+● Reportes en PDF (solo Excel está contemplado en la opción Pro).
+● Multi-idioma (la plataforma está en español únicamente).
+
+6. GLOSARIO
+Término Definición
+PAS Productor Asesor de Seguros. Usuario principal de la plataforma.
+Póliza Contrato de seguro entre una persona/empresa y una aseguradora.
+Prima Monto que paga el asegurado por su póliza (mensual, semestral o anual).
+Comisión Porcentaje de la prima que percibe el productor como honorario.
+Cierre mensual Proceso de cierre del período para registrar las comisiones del mes.
+ART Aseguradora de Riesgos del Trabajo. Cubre accidentes laborales.
+TRO Todo Riesgo Operativo. Seguro integral para empresas.
+MercadoPago Plataforma de pagos en línea usada para gestionar las suscripciones.
+Dashboard Panel de control con resumen visual de toda la información.
+─────────────────────────────────────────────────────────────────
+Documento preparado para el cliente | PAS Alert — Insurance Tech | Marzo 2026
+Este documento es de carácter confidencial y está dirigido exclusivamente al cliente al que fue entregado.

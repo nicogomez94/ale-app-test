@@ -208,20 +208,14 @@ export const api = {
   // Subscriptions
   subscriptions: {
     current: () => request<any>("/subscriptions/current"),
-    createPreference: (
-      planName: string,
-      price: number,
-      planKey?: string,
-      billingCycle?: "monthly" | "annual"
-    ) =>
-      request<{ id: string; init_point: string }>("/subscriptions/create-preference", {
+    createPreapproval: (planKey: string) =>
+      request<{ init_point: string; subscriptionId?: string; providerStatus?: string }>("/subscriptions/create-preapproval", {
         method: "POST",
-        body: JSON.stringify({ planName, price, planKey, billingCycle }),
+        body: JSON.stringify({ planKey }),
       }),
-    confirm: (paymentId: string) =>
-      request<any>("/subscriptions/confirm", {
+    cancel: () =>
+      request<{ message: string; providerStatus: string; planVencimiento?: string }>("/subscriptions/cancel", {
         method: "POST",
-        body: JSON.stringify({ paymentId }),
       }),
     payments: () => request<any[]>("/subscriptions/payments"),
   },

@@ -1,23 +1,37 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Box, Typography, Grid, Card, CardContent, Button,
-  List, ListItem, ListItemIcon, ListItemText, Divider, Chip,
-  CircularProgress, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Paper, ToggleButtonGroup, ToggleButton
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Divider,
+  Grid,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
 } from '@mui/material';
-import { CheckCircle2, CreditCard, Shield, Clock } from 'lucide-react';
+import { CheckCircle2, CreditCard, Shield, Clock, RefreshCcw, Ban } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api';
-
-type BillingCycle = 'monthly' | 'annual';
+import { useAuth } from '../context/AuthContext';
 
 type PlanDefinition = {
   key: string;
   name: string;
   monthlyPrice: number;
-  annualPrice: number;
   oldMonthlyPrice?: number;
-  oldAnnualPrice?: number;
   badge?: string;
   buttonLabel: string;
   accentColor: string;
@@ -40,8 +54,7 @@ const PLANS: PlanDefinition[] = [
     key: 'EMPRENDEDOR',
     name: 'Starter',
     monthlyPrice: 6900,
-    annualPrice: 69000,
-    buttonLabel: 'Empezar ahora',
+    buttonLabel: 'Suscribirme',
     accentColor: '#2e9b4b',
     buttonColor: '#2e9b4b',
     features: [
@@ -58,11 +71,9 @@ const PLANS: PlanDefinition[] = [
     key: 'PROFESIONAL',
     name: 'Profesional',
     monthlyPrice: 14900,
-    annualPrice: 149000,
     oldMonthlyPrice: 19900,
-    oldAnnualPrice: 199000,
     badge: 'Más Popular',
-    buttonLabel: 'Elegir plan',
+    buttonLabel: 'Suscribirme',
     accentColor: '#1f67bd',
     buttonColor: '#1f67bd',
     features: [
@@ -78,7 +89,6 @@ const PLANS: PlanDefinition[] = [
     key: 'PRO_PLUS',
     name: 'Pro+',
     monthlyPrice: 22900,
-    annualPrice: 229000,
     buttonLabel: 'Próximamente',
     accentColor: '#6f42c1',
     buttonColor: '#6f42c1',
@@ -94,8 +104,7 @@ const PLANS: PlanDefinition[] = [
     key: 'AGENCIA',
     name: 'Agencia',
     monthlyPrice: 39900,
-    annualPrice: 399000,
-    buttonLabel: 'Crear equipo',
+    buttonLabel: 'Suscribirme',
     accentColor: '#cf3d3d',
     buttonColor: '#cf3d3d',
     features: [
@@ -108,114 +117,225 @@ const PLANS: PlanDefinition[] = [
   },
 ];
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getProviderStatusLabel(status?: string | null) {
+  switch ((status || '').toLowerCase()) {
+    case 'authorized':
+      return 'Autorizada';
+    case 'pending':
+      return 'Pendiente';
+    case 'paused':
+      return 'Pausada';
+    case 'canceled':
+    case 'cancelled':
+      return 'Cancelada';
+    default:
+      return 'Sin estado';
+  }
+}
+
+function getProviderStatusColor(status?: string | null): 'success' | 'warning' | 'default' | 'error' {
+  switch ((status || '').toLowerCase()) {
+    case 'authorized':
+      return 'success';
+    case 'pending':
+    case 'paused':
+      return 'warning';
+    case 'canceled':
+    case 'cancelled':
+      return 'default';
+    default:
+      return 'default';
+  }
+}
+
 export const PaymentPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { updateUser } = useAuth();
   const [loading, setLoading] = useState<string | null>(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
   const [subscription, setSubscription] = useState<any>(null);
   const [payments, setPayments] = useState<any[]>([]);
   const [fetching, setFetching] = useState(true);
   const [subscribeError, setSubscribeError] = useState<string | null>(null);
   const [subscribeSuccess, setSubscribeSuccess] = useState<string | null>(null);
-  const [billingCycle, setBillingCycle] = useState<BillingCycle>('annual');
+  const [validating, setValidating] = useState(false);
+
+  const currentPlan = subscription?.plan || 'TRIAL';
+  const planLabel = PLAN_LABELS[currentPlan] || 'Trial';
+  const providerStatusLabel = getProviderStatusLabel(subscription?.providerStatus);
+  const providerStatusColor = getProviderStatusColor(subscription?.providerStatus);
+
+  const loadSubscriptionState = useCallback(async () => {
+    const [sub, pay, me] = await Promise.all([
+      api.subscriptions.current(),
+      api.subscriptions.payments(),
+      api.auth.me().catch(() => null),
+    ]);
+
+    setSubscription(sub);
+    setPayments(pay);
+
+    if (me) {
+      updateUser({
+        plan: me.plan,
+        estado: me.estado,
+        planVencimiento: me.planVencimiento,
+      });
+    }
+
+    return sub;
+  }, [updateUser]);
 
   useEffect(() => {
+    let cancelled = false;
+
     const load = async () => {
       try {
+        setFetching(true);
         const params = new URLSearchParams(location.search);
-        const paymentStatus = params.get('payment');
-        const paymentId = params.get('payment_id');
+        const returnFromSubscription =
+          params.get('subscription') === 'processing' ||
+          params.has('preapproval_id') ||
+          params.has('status');
 
-        if (paymentStatus === 'success' && paymentId) {
-          const confirmation = await api.subscriptions.confirm(paymentId);
-          if (confirmation?.status === 'approved' || confirmation?.status === 'already_processed') {
-            setSubscribeSuccess('Pago acreditado. Suscripción actualizada.');
-            setTimeout(() => navigate('/app/dashboard?payment=success', { replace: true }), 1200);
+        if (returnFromSubscription) {
+          setValidating(true);
+          setSubscribeError(null);
+          setSubscribeSuccess('Validando suscripción con Mercado Pago...');
+
+          let activated = false;
+          let lastSnapshot: any = null;
+
+          for (let attempt = 0; attempt < 6; attempt += 1) {
+            if (cancelled) return;
+            lastSnapshot = await loadSubscriptionState();
+            if (lastSnapshot?.plan && lastSnapshot.plan !== 'TRIAL') {
+              activated = true;
+              break;
+            }
+            await sleep(3000);
           }
-        }
 
-        if (paymentStatus === 'failure') {
-          setSubscribeError('El pago fue rechazado o cancelado.');
-        } else if (paymentStatus === 'pending') {
-          setSubscribeError('El pago quedó pendiente. Te avisaremos cuando se acredite.');
+          if (!cancelled) {
+            if (activated) {
+              setSubscribeSuccess('Suscripción activa. El plan ya quedó actualizado.');
+            } else if (lastSnapshot?.providerStatus === 'canceled') {
+              setSubscribeError('La suscripción volvió cancelada desde Mercado Pago.');
+              setSubscribeSuccess(null);
+            } else {
+              setSubscribeSuccess('La suscripción fue creada. Estamos esperando la confirmación final del primer cobro.');
+            }
+            navigate('/app/pagos', { replace: true });
+          }
+        } else {
+          await loadSubscriptionState();
         }
-
-        const [sub, pay] = await Promise.all([api.subscriptions.current(), api.subscriptions.payments()]);
-        setSubscription(sub);
-        setPayments(pay);
       } catch (error) {
         console.error(error);
-        setSubscribeError(error instanceof Error ? error.message : 'No se pudo cargar suscripción');
+        if (!cancelled) {
+          setSubscribeError(error instanceof Error ? error.message : 'No se pudo cargar suscripción');
+        }
       } finally {
-        setFetching(false);
+        if (!cancelled) {
+          setValidating(false);
+          setFetching(false);
+        }
       }
     };
 
     load();
-  }, [location.search, navigate]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadSubscriptionState, location.search, navigate]);
+
+  const activeRecurringPlan = useMemo(() => {
+    if (!subscription?.providerStatus || currentPlan === 'TRIAL') return null;
+    return PLANS.find((plan) => plan.key === currentPlan) || null;
+  }, [currentPlan, subscription?.providerStatus]);
 
   const handleSubscribe = async (plan: PlanDefinition) => {
+    if (plan.available === false) return;
+
     setSubscribeError(null);
+    setSubscribeSuccess(null);
     setLoading(plan.key);
+
     try {
-      const selectedPrice = billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice;
-      const selectedBilling = billingCycle === 'annual' ? 'Anual' : 'Mensual';
-      const data = await api.subscriptions.createPreference(`${plan.name} (${selectedBilling})`, selectedPrice, plan.key, billingCycle);
+      const data = await api.subscriptions.createPreapproval(plan.key);
       if (data.init_point) {
         window.location.href = data.init_point;
       }
     } catch (error) {
-      console.error('Error:', error);
-      setSubscribeError(error instanceof Error ? error.message : 'No se pudo iniciar el pago');
+      console.error(error);
+      setSubscribeError(error instanceof Error ? error.message : 'No se pudo iniciar la suscripción');
     } finally {
       setLoading(null);
     }
   };
 
-  const currentPlan = subscription?.plan || 'TRIAL';
-  const planLabel = PLAN_LABELS[currentPlan] || 'Trial';
+  const handleCancelSubscription = async () => {
+    setCancelLoading(true);
+    setSubscribeError(null);
 
-  if (fetching) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress /></Box>;
+    try {
+      const result = await api.subscriptions.cancel();
+      await loadSubscriptionState();
+      setSubscribeSuccess(result.message);
+    } catch (error) {
+      console.error(error);
+      setSubscribeError(error instanceof Error ? error.message : 'No se pudo cancelar la suscripción');
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  if (fetching) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box>
       <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>Suscripción y Pagos</Typography>
+      <Typography variant="h3" sx={{ fontWeight: 800, mb: 2, textAlign: 'center', fontSize: { xs: '2rem', md: '2.3rem' } }}>
+        Planes mensuales con renovación automática
+      </Typography>
+
+      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
+        <Chip label="Solo mensual en esta versión" color="primary" variant="outlined" />
+      </Box>
+
+      {validating && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Estamos esperando la sincronización del webhook de Mercado Pago.
+        </Alert>
+      )}
       {subscribeSuccess && (
-        <Typography sx={{ mb: 2, color: 'success.main', fontWeight: 700 }}>
+        <Alert severity="success" sx={{ mb: 3 }}>
           {subscribeSuccess}
-        </Typography>
+        </Alert>
       )}
       {subscribeError && (
-        <Typography sx={{ mb: 2, color: 'error.main', fontWeight: 600 }}>
+        <Alert severity="error" sx={{ mb: 3 }}>
           {subscribeError}
-        </Typography>
+        </Alert>
       )}
-      <Typography variant="h3" sx={{ fontWeight: 800, mb: 2, textAlign: 'center', fontSize: { xs: '2rem', md: '2.3rem' } }}>
-        Elige el plan perfecto para tu negocio
-      </Typography>
-      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
-        <ToggleButtonGroup
-          color="primary"
-          value={billingCycle}
-          exclusive
-          onChange={(_, value: BillingCycle | null) => value && setBillingCycle(value)}
-          size="small"
-          sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
-        >
-          <ToggleButton value="monthly" sx={{ px: 3, textTransform: 'none', fontWeight: 700 }}>
-            Mensual
-          </ToggleButton>
-          <ToggleButton value="annual" sx={{ px: 3, textTransform: 'none', fontWeight: 700 }}>
-            Anual (2 meses gratis)
-          </ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
 
       <Grid container spacing={3} sx={{ mb: 6 }}>
         {PLANS.map((plan) => {
-          const isCurrent = plan.key === currentPlan;
+          const isCurrent = plan.key === currentPlan && currentPlan !== 'TRIAL';
           const isPopular = plan.key === 'PROFESIONAL';
-          const isDisabled = isCurrent || loading === plan.key || plan.available === false;
+          const isDisabled = isCurrent || loading === plan.key || plan.available === false || !!subscription?.canCancel;
 
           return (
             <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={plan.name}>
@@ -243,7 +363,7 @@ export const PaymentPage: React.FC = () => {
                     borderRadius: 1.5,
                     fontSize: '0.75rem',
                     fontWeight: 700,
-                    zIndex: 1
+                    zIndex: 1,
                   }}>
                     {plan.badge}
                   </Box>
@@ -262,7 +382,10 @@ export const PaymentPage: React.FC = () => {
                       <Shield size={24} color="#fff" />
                     </Box>
                   </Box>
-                  <Typography variant="h4" sx={{ fontWeight: 800, mb: 2, textAlign: 'center' }}>{plan.name}</Typography>
+
+                  <Typography variant="h4" sx={{ fontWeight: 800, mb: 2, textAlign: 'center' }}>
+                    {plan.name}
+                  </Typography>
 
                   {plan.oldMonthlyPrice && (
                     <Typography sx={{ textAlign: 'center', color: 'text.secondary', textDecoration: 'line-through', mb: 0.5, fontSize: '1.05rem' }}>
@@ -270,44 +393,33 @@ export const PaymentPage: React.FC = () => {
                     </Typography>
                   )}
 
-                  <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0.5, mb: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0.5, mb: 2 }}>
                     <Typography variant="h3" sx={{ fontWeight: 800, color: plan.accentColor }}>
                       ${PRICE_FORMATTER.format(plan.monthlyPrice)}
                     </Typography>
                     <Typography variant="h6" color="text.secondary">/mes</Typography>
                   </Box>
 
-                  {billingCycle === 'annual' && (
-                    <Typography sx={{ textAlign: 'center', color: isPopular ? 'primary.main' : 'text.secondary', fontWeight: isPopular ? 700 : 600, mb: 2 }}>
-                      o ${PRICE_FORMATTER.format(plan.annualPrice)} al año
-                    </Typography>
-                  )}
-
-                  {billingCycle === 'annual' && plan.oldAnnualPrice && (
-                    <Typography sx={{ textAlign: 'center', color: 'text.secondary', textDecoration: 'line-through', mb: 2, mt: -1, fontSize: '0.9rem' }}>
-                      Antes ${PRICE_FORMATTER.format(plan.oldAnnualPrice)} al año
-                    </Typography>
-                  )}
-
                   <Divider sx={{ mb: 3 }} />
+
                   <List sx={{ mb: 3 }}>
                     {plan.features.map((feature, idx) => (
                       <ListItem key={idx} sx={{ px: 0, py: 0.5 }}>
-                        <ListItemIcon sx={{ minWidth: 28, color: plan.accentColor }}><CheckCircle2 size={16} /></ListItemIcon>
+                        <ListItemIcon sx={{ minWidth: 28, color: plan.accentColor }}>
+                          <CheckCircle2 size={16} />
+                        </ListItemIcon>
                         <ListItemText primary={feature} primaryTypographyProps={{ variant: 'body2' }} />
                       </ListItem>
                     ))}
                   </List>
                 </CardContent>
+
                 <Box sx={{ p: 3, pt: 0 }}>
                   <Button
                     variant="contained"
                     fullWidth
                     disabled={isDisabled}
-                    onClick={() => {
-                      if (plan.available === false) return;
-                      handleSubscribe(plan);
-                    }}
+                    onClick={() => handleSubscribe(plan)}
                     sx={{
                       borderRadius: 2,
                       fontWeight: 700,
@@ -319,7 +431,7 @@ export const PaymentPage: React.FC = () => {
                       },
                     }}
                   >
-                    {isCurrent ? 'Plan actual' : loading === plan.key ? 'Cargando...' : plan.buttonLabel}
+                    {isCurrent ? 'Plan actual' : loading === plan.key ? 'Redirigiendo...' : plan.buttonLabel}
                   </Button>
                 </Box>
               </Card>
@@ -330,15 +442,18 @@ export const PaymentPage: React.FC = () => {
 
       <Box sx={{ textAlign: 'center', mb: 5 }}>
         <Typography sx={{ fontSize: '1.05rem', mb: 1 }}>
-          ¿No estás seguro? <Box component="span" sx={{ fontWeight: 700 }}>Prueba 10 días gratis.</Box> <Box component="span" sx={{ color: 'primary.main', fontWeight: 700 }}>Garantía de devolución de 7 días.</Box>
+          La renovación automática se cobra mes a mes desde Mercado Pago.
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Si cancelás, se frena la próxima renovación pero mantenés acceso hasta la fecha ya paga.
         </Typography>
         <Divider sx={{ my: 2 }} />
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Pagos seguros con:</Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: 'center' }}>
           <Chip label="Mercado Pago" variant="outlined" />
-          <Chip label="Transferencia" variant="outlined" />
           <Chip label="VISA" variant="outlined" />
           <Chip label="Mastercard" variant="outlined" />
+          <Chip label="Débito automático" variant="outlined" />
         </Box>
       </Box>
 
@@ -350,27 +465,80 @@ export const PaymentPage: React.FC = () => {
                 <Shield size={20} /> Estado de tu Cuenta
               </Typography>
               <Divider sx={{ my: 2 }} />
+
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="body2">Plan Actual:</Typography>
+                <Typography variant="body2">Plan actual:</Typography>
                 <Chip label={planLabel} color="info" size="small" sx={{ fontWeight: 700 }} />
               </Box>
+
+              {activeRecurringPlan && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="body2">Suscripción recurrente:</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {activeRecurringPlan.name} mensual
+                  </Typography>
+                </Box>
+              )}
+
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="body2">Estado remoto:</Typography>
+                <Chip label={providerStatusLabel} size="small" color={providerStatusColor} />
+              </Box>
+
               {subscription?.planVencimiento && (
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="body2">Vencimiento:</Typography>
+                  <Typography variant="body2">Acceso hasta:</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     {new Date(subscription.planVencimiento).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </Typography>
                 </Box>
               )}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+
+              {subscription?.nextPaymentDate && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="body2">Próximo cobro:</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {new Date(subscription.nextPaymentDate).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </Typography>
+                </Box>
+              )}
+
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                 <Typography variant="body2">Días restantes:</Typography>
                 <Typography variant="body2" color={subscription?.diasRestantes <= 5 ? 'error' : 'text.primary'} sx={{ fontWeight: 700 }}>
                   {subscription?.diasRestantes ?? '—'} días
                 </Typography>
               </Box>
+
+              {subscription?.canCancel ? (
+                <Box>
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    startIcon={<Ban size={16} />}
+                    disabled={cancelLoading}
+                    onClick={handleCancelSubscription}
+                    sx={{ textTransform: 'none', fontWeight: 700 }}
+                  >
+                    {cancelLoading ? 'Cancelando...' : 'Cancelar renovación automática'}
+                  </Button>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+                    La suscripción deja de renovarse, pero seguís con acceso hasta el final del período pago.
+                  </Typography>
+                </Box>
+              ) : subscription?.providerStatus === 'canceled' ? (
+                <Typography variant="body2" color="text.secondary">
+                  La renovación automática está cancelada. Tu acceso se mantiene hasta la fecha ya paga.
+                </Typography>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  Todavía no hay una suscripción recurrente activa para cancelar.
+                </Typography>
+              )}
             </CardContent>
           </Card>
         </Grid>
+
         <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
@@ -378,6 +546,19 @@ export const PaymentPage: React.FC = () => {
                 <Clock size={20} /> Historial de Pagos
               </Typography>
               <Divider sx={{ my: 2 }} />
+
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                <Button
+                  variant="text"
+                  size="small"
+                  startIcon={<RefreshCcw size={16} />}
+                  onClick={() => loadSubscriptionState()}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Actualizar
+                </Button>
+              </Box>
+
               {payments.length > 0 ? (
                 <TableContainer component={Paper} elevation={0}>
                   <Table size="small">
@@ -390,13 +571,13 @@ export const PaymentPage: React.FC = () => {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {payments.map((p: any) => (
-                        <TableRow key={p.id} hover>
-                          <TableCell>{new Date(p.createdAt).toLocaleDateString('es-AR')}</TableCell>
-                          <TableCell>{p.plan}</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>$ {p.monto.toLocaleString()}</TableCell>
+                      {payments.map((payment: any) => (
+                        <TableRow key={payment.id} hover>
+                          <TableCell>{new Date(payment.createdAt).toLocaleDateString('es-AR')}</TableCell>
+                          <TableCell>{PLAN_LABELS[payment.plan] || payment.plan}</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>$ {payment.monto.toLocaleString()}</TableCell>
                           <TableCell>
-                            <Chip size="small" label={p.estado} color={p.estado === 'approved' ? 'success' : 'default'} />
+                            <Chip size="small" label={payment.estado} color={payment.estado === 'approved' ? 'success' : 'default'} />
                           </TableCell>
                         </TableRow>
                       ))}
@@ -406,7 +587,7 @@ export const PaymentPage: React.FC = () => {
               ) : (
                 <Box sx={{ textAlign: 'center', py: 2, opacity: 0.5 }}>
                   <CreditCard size={32} style={{ marginBottom: 8 }} />
-                  <Typography variant="body2">No hay pagos registrados.</Typography>
+                  <Typography variant="body2">No hay pagos recurrentes registrados.</Typography>
                 </Box>
               )}
             </CardContent>

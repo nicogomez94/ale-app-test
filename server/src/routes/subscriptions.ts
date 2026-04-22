@@ -1,161 +1,462 @@
 import { Router, Request, Response } from "express";
+import { BillingCycle, PlanType } from "../../node_modules/.prisma/client/default.js";
 import prisma from "../lib/prisma.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
-import { createPreference, getPaymentById } from "../lib/mercadopago.js";
+import {
+  cancelPreapproval,
+  createPreapprovalPlan,
+  createPreapprovalSubscription,
+  getPaymentById,
+  getPreapprovalById,
+  searchPreapprovalPlans,
+  searchPreapprovals,
+} from "../lib/mercadopago.js";
 
 export const subscriptionsRouter = Router();
 
 const KNOWN_PLANS = {
-  EMPRENDEDOR: { monthly: 6900, annual: 69000 },
-  PROFESIONAL: { monthly: 14900, annual: 149000 },
-  AGENCIA: { monthly: 39900, annual: 399000 },
+  EMPRENDEDOR: {
+    plan: PlanType.EMPRENDEDOR,
+    label: "Starter",
+    monthlyPrice: 6900,
+  },
+  PROFESIONAL: {
+    plan: PlanType.PROFESIONAL,
+    label: "Profesional",
+    monthlyPrice: 14900,
+  },
+  AGENCIA: {
+    plan: PlanType.AGENCIA,
+    label: "Agencia",
+    monthlyPrice: 39900,
+  },
 } as const;
 
 type PlanKey = keyof typeof KNOWN_PLANS;
-type BillingCycle = "monthly" | "annual";
 
-function normalizePlanKey(value?: string): PlanKey {
-  const v = (value || "").toUpperCase();
-  if (v === "EMPRENDEDOR" || v.includes("STARTER")) return "EMPRENDEDOR";
-  if (v === "PROFESIONAL" || v.includes("PROFESIONAL") || v.includes("PRO+") || v.includes("PRO_PLUS")) return "PROFESIONAL";
-  if (v === "AGENCIA") return "AGENCIA";
-  return "EMPRENDEDOR";
+function getPlanDefinition(planKey?: string) {
+  if (!planKey) return null;
+  const normalized = planKey.toUpperCase() as PlanKey;
+  return KNOWN_PLANS[normalized] || null;
 }
 
-function normalizeBillingCycle(value?: string): BillingCycle {
-  const v = (value || "").toLowerCase();
-  if (v.includes("annual") || v.includes("anual")) return "annual";
-  return "monthly";
+function normalizeProviderStatus(value?: string | null): string | null {
+  if (!value) return null;
+  const normalized = value.toLowerCase();
+  return normalized === "cancelled" ? "canceled" : normalized;
 }
 
-function inferPlanFromAmount(amount?: number): { plan: PlanKey; billingCycle: BillingCycle } {
+function getPlanReason(planKey: PlanKey): string {
+  return `PAS Alert - ${KNOWN_PLANS[planKey].label} Mensual`;
+}
+
+function parseOptionalDate(value?: string | number | Date | null): Date | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function addMonths(date: Date, months: number): Date {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + months);
+  return next;
+}
+
+function inferPlanKeyFromAmount(amount?: number | null): PlanKey | null {
   const paid = Number(amount || 0);
-  for (const [plan, prices] of Object.entries(KNOWN_PLANS) as [PlanKey, { monthly: number; annual: number }][]) {
-    if (Math.abs(paid - prices.annual) <= 1) return { plan, billingCycle: "annual" };
-    if (Math.abs(paid - prices.monthly) <= 1) return { plan, billingCycle: "monthly" };
+  for (const [planKey, plan] of Object.entries(KNOWN_PLANS) as [PlanKey, (typeof KNOWN_PLANS)[PlanKey]][]) {
+    if (Math.abs(paid - plan.monthlyPrice) <= 1) return planKey;
   }
-  return { plan: "EMPRENDEDOR", billingCycle: "monthly" };
+  return null;
 }
 
-async function applyApprovedPayment(paymentRaw: any, fallbackUserId?: string) {
-  const payment = paymentRaw as any;
-  const paymentId = String(payment.id);
-  const userId = String(payment.external_reference || fallbackUserId || "");
-  if (!userId) throw new Error("Pago sin external_reference (userId)");
+function inferPlanKeyFromText(value?: string | null): PlanKey | null {
+  const normalized = (value || "").toUpperCase();
+  if (normalized.includes("STARTER") || normalized.includes("EMPRENDEDOR")) return "EMPRENDEDOR";
+  if (normalized.includes("PROFESIONAL")) return "PROFESIONAL";
+  if (normalized.includes("AGENCIA")) return "AGENCIA";
+  return null;
+}
 
-  const status = String(payment.status || "");
-  if (status !== "approved") {
-    return { applied: false, status };
+function isCancelableStatus(status?: string | null): boolean {
+  const normalized = normalizeProviderStatus(status);
+  return normalized === "pending" || normalized === "authorized" || normalized === "paused";
+}
+
+function getSubscriptionState(status?: string | null): string {
+  switch (normalizeProviderStatus(status)) {
+    case "authorized":
+      return "activa";
+    case "paused":
+      return "pausada";
+    case "canceled":
+      return "cancelada";
+    case "pending":
+    default:
+      return "pendiente";
   }
+}
 
-  const existing = await prisma.payment.findFirst({
-    where: { userId, mpPaymentId: paymentId },
-    select: { id: true },
+function getLatestAccessDate(user: { planVencimiento: Date | null; trialFin: Date | null }, now: Date): Date {
+  if (user.planVencimiento && user.planVencimiento > now) return new Date(user.planVencimiento);
+  if (user.trialFin && user.trialFin > now) return new Date(user.trialFin);
+  return now;
+}
+
+async function ensureProviderPlan(planKey: PlanKey) {
+  const definition = KNOWN_PLANS[planKey];
+  const existing = await prisma.subscriptionProviderPlan.findUnique({
+    where: {
+      plan_billingCycle: {
+        plan: definition.plan,
+        billingCycle: BillingCycle.MONTHLY,
+      },
+    },
   });
-  if (existing) {
-    return { applied: false, status: "already_processed" };
+
+  if (existing) return existing;
+
+  const reason = getPlanReason(planKey);
+  const remoteSearch = await searchPreapprovalPlans(reason);
+  const matchingRemotePlan = remoteSearch.results?.find((item: any) => (
+    item.reason === reason &&
+    normalizeProviderStatus(item.status) !== "canceled" &&
+    Number(item.auto_recurring?.transaction_amount || 0) === definition.monthlyPrice &&
+    Number(item.auto_recurring?.frequency || 0) === 1 &&
+    item.auto_recurring?.frequency_type === "months"
+  ));
+
+  const remotePlan = matchingRemotePlan || await createPreapprovalPlan({
+    reason,
+    frequency: 1,
+    frequencyType: "months",
+    transactionAmount: definition.monthlyPrice,
+    currencyId: "ARS",
+  });
+
+  if (!remotePlan.id) {
+    throw new Error("Mercado Pago no devolvió el id del plan recurrente");
   }
 
-  const amount = Number(payment.transaction_amount || 0);
-  const metadata = (payment.metadata || {}) as {
-    planKey?: string;
-    billingCycle?: string;
-    planName?: string;
-  };
+  return prisma.subscriptionProviderPlan.create({
+    data: {
+      plan: definition.plan,
+      billingCycle: BillingCycle.MONTHLY,
+      price: definition.monthlyPrice,
+      reason,
+      status: normalizeProviderStatus(remotePlan.status) || "active",
+      mpPreapprovalPlanId: String(remotePlan.id),
+    },
+  });
+}
 
-  const titleFromItem = payment.additional_info?.items?.[0]?.title as string | undefined;
-  const inferredFromAmount = inferPlanFromAmount(amount);
-  const plan = normalizePlanKey(metadata.planKey || metadata.planName || titleFromItem);
-  const billingCycle = normalizeBillingCycle(metadata.billingCycle || metadata.planName || titleFromItem) || inferredFromAmount.billingCycle;
-  const months = billingCycle === "annual" ? 12 : 1;
-  const now = new Date();
+async function findLatestLocalRecurringSubscription(userId: string) {
+  return prisma.subscription.findFirst({
+    where: {
+      userId,
+      mpPreapprovalId: { not: null },
+    },
+    orderBy: [
+      { createdAt: "desc" },
+      { updatedAt: "desc" },
+    ],
+  });
+}
+
+async function findRemoteSubscriptionForUser(userId: string, payerEmail?: string | null) {
+  if (!payerEmail) return null;
+  const result = await searchPreapprovals({ payerEmail });
+  const matches = (result.results || []).filter((item: any) => String(item.external_reference || "") === userId);
+  matches.sort((a: any, b: any) => {
+    const aDate = parseOptionalDate(a.last_modified || a.date_created)?.getTime() || 0;
+    const bDate = parseOptionalDate(b.last_modified || b.date_created)?.getTime() || 0;
+    return bDate - aDate;
+  });
+  return matches[0] || null;
+}
+
+async function syncSubscriptionFromRemote(preapprovalRaw: any) {
+  const preapproval = preapprovalRaw as any;
+  const mpPreapprovalId = String(preapproval.id || "");
+  const userId = String(preapproval.external_reference || "");
+
+  if (!mpPreapprovalId || !userId) {
+    return null;
+  }
+
+  const providerStatus = normalizeProviderStatus(preapproval.status) || "pending";
+  const mpPreapprovalPlanId = String(preapproval.preapproval_plan_id || "");
+
+  let providerPlan = mpPreapprovalPlanId
+    ? await prisma.subscriptionProviderPlan.findUnique({
+        where: { mpPreapprovalPlanId },
+      })
+    : null;
+
+  if (!providerPlan) {
+    const inferredPlanKey =
+      inferPlanKeyFromText(preapproval.reason) ||
+      inferPlanKeyFromAmount(preapproval.auto_recurring?.transaction_amount);
+    if (inferredPlanKey) {
+      providerPlan = await ensureProviderPlan(inferredPlanKey);
+    }
+  }
+
+  if (!providerPlan) {
+    return null;
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { planVencimiento: true },
+    select: {
+      planVencimiento: true,
+      trialFin: true,
+    },
   });
 
   if (!user) {
-    throw new Error("Usuario no encontrado para aplicar el pago");
+    return null;
   }
 
-  const inicio = user.planVencimiento && user.planVencimiento > now
-    ? new Date(user.planVencimiento)
-    : now;
-  const fin = new Date(inicio);
-  fin.setMonth(fin.getMonth() + months);
+  const existing = await prisma.subscription.findUnique({
+    where: { mpPreapprovalId },
+  });
+
+  const now = new Date();
+  const currentAccessEnd = existing?.fin || getLatestAccessDate(user, now);
+
+  return prisma.subscription.upsert({
+    where: { mpPreapprovalId },
+    update: {
+      plan: providerPlan.plan,
+      billingCycle: providerPlan.billingCycle,
+      precio: Number(preapproval.auto_recurring?.transaction_amount || providerPlan.price),
+      fin: currentAccessEnd,
+      estado: getSubscriptionState(providerStatus),
+      providerStatus,
+      mpPreapprovalPlanId: providerPlan.mpPreapprovalPlanId,
+      nextPaymentDate: parseOptionalDate(preapproval.next_payment_date),
+      cancelledAt: providerStatus === "canceled" ? new Date() : null,
+    },
+    create: {
+      userId,
+      plan: providerPlan.plan,
+      billingCycle: providerPlan.billingCycle,
+      precio: Number(preapproval.auto_recurring?.transaction_amount || providerPlan.price),
+      inicio: now,
+      fin: currentAccessEnd,
+      estado: getSubscriptionState(providerStatus),
+      providerStatus,
+      mpPreapprovalId,
+      mpPreapprovalPlanId: providerPlan.mpPreapprovalPlanId,
+      nextPaymentDate: parseOptionalDate(preapproval.next_payment_date),
+      cancelledAt: providerStatus === "canceled" ? new Date() : null,
+    },
+  });
+}
+
+async function resolveSubscriptionForPayment(userId: string, planKey: PlanKey, payerEmail?: string | null) {
+  const local = await prisma.subscription.findFirst({
+    where: {
+      userId,
+      plan: KNOWN_PLANS[planKey].plan,
+      billingCycle: BillingCycle.MONTHLY,
+      mpPreapprovalId: { not: null },
+    },
+    orderBy: [
+      { createdAt: "desc" },
+      { updatedAt: "desc" },
+    ],
+  });
+
+  if (local) return local;
+
+  const remote = await findRemoteSubscriptionForUser(userId, payerEmail);
+  if (!remote) return null;
+
+  return syncSubscriptionFromRemote(remote);
+}
+
+async function applyApprovedRecurringPayment(paymentRaw: any) {
+  const payment = paymentRaw as any;
+  const mpPaymentId = String(payment.id || "");
+  const userId = String(payment.external_reference || "");
+
+  if (!mpPaymentId || !userId) {
+    return { applied: false, status: "ignored" };
+  }
+
+  const paymentStatus = normalizeProviderStatus(payment.status);
+  if (paymentStatus !== "approved") {
+    return { applied: false, status: paymentStatus || "ignored" };
+  }
+
+  const existingPayment = await prisma.payment.findFirst({
+    where: { mpPaymentId },
+    select: { id: true },
+  });
+  if (existingPayment) {
+    return { applied: false, status: "already_processed" };
+  }
+
+  const planKey = inferPlanKeyFromAmount(payment.transaction_amount);
+  if (!planKey) {
+    return { applied: false, status: "ignored_unknown_amount" };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      planVencimiento: true,
+      trialFin: true,
+    },
+  });
+
+  if (!user) {
+    throw new Error("Usuario no encontrado para registrar el cobro recurrente");
+  }
+
+  const subscription = await resolveSubscriptionForPayment(userId, planKey, payment.payer?.email);
+  const now = new Date();
+  const baseDate = getLatestAccessDate(user, now);
+  const nextAccessEnd = addMonths(baseDate, 1);
 
   await prisma.$transaction([
     prisma.user.update({
       where: { id: userId },
       data: {
-        plan,
+        plan: KNOWN_PLANS[planKey].plan,
         estado: "ACTIVO",
-        planVencimiento: fin,
-      },
-    }),
-    prisma.subscription.create({
-      data: {
-        userId,
-        plan,
-        precio: amount,
-        inicio,
-        fin,
-        estado: "activo",
-        mpPaymentId: paymentId,
+        planVencimiento: nextAccessEnd,
       },
     }),
     prisma.payment.create({
       data: {
         userId,
-        monto: amount,
-        plan,
+        monto: Number(payment.transaction_amount || KNOWN_PLANS[planKey].monthlyPrice),
+        plan: KNOWN_PLANS[planKey].plan,
         metodoPago: payment.payment_method_id || null,
-        mpPaymentId: paymentId,
-        estado: status,
+        mpPaymentId,
+        mpPreapprovalId: subscription?.mpPreapprovalId || null,
+        estado: paymentStatus,
       },
     }),
+    ...(subscription ? [
+      prisma.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          plan: KNOWN_PLANS[planKey].plan,
+          billingCycle: BillingCycle.MONTHLY,
+          precio: Number(payment.transaction_amount || KNOWN_PLANS[planKey].monthlyPrice),
+          fin: nextAccessEnd,
+          estado: getSubscriptionState(subscription.providerStatus),
+        },
+      }),
+    ] : []),
   ]);
 
   return {
     applied: true,
-    status,
-    plan,
-    billingCycle,
-    planVencimiento: fin,
+    status: paymentStatus,
+    plan: KNOWN_PLANS[planKey].plan,
+    planVencimiento: nextAccessEnd,
   };
 }
 
-// Create MercadoPago preference (requires auth)
-subscriptionsRouter.post("/create-preference", authMiddleware, async (req: AuthRequest, res: Response) => {
+subscriptionsRouter.post("/create-preapproval", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const { planName, price, planKey, billingCycle } = req.body;
+    const planKey = String(req.body?.planKey || "").toUpperCase() as PlanKey;
+    const definition = getPlanDefinition(planKey);
 
-    if (!planName || !price || !planKey || !billingCycle) {
-      res.status(400).json({ error: "Plan, ciclo y precio son requeridos" });
-      return;
-    }
-
-    if (!(planKey in KNOWN_PLANS)) {
+    if (!definition) {
       res.status(400).json({ error: "Plan no soportado" });
       return;
     }
 
-    if (billingCycle !== "monthly" && billingCycle !== "annual") {
-      res.status(400).json({ error: "Ciclo de facturaciÃ³n invÃ¡lido" });
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId },
+      select: {
+        id: true,
+        email: true,
+        planVencimiento: true,
+        trialFin: true,
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: "Usuario no encontrado" });
       return;
     }
 
-    const expectedPrice = KNOWN_PLANS[planKey as PlanKey][billingCycle as BillingCycle];
-    if (Number(price) !== expectedPrice) {
-      res.status(400).json({ error: "Precio invÃ¡lido para el plan seleccionado" });
+    const currentSubscription = await prisma.subscription.findFirst({
+      where: {
+        userId: user.id,
+        mpPreapprovalId: { not: null },
+        providerStatus: {
+          notIn: ["canceled", "cancelled"],
+        },
+      },
+      orderBy: [
+        { createdAt: "desc" },
+        { updatedAt: "desc" },
+      ],
+    });
+
+    if (currentSubscription) {
+      res.status(409).json({ error: "Ya existe una suscripción recurrente en curso para este usuario" });
       return;
     }
 
-    const result = await createPreference(req.userId!, planName, price, planKey, billingCycle);
-    res.json({ id: result.id, init_point: result.init_point });
+    const providerPlan = await ensureProviderPlan(planKey);
+    const preapproval = await createPreapprovalSubscription({
+      preapprovalPlanId: providerPlan.mpPreapprovalPlanId,
+      payerEmail: user.email,
+      externalReference: user.id,
+      reason: providerPlan.reason,
+    });
+
+    if (!preapproval.id || !preapproval.init_point) {
+      throw new Error("Mercado Pago no devolvió el checkout de la suscripción");
+    }
+
+    const now = new Date();
+    const accessEnd = getLatestAccessDate(user, now);
+    const localSubscription = await prisma.subscription.upsert({
+      where: { mpPreapprovalId: String(preapproval.id) },
+      update: {
+        plan: definition.plan,
+        billingCycle: BillingCycle.MONTHLY,
+        precio: providerPlan.price,
+        fin: accessEnd,
+        estado: getSubscriptionState(preapproval.status),
+        providerStatus: normalizeProviderStatus(preapproval.status),
+        mpPreapprovalPlanId: providerPlan.mpPreapprovalPlanId,
+        nextPaymentDate: parseOptionalDate(preapproval.next_payment_date),
+        cancelledAt: null,
+      },
+      create: {
+        userId: user.id,
+        plan: definition.plan,
+        billingCycle: BillingCycle.MONTHLY,
+        precio: providerPlan.price,
+        inicio: now,
+        fin: accessEnd,
+        estado: getSubscriptionState(preapproval.status),
+        providerStatus: normalizeProviderStatus(preapproval.status),
+        mpPreapprovalId: String(preapproval.id),
+        mpPreapprovalPlanId: providerPlan.mpPreapprovalPlanId,
+        nextPaymentDate: parseOptionalDate(preapproval.next_payment_date),
+      },
+    });
+
+    res.json({
+      init_point: preapproval.init_point,
+      subscriptionId: localSubscription.id,
+      providerStatus: normalizeProviderStatus(preapproval.status),
+    });
   } catch (error) {
-    console.error("Error creating MP preference:", error);
-    const mpError = error as { status?: number; code?: string; message?: string };
+    console.error("Error creating MP preapproval:", error);
+    const mpError = error as { status?: number; message?: string };
     if (mpError?.status === 401 || mpError?.status === 403) {
       res.status(502).json({
         error: "Error de configuración de Mercado Pago",
@@ -164,64 +465,94 @@ subscriptionsRouter.post("/create-preference", authMiddleware, async (req: AuthR
       return;
     }
 
-    res.status(500).json({ error: mpError?.message || "Error al crear preferencia de pago" });
+    res.status(500).json({ error: mpError?.message || "No se pudo iniciar la suscripción" });
   }
 });
 
-// MercadoPago Webhook (no auth - called by MP)
+subscriptionsRouter.post("/cancel", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const subscription = await prisma.subscription.findFirst({
+      where: {
+        userId: req.userId,
+        mpPreapprovalId: { not: null },
+        providerStatus: {
+          notIn: ["canceled", "cancelled"],
+        },
+      },
+      orderBy: [
+        { createdAt: "desc" },
+        { updatedAt: "desc" },
+      ],
+    });
+
+    if (!subscription?.mpPreapprovalId) {
+      res.status(404).json({ error: "No hay una suscripción recurrente activa para cancelar" });
+      return;
+    }
+
+    const remote = await cancelPreapproval(subscription.mpPreapprovalId);
+    const updatedSubscription = await syncSubscriptionFromRemote({
+      ...remote,
+      id: remote.id || subscription.mpPreapprovalId,
+      external_reference: req.userId,
+      preapproval_plan_id: remote.preapproval_plan_id || subscription.mpPreapprovalPlanId,
+    });
+
+    res.json({
+      message: "La renovación automática fue cancelada. El acceso se mantiene hasta el fin del período pago.",
+      providerStatus: normalizeProviderStatus(remote.status) || "canceled",
+      planVencimiento: updatedSubscription?.fin || subscription.fin,
+    });
+  } catch (error) {
+    console.error("Cancel subscription error:", error);
+    res.status(500).json({ error: (error as Error)?.message || "No se pudo cancelar la suscripción" });
+  }
+});
+
 subscriptionsRouter.post("/webhook", async (req: Request, res: Response) => {
   try {
-    const dataId = req.body?.data?.id || req.query["data.id"] || req.query.id;
-    if (dataId) {
-      const payment = await getPaymentById(String(dataId));
-      await applyApprovedPayment(payment);
+    const topic = String(req.body?.type || req.query.type || req.query.topic || "").toLowerCase();
+    const dataId = String(req.body?.data?.id || req.query["data.id"] || req.query.id || "");
+
+    if (!dataId) {
+      res.status(200).send("OK");
+      return;
+    }
+
+    if (topic === "payment") {
+      const payment = await getPaymentById(dataId);
+      await applyApprovedRecurringPayment(payment);
+      res.status(200).send("OK");
+      return;
+    }
+
+    if (topic === "subscription_preapproval" || topic === "subscription") {
+      const preapproval = await getPreapprovalById(dataId);
+      await syncSubscriptionFromRemote(preapproval);
     }
 
     res.status(200).send("OK");
   } catch (error) {
     console.error("Webhook error:", error);
-    res.status(200).send("OK"); // Always return 200 to MP
+    res.status(200).send("OK");
   }
 });
 
-// Confirm payment on return URL (useful in local dev without public webhook)
-subscriptionsRouter.post("/confirm", authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const paymentId = req.body?.paymentId || req.body?.payment_id;
-    if (!paymentId) {
-      res.status(400).json({ error: "paymentId es requerido" });
-      return;
-    }
-
-    const payment = await getPaymentById(String(paymentId));
-    const externalReference = String((payment as any).external_reference || "");
-    if (externalReference && externalReference !== req.userId) {
-      res.status(403).json({ error: "Pago no corresponde al usuario autenticado" });
-      return;
-    }
-
-    const result = await applyApprovedPayment(payment, req.userId);
-    res.json(result);
-  } catch (error) {
-    console.error("Confirm payment error:", error);
-    const msg = (error as Error)?.message || "No se pudo confirmar el pago";
-    res.status(500).json({ error: msg });
-  }
-});
-
-// Get current subscription (requires auth)
 subscriptionsRouter.get("/current", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.userId },
-      select: {
-        plan: true,
-        planVencimiento: true,
-        trialFin: true,
-        estado: true,
-        createdAt: true,
-      },
-    });
+    const [user, subscription] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: req.userId },
+        select: {
+          plan: true,
+          planVencimiento: true,
+          trialFin: true,
+          estado: true,
+          createdAt: true,
+        },
+      }),
+      findLatestLocalRecurringSubscription(req.userId!),
+    ]);
 
     if (!user) {
       res.status(404).json({ error: "Usuario no encontrado" });
@@ -245,6 +576,11 @@ subscriptionsRouter.get("/current", authMiddleware, async (req: AuthRequest, res
       estado: user.estado,
       mostrarAviso,
       accesoBloqueado,
+      billingCycle: subscription?.billingCycle || null,
+      providerStatus: normalizeProviderStatus(subscription?.providerStatus),
+      nextPaymentDate: subscription?.nextPaymentDate || null,
+      cancelledAt: subscription?.cancelledAt || null,
+      canCancel: !!subscription?.mpPreapprovalId && isCancelableStatus(subscription.providerStatus),
     });
   } catch (error) {
     console.error("Current subscription error:", error);
@@ -252,7 +588,6 @@ subscriptionsRouter.get("/current", authMiddleware, async (req: AuthRequest, res
   }
 });
 
-// Get payment history (requires auth)
 subscriptionsRouter.get("/payments", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const payments = await prisma.payment.findMany({

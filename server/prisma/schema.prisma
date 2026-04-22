@@ -16,6 +16,11 @@ enum PlanType {
   AGENCIA
 }
 
+enum BillingCycle {
+  MONTHLY
+  ANNUAL
+}
+
 enum UserStatus {
   ACTIVO
   INACTIVO
@@ -206,34 +211,60 @@ model Referral {
 }
 
 model Subscription {
-  id          String   @id @default(uuid())
-  userId      String
-  plan        PlanType
-  precio      Float
-  inicio      DateTime
-  fin         DateTime
-  estado      String   @default("activo")
-  mpPaymentId String?
-  createdAt   DateTime @default(now())
+  id                 String       @id @default(uuid())
+  userId             String
+  plan               PlanType
+  billingCycle       BillingCycle @default(MONTHLY)
+  precio             Float
+  inicio             DateTime
+  fin                DateTime
+  estado             String       @default("activo")
+  providerStatus     String?
+  mpPaymentId        String?
+  mpPreapprovalId    String?      @unique
+  mpPreapprovalPlanId String?
+  nextPaymentDate    DateTime?
+  cancelledAt        DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([mpPreapprovalPlanId])
 }
 
 model Payment {
-  id          String   @id @default(uuid())
-  userId      String
-  monto       Float
-  plan        String
-  metodoPago  String?
-  mpPaymentId String?
-  estado      String
-  createdAt   DateTime @default(now())
+  id             String   @id @default(uuid())
+  userId         String
+  monto          Float
+  plan           String
+  metodoPago     String?
+  mpPaymentId    String?
+  mpPreapprovalId String?
+  estado         String
+  createdAt      DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([mpPaymentId])
+  @@index([mpPreapprovalId])
+}
+
+model SubscriptionProviderPlan {
+  id                String       @id @default(uuid())
+  plan              PlanType
+  billingCycle      BillingCycle
+  price             Float
+  reason            String
+  status            String
+  mpPreapprovalPlanId String     @unique
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@unique([plan, billingCycle])
+  @@index([status])
 }
 
 model LandingContactLead {

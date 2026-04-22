@@ -36,6 +36,7 @@ Nota: en Blueprints de Render, si no definís `plan`, los recursos nuevos se cre
   - `JWT_SECRET`: se genera automáticamente
   - `MP_ACCESS_TOKEN`: token de Mercado Pago
   - `APP_URL`: toma la URL pública del frontend (`RENDER_EXTERNAL_URL`)
+  - Webhook de suscripciones: configurar manualmente en Mercado Pago Developers la URL `https://TU_API_PUBLICA/api/subscriptions/webhook`
 
 - Frontend (`pas-alert-web`)
   - `VITE_API_URL`: toma la URL pública del backend (`RENDER_EXTERNAL_URL`)
@@ -48,5 +49,8 @@ Nota: en Blueprints de Render, si no definís `plan`, los recursos nuevos se cre
    - `DATABASE_URL` con tu conexión compartida + schema aislado, por ejemplo:
      `postgresql://.../basefree?schema=pas_alert_nico`
    - `MP_ACCESS_TOKEN`.
-4. Elegir un schema único (`pas_alert_nico`, `pas_alert_prod`, etc.) para no mezclar tablas con otros proyectos.
-5. Esperar a que termine el deploy de API + frontend.
+4. Ejecutar la migración nueva de Prisma si el entorno no usa el `startCommand` del blueprint:
+   - `cd server && npx prisma migrate deploy`
+5. Elegir un schema único (`pas_alert_nico`, `pas_alert_prod`, etc.) para no mezclar tablas con otros proyectos.
+6. Configurar en Mercado Pago Developers el webhook de suscripciones hacia `https://TU_API_PUBLICA/api/subscriptions/webhook`.
+7. Esperar a que termine el deploy de API + frontend.

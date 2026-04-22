@@ -6,6 +6,7 @@ import {
   TableHead, TableRow, Paper, ToggleButtonGroup, ToggleButton
 } from '@mui/material';
 import { CheckCircle2, CreditCard, Shield, Clock } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 
 type BillingCycle = 'monthly' | 'annual';
@@ -106,30 +107,64 @@ const PLANS: PlanDefinition[] = [
 ];
 
 export const PaymentPage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<any>(null);
   const [payments, setPayments] = useState<any[]>([]);
   const [fetching, setFetching] = useState(true);
+  const [subscribeError, setSubscribeError] = useState<string | null>(null);
+  const [subscribeSuccess, setSubscribeSuccess] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('annual');
 
   useEffect(() => {
-    Promise.all([api.subscriptions.current(), api.subscriptions.payments()])
-      .then(([sub, pay]) => { setSubscription(sub); setPayments(pay); })
-      .catch(console.error)
-      .finally(() => setFetching(false));
-  }, []);
+    const load = async () => {
+      try {
+        const params = new URLSearchParams(location.search);
+        const paymentStatus = params.get('payment');
+        const paymentId = params.get('payment_id');
+
+        if (paymentStatus === 'success' && paymentId) {
+          const confirmation = await api.subscriptions.confirm(paymentId);
+          if (confirmation?.status === 'approved' || confirmation?.status === 'already_processed') {
+            setSubscribeSuccess('Pago acreditado. Suscripción actualizada.');
+            setTimeout(() => navigate('/app/dashboard?payment=success', { replace: true }), 1200);
+          }
+        }
+
+        if (paymentStatus === 'failure') {
+          setSubscribeError('El pago fue rechazado o cancelado.');
+        } else if (paymentStatus === 'pending') {
+          setSubscribeError('El pago quedó pendiente. Te avisaremos cuando se acredite.');
+        }
+
+        const [sub, pay] = await Promise.all([api.subscriptions.current(), api.subscriptions.payments()]);
+        setSubscription(sub);
+        setPayments(pay);
+      } catch (error) {
+        console.error(error);
+        setSubscribeError(error instanceof Error ? error.message : 'No se pudo cargar suscripción');
+      } finally {
+        setFetching(false);
+      }
+    };
+
+    load();
+  }, [location.search, navigate]);
 
   const handleSubscribe = async (plan: PlanDefinition) => {
+    setSubscribeError(null);
     setLoading(plan.key);
     try {
       const selectedPrice = billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice;
       const selectedBilling = billingCycle === 'annual' ? 'Anual' : 'Mensual';
-      const data = await api.subscriptions.createPreference(`${plan.name} (${selectedBilling})`, selectedPrice);
+      const data = await api.subscriptions.createPreference(`${plan.name} (${selectedBilling})`, selectedPrice, plan.key, billingCycle);
       if (data.init_point) {
         window.location.href = data.init_point;
       }
     } catch (error) {
       console.error('Error:', error);
+      setSubscribeError(error instanceof Error ? error.message : 'No se pudo iniciar el pago');
     } finally {
       setLoading(null);
     }
@@ -143,6 +178,16 @@ export const PaymentPage: React.FC = () => {
   return (
     <Box>
       <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>Suscripción y Pagos</Typography>
+      {subscribeSuccess && (
+        <Typography sx={{ mb: 2, color: 'success.main', fontWeight: 700 }}>
+          {subscribeSuccess}
+        </Typography>
+      )}
+      {subscribeError && (
+        <Typography sx={{ mb: 2, color: 'error.main', fontWeight: 600 }}>
+          {subscribeError}
+        </Typography>
+      )}
       <Typography variant="h3" sx={{ fontWeight: 800, mb: 2, textAlign: 'center', fontSize: { xs: '2rem', md: '2.3rem' } }}>
         Elige el plan perfecto para tu negocio
       </Typography>
@@ -303,11 +348,11 @@ export const PaymentPage: React.FC = () => {
                 <Typography variant="body2">Plan Actual:</Typography>
                 <Chip label={planLabel} color="info" size="small" sx={{ fontWeight: 700 }} />
               </Box>
-              {subscription?.vencimiento && (
+              {subscription?.planVencimiento && (
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="body2">Vencimiento:</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {new Date(subscription.vencimiento).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    {new Date(subscription.planVencimiento).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </Typography>
                 </Box>
               )}

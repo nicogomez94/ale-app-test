@@ -45,7 +45,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ error: "Error del servidor" }));
-    throw new Error(error.error || "Error del servidor");
+    throw new Error(error.details || error.error || "Error del servidor");
   }
 
   // Handle blob responses (Excel export)
@@ -208,10 +208,20 @@ export const api = {
   // Subscriptions
   subscriptions: {
     current: () => request<any>("/subscriptions/current"),
-    createPreference: (planName: string, price: number) =>
+    createPreference: (
+      planName: string,
+      price: number,
+      planKey?: string,
+      billingCycle?: "monthly" | "annual"
+    ) =>
       request<{ id: string; init_point: string }>("/subscriptions/create-preference", {
         method: "POST",
-        body: JSON.stringify({ planName, price }),
+        body: JSON.stringify({ planName, price, planKey, billingCycle }),
+      }),
+    confirm: (paymentId: string) =>
+      request<any>("/subscriptions/confirm", {
+        method: "POST",
+        body: JSON.stringify({ paymentId }),
       }),
     payments: () => request<any[]>("/subscriptions/payments"),
   },

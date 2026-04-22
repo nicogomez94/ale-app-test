@@ -20,6 +20,10 @@ function getClient(): MercadoPagoConfig {
   return new MercadoPagoConfig({ accessToken });
 }
 
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
 export async function createPreference(
   userId: string,
   planName: string,
@@ -28,8 +32,11 @@ export async function createPreference(
   billingCycle?: "monthly" | "annual"
 ) {
 
-  const appUrl = process.env.APP_URL || "http://localhost:5173";
-  const webhookUrl = process.env.MP_WEBHOOK_URL;
+  const appUrl = trimTrailingSlash(process.env.APP_URL || "http://localhost:5173");
+  const publicApiUrl = trimTrailingSlash(process.env.RENDER_EXTERNAL_URL || "");
+  const webhookUrl = process.env.MP_WEBHOOK_URL || (isPublicHttpUrl(publicApiUrl)
+    ? `${publicApiUrl}/api/subscriptions/webhook`
+    : undefined);
   const client = getClient();
   const preference = new Preference(client);
 

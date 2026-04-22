@@ -23,6 +23,7 @@ type PlanDefinition = {
   accentColor: string;
   buttonColor: string;
   features: string[];
+  available?: boolean;
 };
 
 const PRICE_FORMATTER = new Intl.NumberFormat('es-AR');
@@ -78,9 +79,10 @@ const PLANS: PlanDefinition[] = [
     name: 'Pro+',
     monthlyPrice: 22900,
     annualPrice: 229000,
-    buttonLabel: 'Escalar ahora',
+    buttonLabel: 'Próximamente',
     accentColor: '#6f42c1',
     buttonColor: '#6f42c1',
+    available: false,
     features: [
       'Todo Profesional',
       'Hasta 300 pólizas',
@@ -213,6 +215,7 @@ export const PaymentPage: React.FC = () => {
         {PLANS.map((plan) => {
           const isCurrent = plan.key === currentPlan;
           const isPopular = plan.key === 'PROFESIONAL';
+          const isDisabled = isCurrent || loading === plan.key || plan.available === false;
 
           return (
             <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={plan.name}>
@@ -300,8 +303,11 @@ export const PaymentPage: React.FC = () => {
                   <Button
                     variant="contained"
                     fullWidth
-                    disabled={isCurrent || loading === plan.key}
-                    onClick={() => handleSubscribe(plan)}
+                    disabled={isDisabled}
+                    onClick={() => {
+                      if (plan.available === false) return;
+                      handleSubscribe(plan);
+                    }}
                     sx={{
                       borderRadius: 2,
                       fontWeight: 700,

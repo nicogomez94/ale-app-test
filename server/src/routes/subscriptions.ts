@@ -17,7 +17,7 @@ type BillingCycle = "monthly" | "annual";
 function normalizePlanKey(value?: string): PlanKey {
   const v = (value || "").toUpperCase();
   if (v === "EMPRENDEDOR" || v.includes("STARTER")) return "EMPRENDEDOR";
-  if (v === "PROFESIONAL" || v.includes("PROFESIONAL") || v.includes("PRO+")) return "PROFESIONAL";
+  if (v === "PROFESIONAL" || v.includes("PROFESIONAL") || v.includes("PRO+") || v.includes("PRO_PLUS")) return "PROFESIONAL";
   if (v === "AGENCIA") return "AGENCIA";
   return "EMPRENDEDOR";
 }
@@ -69,7 +69,19 @@ async function applyApprovedPayment(paymentRaw: any, fallbackUserId?: string) {
   const billingCycle = normalizeBillingCycle(metadata.billingCycle || metadata.planName || titleFromItem) || inferredFromAmount.billingCycle;
   const months = billingCycle === "annual" ? 12 : 1;
   const now = new Date();
-  const fin = new Date(now);
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { planVencimiento: true },
+  });
+
+  if (!user) {
+    throw new Error("Usuario no encontrado para aplicar el pago");
+  }
+
+  const inicio = user.planVencimiento && user.planVencimiento > now
+    ? new Date(user.planVencimiento)
+    : now;
+  const fin = new Date(inicio);
   fin.setMonth(fin.getMonth() + months);
 
   await prisma.$transaction([
@@ -86,7 +98,7 @@ async function applyApprovedPayment(paymentRaw: any, fallbackUserId?: string) {
         userId,
         plan,
         precio: amount,
-        inicio: now,
+        inicio,
         fin,
         estado: "activo",
         mpPaymentId: paymentId,
@@ -118,8 +130,24 @@ subscriptionsRouter.post("/create-preference", authMiddleware, async (req: AuthR
   try {
     const { planName, price, planKey, billingCycle } = req.body;
 
-    if (!planName || !price) {
-      res.status(400).json({ error: "Plan y precio son requeridos" });
+    if (!planName || !price || !planKey || !billingCycle) {
+      res.status(400).json({ error: "Plan, ciclo y precio son requeridos" });
+      return;
+    }
+
+    if (!(planKey in KNOWN_PLANS)) {
+      res.status(400).json({ error: "Plan no soportado" });
+      return;
+    }
+
+    if (billingCycle !== "monthly" && billingCycle !== "annual") {
+      res.status(400).json({ error: "Ciclo de facturaciÃ³n invÃ¡lido" });
+      return;
+    }
+
+    const expectedPrice = KNOWN_PLANS[planKey as PlanKey][billingCycle as BillingCycle];
+    if (Number(price) !== expectedPrice) {
+      res.status(400).json({ error: "Precio invÃ¡lido para el plan seleccionado" });
       return;
     }
 

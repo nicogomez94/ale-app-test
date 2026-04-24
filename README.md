@@ -35,8 +35,9 @@ Nota: en Blueprints de Render, si no definís `plan`, los recursos nuevos se cre
   - `DATABASE_URL`: URL de la base compartida incluyendo `?schema=pas_alert_nico` (o el schema único que elijas)
   - `JWT_SECRET`: se genera automáticamente
   - `MP_ACCESS_TOKEN`: token de Mercado Pago
+  - `MP_WEBHOOK_URL`: opcional, para forzar la URL pública del webhook si no querés depender de `RENDER_EXTERNAL_URL`
   - `APP_URL`: toma la URL pública del frontend (`RENDER_EXTERNAL_URL`)
-  - Webhook de suscripciones: configurar manualmente en Mercado Pago Developers la URL `https://TU_API_PUBLICA/api/subscriptions/webhook`
+  - Webhook de suscripciones: el backend intenta autocompletar `notification_url` usando `MP_WEBHOOK_URL` o `RENDER_EXTERNAL_URL`, pero igual conviene dejar la URL visible/configurada en Mercado Pago Developers para pruebas y auditoría
 
 - Frontend (`pas-alert-web`)
   - `VITE_API_URL`: toma la URL pública del backend (`RENDER_EXTERNAL_URL`)

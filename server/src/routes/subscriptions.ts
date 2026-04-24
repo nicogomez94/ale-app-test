@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import crypto from "crypto";
 import { BillingCycle, PlanType } from "../../node_modules/.prisma/client/default.js";
 import prisma from "../lib/prisma.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
@@ -6,6 +7,7 @@ import {
   cancelPreapproval,
   createPreapprovalPlan,
   createPreapprovalSubscription,
+  getAuthorizedPaymentById,
   getPaymentById,
   getPreapprovalById,
   searchPreapprovalPlans,
@@ -33,6 +35,51 @@ const KNOWN_PLANS = {
 } as const;
 
 type PlanKey = keyof typeof KNOWN_PLANS;
+
+function getHeaderValue(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] || "";
+  return value || "";
+}
+
+function parseSignatureHeader(signatureHeader: string) {
+  const parts = signatureHeader.split(",");
+  let ts = "";
+  let v1 = "";
+
+  for (const part of parts) {
+    const [rawKey, rawValue] = part.split("=");
+    const key = rawKey?.trim();
+    const value = rawValue?.trim();
+    if (key === "ts") ts = value || "";
+    if (key === "v1") v1 = value || "";
+  }
+
+  return { ts, v1 };
+}
+
+function validateWebhookSignature(req: Request): boolean {
+  const secret = process.env.MP_WEBHOOK_SECRET?.trim();
+  if (!secret) return true;
+
+  const signatureHeader = getHeaderValue(req.headers["x-signature"]);
+  const requestIdHeader = getHeaderValue(req.headers["x-request-id"]);
+  if (!signatureHeader || !requestIdHeader) return false;
+
+  const { ts, v1 } = parseSignatureHeader(signatureHeader);
+  if (!ts || !v1) return false;
+
+  const dataId = String(req.body?.data?.id || req.query["data.id"] || req.query.id || "").toLowerCase();
+  if (!dataId) return false;
+
+  const manifest = `id:${dataId};request-id:${requestIdHeader};ts:${ts};`;
+  const expected = crypto.createHmac("sha256", secret).update(manifest).digest("hex");
+
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(v1));
+  } catch {
+    return false;
+  }
+}
 
 function getPlanDefinition(planKey?: string) {
   if (!planKey) return null;
@@ -363,6 +410,17 @@ async function applyApprovedRecurringPayment(paymentRaw: any) {
   };
 }
 
+function normalizeAuthorizedPayment(raw: any) {
+  return {
+    id: raw?.id,
+    status: raw?.status,
+    external_reference: raw?.external_reference,
+    transaction_amount: raw?.transaction_amount,
+    payment_method_id: raw?.payment_method_id,
+    payer: raw?.payer,
+  };
+}
+
 subscriptionsRouter.post("/create-preapproval", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const planKey = String(req.body?.planKey || "").toUpperCase() as PlanKey;
@@ -511,6 +569,11 @@ subscriptionsRouter.post("/cancel", authMiddleware, async (req: AuthRequest, res
 
 subscriptionsRouter.post("/webhook", async (req: Request, res: Response) => {
   try {
+    if (!validateWebhookSignature(req)) {
+      res.status(401).send("invalid signature");
+      return;
+    }
+
     const topic = String(req.body?.type || req.query.type || req.query.topic || "").toLowerCase();
     const dataId = String(req.body?.data?.id || req.query["data.id"] || req.query.id || "");
 
@@ -522,6 +585,13 @@ subscriptionsRouter.post("/webhook", async (req: Request, res: Response) => {
     if (topic === "payment") {
       const payment = await getPaymentById(dataId);
       await applyApprovedRecurringPayment(payment);
+      res.status(200).send("OK");
+      return;
+    }
+
+    if (topic === "subscription_authorized_payment") {
+      const authorizedPayment = await getAuthorizedPaymentById(dataId);
+      await applyApprovedRecurringPayment(normalizeAuthorizedPayment(authorizedPayment));
       res.status(200).send("OK");
       return;
     }

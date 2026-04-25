@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import prisma from "../lib/prisma.js";
 import { generateToken, authMiddleware, AuthRequest } from "../middleware/auth.js";
+import { sendEmail } from "../lib/email.js";
 
 export const authRouter = Router();
 
@@ -186,12 +187,17 @@ authRouter.post("/forgot-password", async (req: Request, res: Response) => {
       data: { resetToken, resetTokenExpiry },
     });
 
-    // In production, send this via email. For now, log it.
-    console.log(`\n=== CÓDIGO DE RECUPERACIÓN ===`);
-    console.log(`Email: ${email}`);
-    console.log(`Código: ${resetToken}`);
-    console.log(`Expira: ${resetTokenExpiry.toLocaleString()}`);
-    console.log(`==============================\n`);
+    // Send recovery code via email (fire-and-forget — never fail the HTTP response)
+    sendEmail({
+      name: user.nombre,
+      email: user.email,
+      to: user.email,
+      message: `Tu código de recuperación de contraseña es: ${resetToken}\n\nEste código expira en 15 minutos.\n\nSi no solicitaste este código, ignorá este mensaje.`,
+    }).catch((err) => {
+      console.error("Error enviando email de recuperación:", err);
+      // Fallback for dev environments
+      console.log(`[DEV] Código de recuperación para ${email}: ${resetToken}`);
+    });
 
     res.json({ message: "Si el email está registrado, recibirás un código de recuperación." });
   } catch (error) {

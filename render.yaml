@@ -18,6 +18,10 @@ services:
           type: web
           name: pas-alert-web
           envVarKey: RENDER_EXTERNAL_URL
+      - key: MAIL_SITE
+        value: PAS Alert
+      - key: MAIL_TO
+        value: nicolasgomez94@gmail.com
 
   - type: web
     name: pas-alert-web

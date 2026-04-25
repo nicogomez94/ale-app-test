@@ -18,6 +18,7 @@ import { adminRouter } from "./routes/admin.js";
 import { publicRouter } from "./routes/public.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { subscriptionGuard } from "./middleware/subscriptionGuard.js";
+import { startSubscriptionReminders } from "./lib/subscriptionReminders.js";
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3001");
@@ -49,3 +50,5 @@ app.get("/api/health", (_req, res) => {
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`PAS Alert Server running on http://localhost:${PORT}`);
 });
+
+startSubscriptionReminders();

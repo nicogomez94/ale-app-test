@@ -587,7 +587,7 @@ export const PaymentPage: React.FC = () => {
               ) : (
                 <Box sx={{ textAlign: 'center', py: 2, opacity: 0.5 }}>
                   <CreditCard size={32} style={{ marginBottom: 8 }} />
-                  <Typography variant="body2">No hay pagos recurrentes registrados.</Typography>
+                  <Typography variant="body2">No hay datos</Typography>
                 </Box>
               )}
             </CardContent>

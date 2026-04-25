@@ -150,6 +150,13 @@ export const LifeAndFinancePage: React.FC = () => {
                   </TableCell>
                 </TableRow>
               ))}
+              {policies.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={currentType === 'RETIRO' ? 7 : 6} sx={{ textAlign: 'center', py: 5, color: 'text.secondary', fontWeight: 600 }}>
+                    No hay datos
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </TableContainer>

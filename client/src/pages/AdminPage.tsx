@@ -242,8 +242,8 @@ export const AdminPage = () => {
             ))}
             {users.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
-                  No se encontraron usuarios
+                <TableCell colSpan={9} align="center" sx={{ py: 5, color: 'text.secondary', fontWeight: 600 }}>
+                  No hay datos
                 </TableCell>
               </TableRow>
             )}

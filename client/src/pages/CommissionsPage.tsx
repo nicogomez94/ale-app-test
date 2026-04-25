@@ -232,8 +232,8 @@ export const CommissionsPage: React.FC = () => {
                   </TableRow>
                 )) : (
                   <TableRow>
-                    <TableCell colSpan={4} sx={{ textAlign: 'center', py: 4, opacity: 0.5 }}>
-                      No hay cierres realizados. Usa el botón "Cierre Mensual" para generar el primer cierre.
+                    <TableCell colSpan={4} sx={{ textAlign: 'center', py: 5, color: 'text.secondary', fontWeight: 600 }}>
+                      No hay datos
                     </TableCell>
                   </TableRow>
                 )}

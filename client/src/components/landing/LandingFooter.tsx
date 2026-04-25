@@ -7,7 +7,7 @@ export function LandingFooter() {
         <div className="footer-brand">
           <Link className="brand" to="/">
             <span className="brand-mark">
-              <img src="/assets/ad.svg" alt="AD Seguros" />
+              <img src="/assets/pasalert.png" alt="PAS Alert" />
             </span>
           </Link>
           <p>Productora de seguros con asesoramiento personalizado para autos, hogar y comercio.</p>

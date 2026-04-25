@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../api';
 
 interface User {
@@ -79,9 +79,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
-  const updateUser = (data: Partial<User>) => {
+  const updateUser = useCallback((data: Partial<User>) => {
     setUser(prev => prev ? { ...prev, ...data } : null);
-  };
+  }, []);
 
   return (
     <AuthContext.Provider value={{

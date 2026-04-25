@@ -195,6 +195,13 @@ export const ClientsPage: React.FC = () => {
                 </TableCell>
               </TableRow>
             ))}
+            {filteredClients.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} sx={{ textAlign: 'center', py: 5, color: 'text.secondary', fontWeight: 600 }}>
+                  No hay datos
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </TableContainer>

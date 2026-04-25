@@ -132,8 +132,8 @@ const PolicyTable = ({
             })}
             {policies.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
-                  No hay pólizas para mostrar.
+                <TableCell colSpan={6} sx={{ textAlign: 'center', py: 5, color: 'text.secondary', fontWeight: 600 }}>
+                  No hay datos
                 </TableCell>
               </TableRow>
             )}
@@ -225,8 +225,8 @@ const LifeFinanceTable = ({
             ))}
             {policies.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
-                  No hay pólizas de Vida y Finanzas para mostrar.
+                <TableCell colSpan={6} sx={{ textAlign: 'center', py: 5, color: 'text.secondary', fontWeight: 600 }}>
+                  No hay datos
                 </TableCell>
               </TableRow>
             )}
@@ -450,7 +450,7 @@ export const Dashboard: React.FC = () => {
                   </Box>
                 ))}
                 {alerts.length === 0 && (
-                  <Typography variant="body2" color="text.secondary">No hay alertas nuevas.</Typography>
+                  <Typography variant="body2" color="text.secondary">No hay datos</Typography>
                 )}
               </Box>
             </CardContent>

@@ -165,6 +165,13 @@ export const CompaniesPage: React.FC = () => {
                   </TableCell>
                 </TableRow>
               ))}
+              {companies.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} sx={{ textAlign: 'center', py: 5, color: 'text.secondary', fontWeight: 600 }}>
+                    No hay datos
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </TableContainer>

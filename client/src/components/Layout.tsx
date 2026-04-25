@@ -29,9 +29,9 @@ const Logo = () => (
   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
     <Box
       component="img"
-      src="/assets/adsystemlogo.svg"
-      alt="AD System"
-      sx={{ height: { xs: 64, sm: 72 }, width: 'auto', display: 'block' }}
+      src="/assets/pasalert.png"
+      alt="PAS Alert"
+      sx={{ height: { xs: 64, sm: 72 }, width: 'auto', maxWidth: '100%', objectFit: 'contain', display: 'block' }}
     />
   </Box>
 );

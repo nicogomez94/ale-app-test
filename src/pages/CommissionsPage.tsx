@@ -215,6 +215,13 @@ export const CommissionsPage: React.FC = () => {
                     </TableCell>
                   </TableRow>
                 ))}
+                {data.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} sx={{ textAlign: 'center', py: 5, color: 'text.secondary', fontWeight: 600 }}>
+                      No hay datos
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </TableContainer>

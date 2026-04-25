@@ -15,7 +15,7 @@ export function LandingHeader({ showSystemLink = false }: LandingHeaderProps) {
         <div className="topbar-inner">
           <Link className="brand scroll-anim" data-anim="slam-up" to="/">
             <span className="brand-mark">
-              <img src="/assets/ad.svg" alt="AD Seguros" />
+              <img src="/assets/pasalert.png" alt="PAS Alert" />
             </span>
           </Link>
           <nav className="menu">

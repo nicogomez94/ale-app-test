@@ -241,5 +241,9 @@ export const api = {
       request<any>(`/admin/users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     deleteUser: (id: string) =>
       request<any>(`/admin/users/${id}`, { method: "DELETE" }),
+    runJobs: () =>
+      request<any>("/admin/run-jobs", { method: "POST" }),
+    testSeed: (userId: string, scenario: string) =>
+      request<any>("/admin/test-seed", { method: "POST", body: JSON.stringify({ userId, scenario }) }),
   },
 };

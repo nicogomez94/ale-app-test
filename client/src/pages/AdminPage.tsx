@@ -4,8 +4,9 @@ import {
   TableContainer, TableHead, TableRow, Paper, TextField, InputAdornment,
   Chip, IconButton, Select, MenuItem, Dialog, DialogTitle, DialogContent,
   DialogContentText, DialogActions, Button, Snackbar, Alert, CircularProgress,
+  Divider, Tooltip,
 } from '@mui/material';
-import { Search, Users, Shield, FileText, Building2, Trash2 } from 'lucide-react';
+import { Search, Users, Shield, FileText, Building2, Trash2, FlaskConical, Play } from 'lucide-react';
 import { api } from '../api';
 
 interface AdminStats {
@@ -51,6 +52,11 @@ export const AdminPage = () => {
   const [loading, setLoading] = useState(true);
   const [deleteDialog, setDeleteDialog] = useState<AdminUser | null>(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+  // Testing Lab state
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [jobLoading, setJobLoading] = useState(false);
+  const [seedLoading, setSeedLoading] = useState('');
 
   const loadData = useCallback(async () => {
     try {
@@ -107,6 +113,36 @@ export const AdminPage = () => {
   const formatDate = (d: string | null) => {
     if (!d) return '—';
     return new Date(d).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const handleRunJobs = async () => {
+    setJobLoading(true);
+    try {
+      const res = await api.admin.runJobs();
+      setSnackbar({ open: true, message: `Jobs ejecutados: ${JSON.stringify(res.results)}`, severity: 'success' });
+      loadData();
+    } catch (err: any) {
+      setSnackbar({ open: true, message: err.message, severity: 'error' });
+    } finally {
+      setJobLoading(false);
+    }
+  };
+
+  const handleTestSeed = async (scenario: string) => {
+    if (!selectedUserId) {
+      setSnackbar({ open: true, message: 'Seleccioná un usuario primero', severity: 'error' });
+      return;
+    }
+    setSeedLoading(scenario);
+    try {
+      const res = await api.admin.testSeed(selectedUserId, scenario);
+      setSnackbar({ open: true, message: res.message || 'Escenario aplicado', severity: 'success' });
+      loadData();
+    } catch (err: any) {
+      setSnackbar({ open: true, message: err.message, severity: 'error' });
+    } finally {
+      setSeedLoading('');
+    }
   };
 
   if (loading) {
@@ -180,6 +216,85 @@ export const AdminPage = () => {
         }}
         sx={{ mb: 3 }}
       />
+
+      {/* Testing Lab */}
+      <Card sx={{ borderRadius: 3, mb: 4, border: '1.5px dashed', borderColor: 'warning.main', bgcolor: 'warning.50' }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <FlaskConical size={20} color="#ed6c02" />
+            <Typography variant="h6" sx={{ fontWeight: 700, color: 'warning.dark' }}>
+              Laboratorio de Testing
+            </Typography>
+            <Chip label="Solo admins" size="small" color="warning" sx={{ ml: 1 }} />
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Modificá fechas y estados en la DB para simular escenarios sin esperar. Después usá "Ejecutar Jobs" para ver el resultado.
+          </Typography>
+
+          <Divider sx={{ mb: 2 }} />
+
+          {/* Run Jobs */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={jobLoading ? <CircularProgress size={16} color="inherit" /> : <Play size={16} />}
+              onClick={handleRunJobs}
+              disabled={jobLoading}
+            >
+              Ejecutar Jobs Ahora
+            </Button>
+            <Typography variant="caption" color="text.secondary">
+              Corre actualización de estados de pólizas, reset de referidos y envío de recordatorios.
+            </Typography>
+          </Box>
+
+          <Divider sx={{ mb: 2 }} />
+
+          {/* User selector + scenarios */}
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Simular escenario para usuario:</Typography>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Select
+              size="small"
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+              displayEmpty
+              sx={{ minWidth: 220 }}
+            >
+              <MenuItem value="" disabled>Seleccionar usuario...</MenuItem>
+              {users.map((u) => (
+                <MenuItem key={u.id} value={u.id}>{u.nombre} ({u.email})</MenuItem>
+              ))}
+            </Select>
+          </Box>
+
+          {[
+            { scenario: 'expiring_1d', label: 'Suscripción vence en 1 día', color: 'error' as const },
+            { scenario: 'expiring_3d', label: 'Suscripción vence en 3 días', color: 'warning' as const },
+            { scenario: 'expired', label: 'Suscripción vencida', color: 'error' as const },
+            { scenario: 'day1_referrals', label: 'Simular día 1 (reset referidos)', color: 'info' as const },
+            { scenario: 'policy_vencida', label: 'Póliza vencida', color: 'error' as const },
+            { scenario: 'policy_vence_pronto', label: 'Póliza vence pronto (3 días)', color: 'warning' as const },
+          ].map(({ scenario, label, color }) => (
+            <Tooltip key={scenario} title={!selectedUserId ? 'Seleccioná un usuario primero' : ''}>
+              <span>
+                <Button
+                  key={scenario}
+                  variant="outlined"
+                  color={color}
+                  size="small"
+                  sx={{ mt: 1, mr: 1 }}
+                  disabled={!selectedUserId || seedLoading === scenario}
+                  startIcon={seedLoading === scenario ? <CircularProgress size={14} color="inherit" /> : null}
+                  onClick={() => handleTestSeed(scenario)}
+                >
+                  {label}
+                </Button>
+              </span>
+            </Tooltip>
+          ))}
+        </CardContent>
+      </Card>
 
       {/* Users Table */}
       <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>

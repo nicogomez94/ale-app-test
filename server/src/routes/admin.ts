@@ -79,6 +79,7 @@ adminRouter.get("/users", async (req: AuthRequest, res: Response) => {
         plan: true,
         estado: true,
         isAdmin: true,
+        isTestUser: true,
         planVencimiento: true,
         trialFin: true,
         lastLogin: true,
@@ -105,11 +106,12 @@ adminRouter.get("/users", async (req: AuthRequest, res: Response) => {
 adminRouter.put("/users/:id", async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { plan, estado } = req.body;
+    const { plan, estado, isTestUser } = req.body;
 
     const data: Record<string, unknown> = {};
     if (plan) data.plan = plan;
     if (estado) data.estado = estado;
+    if (typeof isTestUser === "boolean") data.isTestUser = isTestUser;
 
     // If changing to a paid plan, set planVencimiento to 30 days from now
     if (plan && plan !== "TRIAL") {
@@ -155,12 +157,12 @@ adminRouter.delete("/users/:id", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// POST /api/admin/run-jobs — manually trigger all periodic jobs
+// POST /api/admin/run-jobs — manually trigger all periodic jobs (only for test users)
 adminRouter.post("/run-jobs", async (_req: AuthRequest, res: Response) => {
   try {
-    console.log("[Admin] Disparo manual de jobs periódicos...");
-    const results = await runJobsNow();
-    res.json({ message: "Jobs ejecutados", results });
+    console.log("[Admin] Disparo manual de jobs periódicos (solo usuarios de prueba)...");
+    const results = await runJobsNow(true);
+    res.json({ message: "Jobs ejecutados (solo usuarios de prueba)", results });
   } catch (error) {
     console.error("Admin run-jobs error:", error);
     res.status(500).json({ error: "Error ejecutando jobs" });

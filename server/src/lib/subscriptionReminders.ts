@@ -5,21 +5,27 @@ const INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // ─── Policy status update ────────────────────────────────────────────────────
 
-async function updatePolicyStatuses(): Promise<void> {
+async function updatePolicyStatuses(onlyTestUsers = false): Promise<void> {
   const now = new Date();
   const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
+  let userIdFilter: { userId?: { in: string[] } } = {};
+  if (onlyTestUsers) {
+    const testUsers = await prisma.user.findMany({ where: { isTestUser: true }, select: { id: true } });
+    userIdFilter = { userId: { in: testUsers.map((u) => u.id) } };
+  }
+
   const [vencidas, vencenPronto, activas] = await prisma.$transaction([
     prisma.policy.updateMany({
-      where: { fechaVencimiento: { lt: now }, estado: { not: "VENCIDA" } },
+      where: { ...userIdFilter, fechaVencimiento: { lt: now }, estado: { not: "VENCIDA" } },
       data: { estado: "VENCIDA" },
     }),
     prisma.policy.updateMany({
-      where: { fechaVencimiento: { gte: now, lte: in7Days }, estado: { not: "VENCE_PRONTO" } },
+      where: { ...userIdFilter, fechaVencimiento: { gte: now, lte: in7Days }, estado: { not: "VENCE_PRONTO" } },
       data: { estado: "VENCE_PRONTO" },
     }),
     prisma.policy.updateMany({
-      where: { fechaVencimiento: { gt: in7Days }, estado: { not: "ACTIVA" } },
+      where: { ...userIdFilter, fechaVencimiento: { gt: in7Days }, estado: { not: "ACTIVA" } },
       data: { estado: "ACTIVA" },
     }),
   ]);
@@ -50,13 +56,14 @@ async function resetMonthlyReferrals(): Promise<void> {
 
 // ─── Subscription reminders ──────────────────────────────────────────────────
 
-async function sendReminders(): Promise<void> {
+async function sendReminders(onlyTestUsers = false): Promise<void> {
   const now = new Date();
   const in5Days = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
 
   // Find users whose access expires within the next 5 days (trial and paid)
   const users = await prisma.user.findMany({
     where: {
+      ...(onlyTestUsers ? { isTestUser: true } : {}),
       estado: "ACTIVO",
       OR: [
         {
@@ -118,10 +125,11 @@ async function runAllJobs(): Promise<void> {
 }
 
 // Exported for manual trigger (admin endpoint / testing)
-export async function runJobsNow(): Promise<{ policies: string; referrals: string; reminders: string }> {
+// onlyTestUsers=true: only affects users with isTestUser=true (used from admin panel)
+export async function runJobsNow(onlyTestUsers = false): Promise<{ policies: string; referrals: string; reminders: string }> {
   const results = { policies: "ok", referrals: "ok", reminders: "ok" };
 
-  await updatePolicyStatuses().catch((err) => {
+  await updatePolicyStatuses(onlyTestUsers).catch((err) => {
     console.error("[PolicyJob] Error:", err);
     results.policies = String(err?.message || err);
   });
@@ -131,7 +139,7 @@ export async function runJobsNow(): Promise<{ policies: string; referrals: strin
     results.referrals = String(err?.message || err);
   });
 
-  await sendReminders().catch((err) => {
+  await sendReminders(onlyTestUsers).catch((err) => {
     console.error("[Reminders] Error:", err);
     results.reminders = String(err?.message || err);
   });

@@ -26,6 +26,7 @@ interface AdminUser {
   plan: string;
   estado: string;
   isAdmin: boolean;
+  isTestUser: boolean;
   planVencimiento: string | null;
   trialFin: string | null;
   lastLogin: string | null;
@@ -109,6 +110,16 @@ export const AdminPage = () => {
       setSnackbar({ open: true, message: err.message, severity: 'error' });
     }
   };
+
+  const handleToggleTestUser = async (user: AdminUser) => {
+    try {
+      await api.admin.updateUser(user.id, { isTestUser: !user.isTestUser });
+      setSnackbar({ open: true, message: user.isTestUser ? 'Quitado de usuarios de prueba' : 'Marcado como usuario de prueba', severity: 'success' });
+      loadData();
+    } catch (err: any) {
+      setSnackbar({ open: true, message: err.message, severity: 'error' });
+    }
+ };
 
   const formatDate = (d: string | null) => {
     if (!d) return '—';
@@ -261,8 +272,8 @@ export const AdminPage = () => {
               displayEmpty
               sx={{ minWidth: 220 }}
             >
-              <MenuItem value="" disabled>Seleccionar usuario...</MenuItem>
-              {users.map((u) => (
+              <MenuItem value="" disabled>Seleccionar usuario de prueba...</MenuItem>
+              {users.filter(u => u.isTestUser).map((u) => (
                 <MenuItem key={u.id} value={u.id}>{u.nombre} ({u.email})</MenuItem>
               ))}
             </Select>
@@ -313,6 +324,7 @@ export const AdminPage = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     {u.nombre}
                     {u.isAdmin && <Chip label="Admin" size="small" color="error" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                    {u.isTestUser && <Chip label="Test" size="small" color="warning" sx={{ height: 20, fontSize: '0.7rem' }} />}
                   </Box>
                 </TableCell>
                 <TableCell>{u.email}</TableCell>
@@ -343,15 +355,30 @@ export const AdminPage = () => {
                 <TableCell>{formatDate(u.lastLogin)}</TableCell>
                 <TableCell>{formatDate(u.createdAt)}</TableCell>
                 <TableCell>
-                  <IconButton
-                    color="error"
-                    size="small"
-                    onClick={() => setDeleteDialog(u)}
-                    disabled={u.isAdmin}
-                    title={u.isAdmin ? 'No se puede eliminar un admin' : 'Eliminar usuario'}
-                  >
-                    <Trash2 size={18} />
-                  </IconButton>
+                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    <Tooltip title={u.isTestUser ? 'Quitar como usuario de prueba' : 'Marcar como usuario de prueba'}>
+                      <IconButton
+                        size="small"
+                        color={u.isTestUser ? 'warning' : 'default'}
+                        onClick={() => handleToggleTestUser(u)}
+                        disabled={u.isAdmin}
+                      >
+                        <FlaskConical size={16} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={u.isAdmin ? 'No se puede eliminar un admin' : 'Eliminar usuario'}>
+                      <span>
+                        <IconButton
+                          color="error"
+                          size="small"
+                          onClick={() => setDeleteDialog(u)}
+                          disabled={u.isAdmin}
+                        >
+                          <Trash2 size={18} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </Box>
                 </TableCell>
               </TableRow>
             ))}

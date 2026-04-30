@@ -25,7 +25,7 @@ export const DEBUG = DEBUG_FROM_ENV || DEBUG_FROM_RUNTIME;
 
 export const debugData = {
   login: {
-    email: 'alejandro.rh.diaz@gmail.com',
+    email: 'admin@pasalert.com',
     password: '123456',
   },
   client: {

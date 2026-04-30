@@ -3,6 +3,53 @@ import { sendEmail } from "./email.js";
 
 const INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+// ─── Policy status update ────────────────────────────────────────────────────
+
+async function updatePolicyStatuses(): Promise<void> {
+  const now = new Date();
+  const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const [vencidas, vencenPronto, activas] = await prisma.$transaction([
+    prisma.policy.updateMany({
+      where: { fechaVencimiento: { lt: now }, estado: { not: "VENCIDA" } },
+      data: { estado: "VENCIDA" },
+    }),
+    prisma.policy.updateMany({
+      where: { fechaVencimiento: { gte: now, lte: in7Days }, estado: { not: "VENCE_PRONTO" } },
+      data: { estado: "VENCE_PRONTO" },
+    }),
+    prisma.policy.updateMany({
+      where: { fechaVencimiento: { gt: in7Days }, estado: { not: "ACTIVA" } },
+      data: { estado: "ACTIVA" },
+    }),
+  ]);
+
+  const total = vencidas.count + vencenPronto.count + activas.count;
+  if (total > 0) {
+    console.log(
+      `[PolicyJob] ${total} pólizas actualizadas — VENCIDA: ${vencidas.count}, VENCE_PRONTO: ${vencenPronto.count}, ACTIVA: ${activas.count}`
+    );
+  } else {
+    console.log("[PolicyJob] Sin cambios de estado en pólizas.");
+  }
+}
+
+// ─── Monthly referral reset ──────────────────────────────────────────────────
+
+async function resetMonthlyReferrals(): Promise<void> {
+  const now = new Date();
+  if (now.getDate() !== 1) return; // only runs on the 1st of each month
+
+  const result = await prisma.user.updateMany({
+    where: { referidosMes: { gt: 0 } },
+    data: { referidosMes: 0 },
+  });
+
+  console.log(`[ReferralJob] Reset mensual: ${result.count} usuario(s) reiniciados.`);
+}
+
+// ─── Subscription reminders ──────────────────────────────────────────────────
+
 async function sendReminders(): Promise<void> {
   const now = new Date();
   const in5Days = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
@@ -64,20 +111,22 @@ async function sendReminders(): Promise<void> {
   }
 }
 
+async function runAllJobs(): Promise<void> {
+  await updatePolicyStatuses().catch((err) => console.error("[PolicyJob] Error:", err));
+  await resetMonthlyReferrals().catch((err) => console.error("[ReferralJob] Error:", err));
+  await sendReminders().catch((err) => console.error("[Reminders] Error:", err));
+}
+
 export function startSubscriptionReminders(): void {
   // Run once at startup after a short delay to let the server settle
   setTimeout(() => {
-    sendReminders().catch((err) =>
-      console.error("[Reminders] Error en ciclo inicial:", err)
-    );
+    runAllJobs().catch((err) => console.error("[Jobs] Error en ciclo inicial:", err));
   }, 10_000);
 
   // Then run every 24 hours
   setInterval(() => {
-    sendReminders().catch((err) =>
-      console.error("[Reminders] Error en ciclo diario:", err)
-    );
+    runAllJobs().catch((err) => console.error("[Jobs] Error en ciclo diario:", err));
   }, INTERVAL_MS);
 
-  console.log("[Reminders] Servicio de recordatorios de suscripción iniciado.");
+  console.log("[Jobs] Servicios periódicos iniciados: estados de pólizas, referidos y recordatorios.");
 }

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import CotizacionModal from './CotizacionModal';
 
 interface LandingHeaderProps {
@@ -8,6 +8,19 @@ interface LandingHeaderProps {
 
 export function LandingHeader({ showSystemLink = false }: LandingHeaderProps) {
   const [showModal, setShowModal] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const location = useLocation();
+
+  // Close menu on route change
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location]);
+
+  // Prevent body scroll when menu is open
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [menuOpen]);
 
   return (
     <>
@@ -15,43 +28,72 @@ export function LandingHeader({ showSystemLink = false }: LandingHeaderProps) {
         <div className="topbar-inner">
           <Link className="brand scroll-anim" data-anim="slam-up" to="/">
             <span className="brand-mark">
-              <img src="/assets/pasalert.png" alt="PAS Alert" />
+              <img src="/assets/ad.svg" alt="AD Seguros" />
             </span>
           </Link>
+
+          {/* Desktop nav */}
           <nav className="menu">
-            <Link className="scroll-anim" data-anim="flip-in" style={{ '--d': '40ms' } as React.CSSProperties} to="/">
-              <i className="fa-solid fa-house" />Inicio
+            <Link to="/quienes-somos">
+              <i className="fa-solid fa-users" />Nosotros
             </Link>
-            <Link className="scroll-anim" data-anim="flip-in" style={{ '--d': '90ms' } as React.CSSProperties} to="/quienes-somos">
-              <i className="fa-solid fa-users" />Quiénes somos
-            </Link>
-            <Link className="scroll-anim" data-anim="flip-in" style={{ '--d': '140ms' } as React.CSSProperties} to="/seguros">
+            <Link to="/seguros">
               <i className="fa-solid fa-car-side" />Seguros
             </Link>
-            <Link className="scroll-anim" data-anim="flip-in" style={{ '--d': '190ms' } as React.CSSProperties} to="/gestoria-automotor">
-              <i className="fa-solid fa-id-card" />Gestoría Automotor
+            <Link to="/gestoria-automotor">
+              <i className="fa-solid fa-id-card" />Vehículos
             </Link>
-            <Link className="scroll-anim" data-anim="flip-in" style={{ '--d': '240ms' } as React.CSSProperties} to="/asistencia-juridica">
-              <i className="fa-solid fa-scale-balanced" />Asistencia Jurídica
+            <Link to="/asistencia-juridica">
+              <i className="fa-solid fa-scale-balanced" />Jurídica
             </Link>
-            <Link className="scroll-anim" data-anim="flip-in" style={{ '--d': '290ms' } as React.CSSProperties} to="/productores">
+            <Link to="/productores">
               <i className="fa-solid fa-briefcase" />Productores
             </Link>
-            <Link className="scroll-anim" data-anim="flip-in" style={{ '--d': '340ms' } as React.CSSProperties} to="/contacto">
+            <Link to="/contacto">
               <i className="fa-solid fa-address-book" />Contacto
             </Link>
             {showSystemLink && (
-              <Link className="scroll-anim nav-sistema" data-anim="flip-in" style={{ '--d': '390ms' } as React.CSSProperties} to="/app/login">
-                <i className="fa-solid fa-arrows-to-circle" />Sistema de Gestión
+              <Link className="nav-sistema" to="/app/login">
+                <i className="fa-solid fa-arrows-to-circle" />PAS Alert
               </Link>
             )}
           </nav>
+
           <div className="topbar-actions">
             <button className="btn-cotizar" onClick={() => setShowModal(true)}>
               <i className="fa-solid fa-file-invoice" /> Cotizá tu seguro
             </button>
+            {/* Hamburger button — mobile only */}
+            <button
+              className={`hamburger-btn${menuOpen ? ' is-open' : ''}`}
+              onClick={() => setMenuOpen(o => !o)}
+              aria-label="Menú"
+            >
+              <span />
+              <span />
+              <span />
+            </button>
           </div>
         </div>
+
+        {/* Mobile drawer */}
+        {menuOpen && <div className="mobile-menu-backdrop" onClick={() => setMenuOpen(false)} />}
+        <nav className={`mobile-menu${menuOpen ? ' is-open' : ''}`}>
+          <Link to="/quienes-somos"><i className="fa-solid fa-users" />Nosotros</Link>
+          <Link to="/seguros"><i className="fa-solid fa-car-side" />Seguros</Link>
+          <Link to="/gestoria-automotor"><i className="fa-solid fa-id-card" />Vehículos</Link>
+          <Link to="/asistencia-juridica"><i className="fa-solid fa-scale-balanced" />Jurídica</Link>
+          <Link to="/productores"><i className="fa-solid fa-briefcase" />Productores</Link>
+          <Link to="/contacto"><i className="fa-solid fa-address-book" />Contacto</Link>
+          {showSystemLink && (
+            <Link className="nav-sistema" to="/app/login">
+              <i className="fa-solid fa-arrows-to-circle" />PAS Alert
+            </Link>
+          )}
+          <button className="btn-cotizar mobile-cotizar" onClick={() => { setMenuOpen(false); setShowModal(true); }}>
+            <i className="fa-solid fa-file-invoice" /> Cotizá tu seguro
+          </button>
+        </nav>
       </header>
       {showModal && <CotizacionModal onClose={() => setShowModal(false)} />}
     </>

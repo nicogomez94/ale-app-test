@@ -454,6 +454,13 @@
 .landing-page-root .contact-info-text p, .landing-page-root .contact-info-text a { margin: 0; color: #637082; font-size: 13px; text-decoration: none; line-height: 1.45; display: block; }
 .landing-page-root .btn-whatsapp { background: linear-gradient(90deg, #25d366, #1da851) !important; margin-top: 16px; width: 100%; justify-content: center; }
 
+/* ── Floating WhatsApp button ─────────────────────────── */
+.landing-page-root .ws-float-btn { position: fixed; bottom: 28px; right: 28px; z-index: 900; width: 58px; height: 58px; border-radius: 50%; background: linear-gradient(135deg, #25d366, #1da851); color: #fff; font-size: 28px; display: flex; align-items: center; justify-content: center; text-decoration: none; box-shadow: 0 6px 24px rgba(37,211,102,0.42); transition: transform .2s, box-shadow .2s; }
+.landing-page-root .ws-float-btn:hover { transform: scale(1.10); box-shadow: 0 10px 32px rgba(37,211,102,0.55); }
+.landing-page-root .ws-float-tooltip { position: absolute; right: calc(100% + 10px); background: #111; color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; padding: 5px 10px; border-radius: 6px; pointer-events: none; opacity: 0; transition: opacity .2s; }
+.landing-page-root .ws-float-tooltip::after { content: ''; position: absolute; left: 100%; top: 50%; transform: translateY(-50%); border: 5px solid transparent; border-left-color: #111; }
+.landing-page-root .ws-float-btn:hover .ws-float-tooltip { opacity: 1; }
+
 /* ─── Responsive for new sections ─── */
 @media (max-width: 1024px) {
   .landing-page-root .products-grid { grid-template-columns: 1fr 1fr; }
@@ -624,13 +631,34 @@
 .landing-page-root .productores-form .file-label { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border: 1.5px dashed #9ac4d0; border-radius: 9px; cursor: pointer; font-size: 13px; color: #4a6279; background: #f4fbf9; }
 .landing-page-root .productores-form .file-label i { color: #2AB7A9; }
 
-@media (max-width: 700px) {
+/* ── Hamburger button ─────────────────────────────────── */
+.landing-page-root .hamburger-btn { display: none; flex-direction: column; justify-content: center; align-items: center; gap: 5px; width: 40px; height: 40px; background: transparent; border: none; cursor: pointer; padding: 4px; border-radius: 8px; }
+.landing-page-root .hamburger-btn span { display: block; width: 22px; height: 2px; background: #2AB7A9; border-radius: 2px; transition: transform .25s, opacity .2s; }
+.landing-page-root .hamburger-btn.is-open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.landing-page-root .hamburger-btn.is-open span:nth-child(2) { opacity: 0; }
+.landing-page-root .hamburger-btn.is-open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* ── Mobile drawer ────────────────────────────────────── */
+.landing-page-root .mobile-menu { display: none; }
+.landing-page-root .mobile-menu-backdrop { display: none; }
+
+@media (max-width: 900px) {
+  .landing-page-root .hamburger-btn { display: flex; }
+  .landing-page-root .menu { display: none; }
+  .landing-page-root .btn-cotizar:not(.mobile-cotizar) { display: none; }
+
+  .landing-page-root .mobile-menu-backdrop { display: block; position: fixed; inset: 0; z-index: 299; background: rgba(18, 40, 60, 0.45); backdrop-filter: blur(2px); }
+  .landing-page-root .mobile-menu { display: flex; flex-direction: column; gap: 4px; position: fixed; top: 0; right: -110%; width: min(300px, 82vw); height: 100dvh; background: #fff; z-index: 300; padding: 72px 20px 32px; box-shadow: -4px 0 32px rgba(18,40,60,.18); transition: right .3s cubic-bezier(.4,0,.2,1); overflow-y: auto; }
+  .landing-page-root .mobile-menu.is-open { right: 0; }
+  .landing-page-root .mobile-menu a { display: flex; align-items: center; gap: 10px; padding: 13px 14px; border-radius: 10px; color: #29384e; text-decoration: none; font-size: 14px; font-weight: 600; transition: background .15s; }
+  .landing-page-root .mobile-menu a:hover { background: #f3fbf9; }
+  .landing-page-root .mobile-menu a i { font-size: 14px; color: #2AB7A9; width: 18px; text-align: center; }
+  .landing-page-root .mobile-menu .mobile-cotizar { margin-top: 16px; width: 100%; justify-content: center; }
+
+  .landing-page-root .topbar { align-items: center; }
+  .landing-page-root .topbar-actions { display: flex; align-items: center; gap: 8px; }
   .landing-page-root .page { width: calc(100% - 24px); margin-top: 14px; }
-  .landing-page-root .topbar { align-items: flex-start; flex-wrap: wrap; gap: 10px; padding-bottom: 14px; }
   .landing-page-root .btn-small { padding: 9px 14px; font-size: 11px; border-radius: 10px; }
-  .landing-page-root .topbar-actions { width: 100%; }
-  .landing-page-root .menu { order: 3; width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  .landing-page-root .menu a { font-size: 12px; font-weight: 700; gap: 5px; padding: 8px 9px; border-radius: 10px; background: #f3fbf9; }
   .landing-page-root .hero { gap: 16px; }
   .landing-page-root .hero-copy h1 { font-size: clamp(46px, 11vw, 62px); line-height: 0.98; margin-bottom: 14px; }
   .landing-page-root .hero-copy p { font-size: 15px; line-height: 1.5; }
@@ -658,7 +686,6 @@
   .landing-page-root .orb-2 { width: 150px; height: 150px; }
   .landing-page-root .orb-4,
   .landing-page-root .orb-5 { display: none; }
-  .landing-page-root .menu { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .landing-page-root .hero-copy h1 { font-size: clamp(42px, 12.5vw, 56px); }
   .landing-page-root .hero-copy p { font-size: 14px; }
   .landing-page-root .hero-art { min-height: 245px; }

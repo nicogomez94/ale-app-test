@@ -241,17 +241,6 @@ export function LandingPage() {
 
         <LandingFooter />
       </div>
-
-      <a
-        className="ws-float-btn"
-        href="https://wa.me/541155551234"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Contactar por WhatsApp"
-      >
-        <i className="fa-brands fa-whatsapp" />
-        <span className="ws-float-tooltip">¡Hablanos!</span>
-      </a>
     </div>
   );
 }

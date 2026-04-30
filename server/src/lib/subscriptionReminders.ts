@@ -117,6 +117,28 @@ async function runAllJobs(): Promise<void> {
   await sendReminders().catch((err) => console.error("[Reminders] Error:", err));
 }
 
+// Exported for manual trigger (admin endpoint / testing)
+export async function runJobsNow(): Promise<{ policies: string; referrals: string; reminders: string }> {
+  const results = { policies: "ok", referrals: "ok", reminders: "ok" };
+
+  await updatePolicyStatuses().catch((err) => {
+    console.error("[PolicyJob] Error:", err);
+    results.policies = String(err?.message || err);
+  });
+
+  await resetMonthlyReferrals().catch((err) => {
+    console.error("[ReferralJob] Error:", err);
+    results.referrals = String(err?.message || err);
+  });
+
+  await sendReminders().catch((err) => {
+    console.error("[Reminders] Error:", err);
+    results.reminders = String(err?.message || err);
+  });
+
+  return results;
+}
+
 export function startSubscriptionReminders(): void {
   // Run once at startup after a short delay to let the server settle
   setTimeout(() => {

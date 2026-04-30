@@ -1,6 +1,7 @@
 import { Router, Response } from "express";
 import prisma from "../lib/prisma.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
+import { runJobsNow } from "../lib/subscriptionReminders.js";
 
 export const adminRouter = Router();
 
@@ -151,5 +152,86 @@ adminRouter.delete("/users/:id", async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Admin delete user error:", error);
     res.status(500).json({ error: "Error al eliminar usuario" });
+  }
+});
+
+// POST /api/admin/run-jobs — manually trigger all periodic jobs
+adminRouter.post("/run-jobs", async (_req: AuthRequest, res: Response) => {
+  try {
+    console.log("[Admin] Disparo manual de jobs periódicos...");
+    const results = await runJobsNow();
+    res.json({ message: "Jobs ejecutados", results });
+  } catch (error) {
+    console.error("Admin run-jobs error:", error);
+    res.status(500).json({ error: "Error ejecutando jobs" });
+  }
+});
+
+// POST /api/admin/test-seed
+// Body: { userId, scenario: "expiring_1d" | "expiring_3d" | "expired" | "day1_referrals" | "policy_vencida" | "policy_vence_pronto" }
+adminRouter.post("/test-seed", async (req: AuthRequest, res: Response) => {
+  try {
+    const { userId, scenario } = req.body as { userId: string; scenario: string };
+    if (!userId || !scenario) {
+      res.status(400).json({ error: "userId y scenario son requeridos" });
+      return;
+    }
+
+    const now = new Date();
+
+    switch (scenario) {
+      case "expiring_1d": {
+        const t = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000 - 60_000);
+        await prisma.user.update({ where: { id: userId }, data: { planVencimiento: t, trialFin: t, estado: "ACTIVO" } });
+        res.json({ message: "planVencimiento y trialFin seteados a 1 día", value: t });
+        break;
+      }
+      case "expiring_3d": {
+        const t = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000 - 60_000);
+        await prisma.user.update({ where: { id: userId }, data: { planVencimiento: t, trialFin: t, estado: "ACTIVO" } });
+        res.json({ message: "planVencimiento y trialFin seteados a 3 días", value: t });
+        break;
+      }
+      case "expired": {
+        const t = new Date(now.getTime() - 60_000);
+        await prisma.user.update({ where: { id: userId }, data: { planVencimiento: t, trialFin: t } });
+        res.json({ message: "planVencimiento y trialFin seteados en el pasado (expirado)", value: t });
+        break;
+      }
+      case "day1_referrals": {
+        await prisma.user.update({ where: { id: userId }, data: { referidosMes: 5 } });
+        res.json({ message: "referidosMes seteado a 5 — corré test-seed luego en el día 1 real o combinalo con run-jobs" });
+        break;
+      }
+      case "policy_vencida": {
+        const policies = await prisma.policy.findMany({ where: { userId }, select: { id: true, fechaInicio: true, fechaVencimiento: true } });
+        const shift = 400 * 24 * 60 * 60 * 1000;
+        for (const p of policies) {
+          await prisma.policy.update({
+            where: { id: p.id },
+            data: {
+              fechaInicio: new Date(p.fechaInicio.getTime() - shift),
+              fechaVencimiento: new Date(p.fechaVencimiento.getTime() - shift),
+            },
+          });
+        }
+        res.json({ message: `${policies.length} póliza(s) movidas 400 días al pasado` });
+        break;
+      }
+      case "policy_vence_pronto": {
+        const policies = await prisma.policy.findMany({ where: { userId }, select: { id: true } });
+        const newVenc = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+        for (const p of policies) {
+          await prisma.policy.update({ where: { id: p.id }, data: { fechaVencimiento: newVenc } });
+        }
+        res.json({ message: `${policies.length} póliza(s) seteadas para vencer en 3 días`, value: newVenc });
+        break;
+      }
+      default:
+        res.status(400).json({ error: `Escenario desconocido: ${scenario}` });
+    }
+  } catch (error) {
+    console.error("Admin test-seed error:", error);
+    res.status(500).json({ error: "Error aplicando escenario de test" });
   }
 });

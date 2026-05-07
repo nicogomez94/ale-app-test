@@ -19,6 +19,29 @@ View your app in AI Studio: https://ai.studio/apps/38aca968-8efc-4d2d-8dc4-664da
 3. Run the app:
    `npm run dev`
 
+## SeparaciÃ³n landing + sistema
+
+Ahora el repo queda dividido asÃ­:
+
+1. `landing/`: sitio pÃºblico estÃ¡tico para subir por FileZilla o hosting tradicional
+2. `client/`: frontend del sistema PAS Alert para desplegar junto al backend en tu VPS
+3. `server/`: API Node + Prisma consumida por el sistema y por los formularios pÃºblicos
+
+### Variables importantes
+
+- `landing/.env`
+  - `VITE_API_URL`: URL pÃºblica de tu API/VPS
+  - `VITE_SYSTEM_URL`: URL pÃºblica del sistema, por ejemplo `https://app.tudominio.com`
+
+- `client/.env`
+  - `VITE_API_URL`: URL pÃºblica de la API
+  - `VITE_LANDING_URL`: opcional, URL pÃºblica de la landing
+
+- `server/.env`
+  - `SYSTEM_APP_URL`: URL del frontend del sistema
+  - `LANDING_URL`: URL de la landing
+  - `CORS_ALLOWED_ORIGINS`: lista separada por comas si querÃ©s habilitar mÃ¡s orÃ­genes
+
 ## Deploy en Render (Blueprint)
 
 Este repo incluye `render.yaml` para desplegar:

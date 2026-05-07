@@ -230,7 +230,7 @@ export const PaymentPage: React.FC = () => {
             } else {
               setSubscribeSuccess('La suscripción fue creada. Estamos esperando la confirmación final del primer cobro.');
             }
-            navigate('/app/pagos', { replace: true });
+            navigate('/pagos', { replace: true });
           }
         } else {
           await loadSubscriptionState();
@@ -597,3 +597,4 @@ export const PaymentPage: React.FC = () => {
     </Box>
   );
 };
+

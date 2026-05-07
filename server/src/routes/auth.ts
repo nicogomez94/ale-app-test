@@ -7,6 +7,29 @@ import { sendEmail } from "../lib/email.js";
 
 export const authRouter = Router();
 
+const authUserSelect = {
+  id: true,
+  email: true,
+  password: true,
+  nombre: true,
+  telefono: true,
+  direccion: true,
+  avatar: true,
+  matriculaPas: true,
+  isAdmin: true,
+  plan: true,
+  planVencimiento: true,
+  trialFin: true,
+  estado: true,
+  referralCode: true,
+  referidosMes: true,
+  referidosTotales: true,
+  lastLogin: true,
+  createdAt: true,
+  resetToken: true,
+  resetTokenExpiry: true,
+} as const;
+
 // Register
 authRouter.post("/register", async (req: Request, res: Response) => {
   try {
@@ -17,7 +40,10 @@ authRouter.post("/register", async (req: Request, res: Response) => {
       return;
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
     if (existing) {
       res.status(409).json({ error: "El email ya está registrado" });
       return;
@@ -40,6 +66,15 @@ authRouter.post("/register", async (req: Request, res: Response) => {
         trialFin,
         planVencimiento: trialFin,
         referralCode,
+      },
+      select: {
+        id: true,
+        email: true,
+        nombre: true,
+        plan: true,
+        isAdmin: true,
+        referralCode: true,
+        planVencimiento: true,
       },
     });
 
@@ -73,7 +108,10 @@ authRouter.post("/login", async (req: Request, res: Response) => {
       return;
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: authUserSelect,
+    });
     if (!user) {
       res.status(401).json({ error: "Credenciales incorrectas" });
       return;
@@ -91,12 +129,14 @@ authRouter.post("/login", async (req: Request, res: Response) => {
       await prisma.user.update({
         where: { id: user.id },
         data: { estado: "INACTIVO" },
+        select: { id: true },
       });
     }
 
     await prisma.user.update({
       where: { id: user.id },
       data: { lastLogin: now },
+      select: { id: true },
     });
 
     const token = generateToken(user.id);
@@ -171,7 +211,14 @@ authRouter.post("/forgot-password", async (req: Request, res: Response) => {
       return;
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        nombre: true,
+      },
+    });
     if (!user) {
       // Don't reveal if email exists
       res.json({ message: "Si el email está registrado, recibirás un código de recuperación." });
@@ -185,6 +232,7 @@ authRouter.post("/forgot-password", async (req: Request, res: Response) => {
     await prisma.user.update({
       where: { id: user.id },
       data: { resetToken, resetTokenExpiry },
+      select: { id: true },
     });
 
     // Send recovery code via email (fire-and-forget — never fail the HTTP response)
@@ -221,7 +269,14 @@ authRouter.post("/reset-password", async (req: Request, res: Response) => {
       return;
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        resetToken: true,
+        resetTokenExpiry: true,
+      },
+    });
 
     if (!user || !user.resetToken || !user.resetTokenExpiry) {
       res.status(400).json({ error: "Código inválido o expirado" });
@@ -247,6 +302,7 @@ authRouter.post("/reset-password", async (req: Request, res: Response) => {
         resetToken: null,
         resetTokenExpiry: null,
       },
+      select: { id: true },
     });
 
     res.json({ message: "Contraseña actualizada correctamente. Ya puedes iniciar sesión." });

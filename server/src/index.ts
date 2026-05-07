@@ -23,7 +23,35 @@ import { startSubscriptionReminders } from "./lib/subscriptionReminders.js";
 const app = express();
 const PORT = parseInt(process.env.PORT || "3001");
 
-app.use(cors({ origin: process.env.APP_URL || "http://localhost:5173", credentials: true }));
+const allowedOrigins = [
+  process.env.APP_URL,
+  process.env.SYSTEM_APP_URL,
+  process.env.LANDING_URL,
+  ...(process.env.CORS_ALLOWED_ORIGINS || "").split(","),
+]
+  .map((origin) => origin?.trim())
+  .filter((origin): origin is string => Boolean(origin));
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    if (
+      allowedOrigins.includes(origin) ||
+      origin === "http://localhost:5173" ||
+      origin === "http://localhost:4173"
+    ) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: "5mb" }));
 
 // Unguarded routes (accessible even with expired subscription)

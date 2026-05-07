@@ -18,16 +18,6 @@ import { ProfilePage } from './pages/ProfilePage';
 import { CompaniesPage } from './pages/CompaniesPage';
 import { LifeAndFinancePage } from './pages/LifeAndFinancePage';
 import { AdminPage } from './pages/AdminPage';
-// Landing pages
-import { LandingPage } from './pages/landing/LandingPage';
-import { NosotrosPage } from './pages/landing/NosotrosPage';
-import { ProductosPage } from './pages/landing/ProductosPage';
-import { CoberturasPage } from './pages/landing/CoberturasPage';
-import { SiniestrosPage } from './pages/landing/SiniestrosPage';
-import { GestoriaAutomotorPage } from './pages/landing/GestoriaAutomotorPage';
-import { ContactoPage } from './pages/landing/ContactoPage';
-import { ProductoresPage } from './pages/landing/ProductoresPage';
-import { PreguntasFrecuentesPage } from './pages/landing/PreguntasFrecuentesPage';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -101,17 +91,17 @@ function AppSystem() {
       >
         <ErrorBoundary>
           <Routes>
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="clientes" element={<ClientsPage />} />
-            <Route path="empresas" element={<CompaniesPage />} />
-            <Route path="vida-finanzas" element={<LifeAndFinancePage />} />
-            <Route path="polizas" element={<PolicyForm />} />
-            <Route path="comisiones" element={<CommissionsPage />} />
-            <Route path="referidos" element={<ReferralPage />} />
-            <Route path="pagos" element={<PaymentPage />} />
-            <Route path="perfil" element={<ProfilePage />} />
-            {user?.isAdmin && <Route path="admin" element={<AdminPage />} />}
-            <Route path="*" element={<Navigate to="/app/dashboard" />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/clientes" element={<ClientsPage />} />
+            <Route path="/empresas" element={<CompaniesPage />} />
+            <Route path="/vida-finanzas" element={<LifeAndFinancePage />} />
+            <Route path="/polizas" element={<PolicyForm />} />
+            <Route path="/comisiones" element={<CommissionsPage />} />
+            <Route path="/referidos" element={<ReferralPage />} />
+            <Route path="/pagos" element={<PaymentPage />} />
+            <Route path="/perfil" element={<ProfilePage />} />
+            {user?.isAdmin && <Route path="/admin" element={<AdminPage />} />}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </ErrorBoundary>
         {subscriptionExpired && (
@@ -122,16 +112,16 @@ function AppSystem() {
           }}>
             <Card sx={{ maxWidth: 500, p: 4, textAlign: 'center' }}>
               <Typography variant="h5" gutterBottom fontWeight={700} color="error">
-                Suscripción Vencida
+                SuscripciÃ³n Vencida
               </Typography>
               <Typography sx={{ mb: 3 }}>
-                Tu plan ha expirado. Renová tu suscripción para seguir usando AD System.
+                Tu plan ha expirado. RenovÃ¡ tu suscripciÃ³n para seguir usando AD System.
               </Typography>
               <Button variant="contained" size="large" onClick={() => {
                 setSubscriptionExpired(false);
-                window.location.href = '/app/pagos';
+                window.location.href = '/pagos';
               }}>
-                Ir a Suscripción
+                Ir a SuscripciÃ³n
               </Button>
             </Card>
           </Box>
@@ -142,22 +132,5 @@ function AppSystem() {
 }
 
 export default function App() {
-  return (
-    <Routes>
-      {/* Public landing routes */}
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/quienes-somos" element={<NosotrosPage />} />
-      <Route path="/seguros" element={<ProductosPage />} />
-      <Route path="/coberturas" element={<CoberturasPage />} />
-      <Route path="/asistencia-juridica" element={<SiniestrosPage />} />
-      <Route path="/gestoria-automotor" element={<GestoriaAutomotorPage />} />
-      <Route path="/productores" element={<ProductoresPage />} />
-      <Route path="/contacto" element={<ContactoPage />} />
-      <Route path="/preguntas-frecuentes" element={<PreguntasFrecuentesPage />} />
-      {/* App system routes */}
-      <Route path="/app/*" element={<AppSystem />} />
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" />} />
-    </Routes>
-  );
+  return <AppSystem />;
 }

@@ -10,6 +10,7 @@ export function LandingHeader({ showSystemLink = false }: LandingHeaderProps) {
   const [showModal, setShowModal] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
+  const systemUrl = (import.meta.env.VITE_SYSTEM_URL || '').replace(/\/+$/, '') || '/';
 
   // Close menu on route change
   useEffect(() => {
@@ -53,9 +54,9 @@ export function LandingHeader({ showSystemLink = false }: LandingHeaderProps) {
               <i className="fa-solid fa-address-book" />Contacto
             </Link>
             {showSystemLink && (
-              <Link className="nav-sistema" to="/app/login">
+              <a className="nav-sistema" href={systemUrl}>
                 <i className="fa-solid fa-arrows-to-circle" />PAS Alert
-              </Link>
+              </a>
             )}
           </nav>
 
@@ -86,9 +87,9 @@ export function LandingHeader({ showSystemLink = false }: LandingHeaderProps) {
           <Link to="/productores"><i className="fa-solid fa-briefcase" />Productores</Link>
           <Link to="/contacto"><i className="fa-solid fa-address-book" />Contacto</Link>
           {showSystemLink && (
-            <Link className="nav-sistema" to="/app/login">
+            <a className="nav-sistema" href={systemUrl}>
               <i className="fa-solid fa-arrows-to-circle" />PAS Alert
-            </Link>
+            </a>
           )}
           <button className="btn-cotizar mobile-cotizar" onClick={() => { setMenuOpen(false); setShowModal(true); }}>
             <i className="fa-solid fa-file-invoice" /> Cotizá tu seguro

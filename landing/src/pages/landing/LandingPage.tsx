@@ -6,6 +6,7 @@ import '../../styles/landing.css';
 
 export function LandingPage() {
   useScrollAnim();
+  const systemUrl = (import.meta.env.VITE_SYSTEM_URL || '').replace(/\/+$/, '') || '/';
 
   return (
     <div className="landing-page-root">
@@ -43,9 +44,9 @@ export function LandingPage() {
                   <i className="fa-solid fa-shield-heart" />
                   Ver coberturas
                 </Link>
-                <Link className="btn btn-secondary" to="/app/login">
+                <a className="btn btn-secondary" href={systemUrl}>
                   Ir al sistema
-                </Link>
+                </a>
               </div>
             </div>
 
@@ -87,7 +88,7 @@ export function LandingPage() {
                 <li><i className="fa-solid fa-circle-check" />Alertas de vencimiento</li>
               </ul>
               <div className="pas-alert-actions">
-                <a className="btn btn-light btn-small" href="/app/login">
+                <a className="btn btn-light btn-small" href={systemUrl}>
                   <i className="fa-solid fa-arrow-right-to-bracket" />Ir al sistema
                 </a>
                 <a className="btn btn-outline-light btn-small" href="/productores">

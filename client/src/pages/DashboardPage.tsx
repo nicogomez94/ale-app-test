@@ -319,9 +319,9 @@ export const Dashboard: React.FC = () => {
 
   const applyFilter = (newFilter: string | null) => {
     if (newFilter) {
-      navigate(`/app/dashboard?filter=${newFilter}`);
+      navigate(`/dashboard?filter=${newFilter}`);
     } else {
-      navigate('/app/dashboard');
+      navigate('/dashboard');
     }
   };
 
@@ -330,7 +330,7 @@ export const Dashboard: React.FC = () => {
     { title: 'Vencen en 7 días', value: stats.vencen7Dias, icon: <Clock size={24} />, color: 'warning', subtitle: 'Requieren atención', onClick: () => applyFilter(filter === 'expiring' ? null : 'expiring'), active: filter === 'expiring' },
     { title: 'Pólizas Vencidas', value: stats.polizasVencidas, icon: <AlertCircle size={24} />, color: 'error', subtitle: 'Acción inmediata', onClick: () => applyFilter(filter === 'expired' ? null : 'expired'), active: filter === 'expired' },
     { title: 'Clientes Totales', value: stats.clientesTotales, icon: <Users size={24} />, color: 'info', subtitle: 'Cartera activa' },
-    { title: 'Vida y Finanzas', value: lifePolicies.length, icon: <HeartPulse size={24} />, color: 'secondary', subtitle: 'Total de pólizas', onClick: () => navigate('/app/vida-finanzas') },
+    { title: 'Vida y Finanzas', value: lifePolicies.length, icon: <HeartPulse size={24} />, color: 'secondary', subtitle: 'Total de pólizas', onClick: () => navigate('/vida-finanzas') },
   ];
 
   if (loading) {
@@ -346,11 +346,11 @@ export const Dashboard: React.FC = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           {filter && (
-            <Button variant="outlined" color="error" startIcon={<X size={20} />} onClick={() => navigate('/app/dashboard')}>
+            <Button variant="outlined" color="error" startIcon={<X size={20} />} onClick={() => navigate('/dashboard')}>
               Quitar Filtro
             </Button>
           )}
-          <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => navigate('/app/polizas')} sx={{ px: 3, py: 1.5, borderRadius: 3 }}>
+          <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => navigate('/polizas')} sx={{ px: 3, py: 1.5, borderRadius: 3 }}>
             Nueva Póliza
           </Button>
         </Box>
@@ -362,7 +362,7 @@ export const Dashboard: React.FC = () => {
             severity={filter === 'expired' ? 'error' : filter === 'expiring' ? 'warning' : 'info'}
             sx={{ borderRadius: 2 }}
             action={(
-              <Button color="inherit" size="small" onClick={() => navigate('/app/dashboard')}>
+              <Button color="inherit" size="small" onClick={() => navigate('/dashboard')}>
                 Ver todas
               </Button>
             )}
@@ -506,3 +506,4 @@ export const Dashboard: React.FC = () => {
     </Box>
   );
 };
+

@@ -15,7 +15,6 @@ import {
   Grid,
   IconButton,
   InputAdornment,
-  LinearProgress,
   MenuItem,
   Paper,
   Snackbar,
@@ -43,11 +42,10 @@ import {
   Plus,
   Square,
   Trash2,
-  User,
   Users,
   X,
 } from 'lucide-react';
-import { differenceInDays, format, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { api, DashboardPolicy, PolicyPayload } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -63,8 +61,6 @@ import {
   VIGENCIA_OPTIONS,
 } from '../data/policyCatalogs';
 
-const SUPPORT_WHATSAPP_NUMBER = '541155551234';
-const SUPPORT_EMAIL = 'info@adseguros.com.ar';
 const VISIBLE_POLICIES_LIMIT = 5;
 
 type EditFormValues = {
@@ -478,7 +474,6 @@ export const Dashboard: React.FC = () => {
   const [stats, setStats] = useState({ polizasActivas: 0, vencen7Dias: 0, polizasVencidas: 0, clientesTotales: 0 });
   const [policies, setPolicies] = useState<DashboardPolicy[]>([]);
   const [lifePolicies, setLifePolicies] = useState<any[]>([]);
-  const [alerts, setAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState({ clients: false, companies: false, lifeFinance: false });
   const [editingPolicy, setEditingPolicy] = useState<DashboardPolicy | null>(null);
@@ -494,15 +489,13 @@ export const Dashboard: React.FC = () => {
   const loadDashboardData = useCallback(async (withLoading = true) => {
     if (withLoading) setLoading(true);
     try {
-      const [s, p, a, lp] = await Promise.all([
+      const [s, p, lp] = await Promise.all([
         api.dashboard.stats(),
         api.dashboard.policies(filter || undefined),
-        api.dashboard.alerts(),
         api.lifePolicies.list(),
       ]);
       setStats(s);
       setPolicies(p);
-      setAlerts(a);
       setLifePolicies(lp);
     } catch (error) {
       console.error(error);
@@ -581,21 +574,6 @@ export const Dashboard: React.FC = () => {
     const subject = `Seguimiento de poliza de ${policyType}`;
     const body = `Hola ${policy.cliente},\n\nTe contactamos para dar seguimiento a tu poliza de ${policyType} con ${policy.aseguradora}.\n\nSi queres revisar cobertura o actualizar datos, responde este correo.\n\nSaludos,\n${pasName}\nPAS Alert`;
     window.open(`mailto:${policy.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
-  };
-
-  const handleFeedbackWhatsApp = () => {
-    const pasName = user?.nombre || 'PAS';
-    const pasEmail = user?.email || 'Sin email';
-    const message = `Hola equipo PAS Alert, quiero compartir una sugerencia/recomendacion para mejorar el sistema.\n\nNombre: ${pasName}\nEmail: ${pasEmail}\n\nSugerencia: `;
-    window.open(`https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
-  };
-
-  const handleFeedbackEmail = () => {
-    const pasName = user?.nombre || 'PAS';
-    const pasEmail = user?.email || 'Sin email';
-    const subject = 'Sugerencias y recomendaciones - Sistema PAS Alert';
-    const body = `Hola equipo PAS Alert,\n\nQuiero compartir una sugerencia/recomendacion para mejorar el sistema.\n\nNombre: ${pasName}\nEmail: ${pasEmail}\n\nSugerencia: `;
-    window.open(`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
   };
 
   const handleTogglePaid = async (policy: DashboardPolicy) => {
@@ -707,8 +685,7 @@ export const Dashboard: React.FC = () => {
         ))}
       </Grid>
 
-      <Grid container spacing={3}>
-        <Grid size={{ xs: 12, md: 9 }}>
+      <Box>
           <PolicyTable
             title={`Gestion de Polizas de Clientes (Total: ${individualPolicies.length})`}
             policies={individualPolicies}
@@ -744,89 +721,8 @@ export const Dashboard: React.FC = () => {
             onWhatsApp={handleLifeWhatsApp}
             onEmail={handleLifeEmail}
           />
-        </Grid>
+      </Box>
 
-        <Grid size={{ xs: 12, md: 3 }}>
-          <Card sx={{ height: 'fit-content', mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>Alertas y Notificaciones</Typography>
-              <Box sx={{ mt: 2 }}>
-                {alerts.map((alert) => (
-                  <Box
-                    key={alert.id}
-                    sx={{
-                      p: 2,
-                      mb: 2,
-                      borderRadius: 2,
-                      bgcolor: alert.type === 'error' ? 'error.light' : alert.type === 'warning' ? 'warning.light' : 'info.light',
-                      color: 'common.white',
-                      display: 'flex',
-                      gap: 2,
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        mt: 0.25,
-                        width: 28,
-                        height: 28,
-                        minWidth: 28,
-                        borderRadius: '50%',
-                        bgcolor: alert.type === 'error' ? 'error.main' : alert.type === 'warning' ? 'warning.main' : 'info.main',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        '& svg': { color: 'common.white' },
-                      }}
-                    >
-                      <AlertCircle size={16} />
-                    </Box>
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{alert.message}</Typography>
-                    </Box>
-                  </Box>
-                ))}
-                {alerts.length === 0 && (
-                  <Typography variant="body2" color="text.secondary">No hay datos</Typography>
-                )}
-              </Box>
-            </CardContent>
-          </Card>
-
-          <Card sx={{ height: 'fit-content', mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>Sugerencias y Recomendaciones</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                ¿Tenes ideas de mejora? Envianoslas para seguir actualizando el sistema.
-              </Typography>
-              <Button fullWidth variant="contained" color="success" startIcon={<MessageCircle size={18} />} onClick={handleFeedbackWhatsApp} sx={{ mb: 1.5 }}>
-                Sugerencias y recomendaciones
-              </Button>
-              <Button fullWidth variant="outlined" startIcon={<Mail size={18} />} onClick={handleFeedbackEmail}>
-                Enviar por Email
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card sx={{ height: 'fit-content' }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>Programa de Referidos</Typography>
-              <Card variant="outlined" sx={{ borderStyle: 'dashed' }}>
-                <CardContent sx={{ textAlign: 'center' }}>
-                  <Users size={32} color="#1a237e" style={{ marginBottom: 8 }} />
-                  <Typography variant="body2" gutterBottom>
-                    Tienes <strong>{user?.referidosMes || 0} referidos</strong> este mes.
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
-                    Llega a 10 para obtener el proximo mes 100% bonificado.
-                  </Typography>
-                  <LinearProgress variant="determinate" value={Math.min(((user?.referidosMes || 0) / 10) * 100, 100)} sx={{ height: 8, borderRadius: 4, mb: 1 }} />
-                  <Typography variant="caption" sx={{ fontWeight: 700 }}>{Math.round(((user?.referidosMes || 0) / 10) * 100)}% completado</Typography>
-                </CardContent>
-              </Card>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
 
       <Dialog open={!!editingPolicy && !!editValues} onClose={() => { setEditingPolicy(null); setEditValues(null); }} maxWidth="md" fullWidth>
         <DialogTitle sx={{ fontWeight: 800 }}>Editar Poliza</DialogTitle>

@@ -1,13 +1,80 @@
+import { CompanyType, InteractionChannel, PolicyType, PolicyVigencia, Prisma } from "@prisma/client";
 import { Router, Response } from "express";
 import prisma from "../lib/prisma.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
 import { checkPlanLimit } from "../middleware/planLimits.js";
+import {
+  classifyPolicyTypeFromRubro,
+  getQuotaTotalFromVigencia,
+  inferVigenciaFromDates,
+  mapRubroToCompanyType,
+} from "../lib/generalPolicies.js";
 
 export const policiesRouter = Router();
 policiesRouter.use(authMiddleware);
 
-// Helper: compute policy status based on dates
-function computeStatus(fechaVencimiento: Date): "ACTIVA" | "VENCE_PRONTO" | "VENCIDA" {
+const policyInclude = {
+  cliente: {
+    select: {
+      id: true,
+      nombre: true,
+      dni: true,
+      telefono: true,
+      email: true,
+      direccion: true,
+      altura: true,
+      cp: true,
+      provincia: true,
+      localidad: true,
+    },
+  },
+  company: {
+    select: {
+      id: true,
+      razonSocial: true,
+      cuit: true,
+      telefono: true,
+      email: true,
+      direccion: true,
+      altura: true,
+      cp: true,
+      provincia: true,
+      localidad: true,
+      tipo: true,
+    },
+  },
+} satisfies Prisma.PolicyInclude;
+
+type PolicyPayload = {
+  clienteId?: string | null;
+  companyId?: string | null;
+  clienteNombre?: string;
+  clienteDni?: string | null;
+  clienteTelefono?: string | null;
+  clienteEmail?: string | null;
+  clienteDireccion?: string | null;
+  clienteAltura?: string | null;
+  clienteCp?: string | null;
+  clienteProvincia?: string | null;
+  clienteLocalidad?: string | null;
+  aseguradora?: string;
+  rubro?: string;
+  numeroPoliza?: string;
+  fechaInicio?: string;
+  fechaVencimiento?: string;
+  medioPago?: string | null;
+  vigencia?: PolicyVigencia | string | null;
+  cuotaActual?: number | string | null;
+  cuotaTotal?: number | string | null;
+  groupId?: string | null;
+  pagada?: boolean;
+  fechaPago?: string | null;
+  prima?: number | string;
+  porcentajeComision?: number | string;
+  tipo?: PolicyType | string | null;
+};
+
+function computeStatus(fechaVencimiento: Date): PolicyStatus {
   const now = new Date();
   const diff = fechaVencimiento.getTime() - now.getTime();
   const daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
@@ -16,29 +83,303 @@ function computeStatus(fechaVencimiento: Date): "ACTIVA" | "VENCE_PRONTO" | "VEN
   return "ACTIVA";
 }
 
+type PolicyStatus = "ACTIVA" | "VENCE_PRONTO" | "VENCIDA";
+
+function asTrimmedString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function asNullableString(value: unknown): string | null {
+  return asTrimmedString(value) ?? null;
+}
+
+function asNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+}
+
+function asInteger(value: unknown): number | undefined {
+  const parsed = asNumber(value);
+  if (parsed == null) return undefined;
+  return Math.trunc(parsed);
+}
+
+function asDate(value: unknown): Date | undefined {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date;
+}
+
+function normalizeVigencia(value: unknown, fechaInicio: Date, fechaVencimiento: Date): PolicyVigencia {
+  if (typeof value === "string") {
+    const normalized = value.trim().toUpperCase();
+    if (
+      normalized === "MENSUAL" ||
+      normalized === "BIMESTRAL" ||
+      normalized === "TRIMESTRAL" ||
+      normalized === "SEMESTRAL" ||
+      normalized === "ANUAL"
+    ) {
+      return normalized as PolicyVigencia;
+    }
+  }
+  return inferVigenciaFromDates(fechaInicio, fechaVencimiento);
+}
+
+function normalizePolicyType(value: unknown, rubro: string): PolicyType {
+  if (value === "INDIVIDUAL" || value === "EMPRESA") {
+    return value;
+  }
+  return classifyPolicyTypeFromRubro(rubro);
+}
+
+function buildClientData(input: PolicyPayload) {
+  return {
+    nombre: asTrimmedString(input.clienteNombre) || "",
+    dni: asTrimmedString(input.clienteDni) || "",
+    telefono: asTrimmedString(input.clienteTelefono) || "",
+    email: asTrimmedString(input.clienteEmail) || "",
+    direccion: asNullableString(input.clienteDireccion),
+    altura: asNullableString(input.clienteAltura),
+    cp: asNullableString(input.clienteCp),
+    provincia: asNullableString(input.clienteProvincia),
+    localidad: asNullableString(input.clienteLocalidad),
+  };
+}
+
+function buildCompanyData(input: PolicyPayload, companyType: CompanyType) {
+  return {
+    razonSocial: asTrimmedString(input.clienteNombre) || "",
+    cuit: asTrimmedString(input.clienteDni) || "",
+    ramo: asNullableString(input.rubro),
+    aseguradora: asTrimmedString(input.aseguradora) || "",
+    email: asTrimmedString(input.clienteEmail) || "",
+    telefono: asTrimmedString(input.clienteTelefono) || "",
+    direccion: asNullableString(input.clienteDireccion),
+    altura: asNullableString(input.clienteAltura),
+    cp: asNullableString(input.clienteCp),
+    provincia: asNullableString(input.clienteProvincia),
+    localidad: asNullableString(input.clienteLocalidad),
+    tipo: companyType,
+  };
+}
+
+async function ensureClientLink(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  input: PolicyPayload,
+  existingPolicy?: { clienteId: string | null }
+): Promise<{ clienteId: string; companyId: null }> {
+  const data = buildClientData(input);
+  let client = null;
+
+  if (existingPolicy?.clienteId) {
+    client = await tx.client.findFirst({ where: { id: existingPolicy.clienteId, userId } });
+  }
+
+  if (!client && input.clienteId) {
+    client = await tx.client.findFirst({ where: { id: input.clienteId, userId } });
+  }
+
+  if (!client && data.dni) {
+    client = await tx.client.findFirst({ where: { userId, dni: data.dni } });
+  }
+
+  if (!client && data.email) {
+    client = await tx.client.findFirst({ where: { userId, email: data.email } });
+  }
+
+  if (!client && data.nombre) {
+    client = await tx.client.findFirst({ where: { userId, nombre: data.nombre } });
+  }
+
+  if (client) {
+    const updated = await tx.client.update({
+      where: { id: client.id },
+      data,
+    });
+    return { clienteId: updated.id, companyId: null };
+  }
+
+  const limitCheck = await checkPlanLimit(userId, "clientes");
+  if (!limitCheck.allowed) {
+    throw new Error(limitCheck.message || "No se pudo crear el cliente vinculado");
+  }
+
+  const created = await tx.client.create({
+    data: {
+      userId,
+      ...data,
+    },
+  });
+
+  return { clienteId: created.id, companyId: null };
+}
+
+async function ensureCompanyLink(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  input: PolicyPayload,
+  existingPolicy?: { companyId: string | null }
+): Promise<{ clienteId: null; companyId: string }> {
+  const companyType = mapRubroToCompanyType(asTrimmedString(input.rubro) || "") || "INTEGRAL_DE_COMERCIO";
+  const data = buildCompanyData(input, companyType);
+  let company = null;
+
+  if (existingPolicy?.companyId) {
+    company = await tx.company.findFirst({ where: { id: existingPolicy.companyId, userId } });
+  }
+
+  if (!company && input.companyId) {
+    company = await tx.company.findFirst({ where: { id: input.companyId, userId } });
+  }
+
+  if (!company && data.cuit) {
+    company = await tx.company.findFirst({ where: { userId, cuit: data.cuit } });
+  }
+
+  if (!company && data.razonSocial) {
+    company = await tx.company.findFirst({ where: { userId, razonSocial: data.razonSocial } });
+  }
+
+  if (company) {
+    const updated = await tx.company.update({
+      where: { id: company.id },
+      data,
+    });
+    return { clienteId: null, companyId: updated.id };
+  }
+
+  const limitCheck = await checkPlanLimit(userId, "empresas");
+  if (!limitCheck.allowed) {
+    throw new Error(limitCheck.message || "No se pudo crear la empresa vinculada");
+  }
+
+  const created = await tx.company.create({
+    data: {
+      userId,
+      ...data,
+    },
+  });
+
+  return { clienteId: null, companyId: created.id };
+}
+
+async function buildPolicyWriteData(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  input: PolicyPayload,
+  existingPolicy?: {
+    id: string;
+    clienteId: string | null;
+    companyId: string | null;
+    fechaVencimiento: Date;
+    comisionCalculada: number;
+    vigencia: PolicyVigencia;
+    cuotaActual: number;
+    cuotaTotal: number;
+    groupId: string | null;
+    pagada: boolean;
+  }
+) {
+  const clienteNombre = asTrimmedString(input.clienteNombre);
+  const clienteDni = asNullableString(input.clienteDni);
+  const clienteTelefono = asNullableString(input.clienteTelefono);
+  const clienteEmail = asTrimmedString(input.clienteEmail);
+  const rubro = asTrimmedString(input.rubro);
+  const aseguradora = asTrimmedString(input.aseguradora);
+  const numeroPoliza = asTrimmedString(input.numeroPoliza);
+  const fechaInicio = asDate(input.fechaInicio);
+  const fechaVencimiento = asDate(input.fechaVencimiento);
+  const prima = asNumber(input.prima);
+  const porcentajeComision = asNumber(input.porcentajeComision);
+
+  if (
+    !clienteNombre ||
+    !clienteDni ||
+    !clienteTelefono ||
+    !clienteEmail ||
+    !rubro ||
+    !aseguradora ||
+    !numeroPoliza ||
+    !fechaInicio ||
+    !fechaVencimiento ||
+    prima == null ||
+    porcentajeComision == null
+  ) {
+    throw new Error("Campos obligatorios faltantes");
+  }
+
+  const tipo = normalizePolicyType(input.tipo, rubro);
+  const vigencia = normalizeVigencia(input.vigencia, fechaInicio, fechaVencimiento);
+  const cuotaActual = Math.max(1, asInteger(input.cuotaActual) ?? existingPolicy?.cuotaActual ?? 1);
+  const cuotaTotal = Math.max(
+    cuotaActual,
+    asInteger(input.cuotaTotal) ?? existingPolicy?.cuotaTotal ?? getQuotaTotalFromVigencia(vigencia)
+  );
+  const fechaPago = asDate(input.fechaPago);
+  const pagada = typeof input.pagada === "boolean" ? input.pagada : existingPolicy?.pagada ?? false;
+  const link =
+    tipo === "INDIVIDUAL"
+      ? await ensureClientLink(tx, userId, input, existingPolicy)
+      : await ensureCompanyLink(tx, userId, input, existingPolicy);
+  const comisionCalculada = parseFloat((prima * (porcentajeComision / 100)).toFixed(2));
+  const estado = computeStatus(fechaVencimiento);
+
+  return {
+    clienteId: link.clienteId,
+    companyId: link.companyId,
+    clienteNombre,
+    clienteDni,
+    clienteTelefono,
+    clienteEmail,
+    aseguradora,
+    rubro,
+    numeroPoliza,
+    fechaInicio,
+    fechaVencimiento,
+    medioPago: asNullableString(input.medioPago),
+    vigencia,
+    cuotaActual,
+    cuotaTotal,
+    groupId: asTrimmedString(input.groupId) || existingPolicy?.groupId || existingPolicy?.id || null,
+    pagada,
+    fechaPago: pagada ? fechaPago || new Date() : null,
+    prima,
+    porcentajeComision,
+    comisionCalculada,
+    estado,
+    tipo,
+  };
+}
+
 // List policies
 policiesRouter.get("/", async (req: AuthRequest, res: Response) => {
   try {
     const { tipo, estado, rubro, search } = req.query;
-    const where: any = { userId: req.userId };
+    const where: Prisma.PolicyWhereInput = { userId: req.userId };
 
-    if (tipo) where.tipo = tipo as string;
-    if (estado) where.estado = estado as string;
-    if (rubro) where.rubro = rubro as string;
-    if (search) {
+    if (tipo === "INDIVIDUAL" || tipo === "EMPRESA") where.tipo = tipo;
+    if (estado === "ACTIVA" || estado === "VENCE_PRONTO" || estado === "VENCIDA") where.estado = estado;
+    if (typeof rubro === "string" && rubro.trim()) where.rubro = rubro.trim();
+    if (typeof search === "string" && search.trim()) {
       where.OR = [
-        { clienteNombre: { contains: search as string, mode: "insensitive" } },
-        { numeroPoliza: { contains: search as string, mode: "insensitive" } },
+        { clienteNombre: { contains: search.trim(), mode: "insensitive" } },
+        { numeroPoliza: { contains: search.trim(), mode: "insensitive" } },
       ];
     }
 
     const policies = await prisma.policy.findMany({
       where,
       orderBy: { fechaVencimiento: "asc" },
-      include: {
-        cliente: { select: { id: true, nombre: true, telefono: true, email: true } },
-        company: { select: { id: true, razonSocial: true, telefono: true, email: true } },
-      },
+      include: policyInclude,
     });
 
     res.json(policies);
@@ -51,27 +392,7 @@ policiesRouter.get("/", async (req: AuthRequest, res: Response) => {
 // Create policy
 policiesRouter.post("/", async (req: AuthRequest, res: Response) => {
   try {
-    const {
-      clienteId,
-      companyId,
-      clienteNombre,
-      clienteDni,
-      clienteTelefono,
-      aseguradora,
-      rubro,
-      numeroPoliza,
-      fechaInicio,
-      fechaVencimiento,
-      medioPago,
-      prima,
-      porcentajeComision,
-      tipo,
-    } = req.body;
-
-    if (!clienteNombre || !aseguradora || !rubro || !numeroPoliza || !fechaInicio || !fechaVencimiento || prima == null || porcentajeComision == null) {
-      res.status(400).json({ error: "Campos obligatorios faltantes" });
-      return;
-    }
+    const input = req.body as PolicyPayload;
 
     const limitCheck = await checkPlanLimit(req.userId!, "polizas");
     if (!limitCheck.allowed) {
@@ -79,36 +400,22 @@ policiesRouter.post("/", async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const comisionCalculada = prima * (porcentajeComision / 100);
-    const venc = new Date(fechaVencimiento);
-    const estado = computeStatus(venc);
-
-    const policy = await prisma.policy.create({
-      data: {
-        userId: req.userId!,
-        clienteId: clienteId || null,
-        companyId: companyId || null,
-        clienteNombre,
-        clienteDni,
-        clienteTelefono,
-        aseguradora,
-        rubro,
-        numeroPoliza,
-        fechaInicio: new Date(fechaInicio),
-        fechaVencimiento: venc,
-        medioPago,
-        prima: parseFloat(prima),
-        porcentajeComision: parseFloat(porcentajeComision),
-        comisionCalculada,
-        estado,
-        tipo: tipo || "INDIVIDUAL",
-      },
+    const policy = await prisma.$transaction(async (tx) => {
+      const data = await buildPolicyWriteData(tx, req.userId!, input);
+      return tx.policy.create({
+        data: {
+          userId: req.userId!,
+          ...data,
+        },
+        include: policyInclude,
+      });
     });
 
     res.status(201).json(policy);
   } catch (error) {
     console.error("Create policy error:", error);
-    res.status(500).json({ error: "Error interno del servidor" });
+    const message = error instanceof Error ? error.message : "Error interno del servidor";
+    res.status(message === "Campos obligatorios faltantes" ? 400 : 500).json({ error: message });
   }
 });
 
@@ -116,9 +423,22 @@ policiesRouter.post("/", async (req: AuthRequest, res: Response) => {
 policiesRouter.put("/:id", async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const input = req.body as PolicyPayload;
 
     const existing = await prisma.policy.findFirst({
       where: { id, userId: req.userId },
+      select: {
+        id: true,
+        clienteId: true,
+        companyId: true,
+        fechaVencimiento: true,
+        comisionCalculada: true,
+        vigencia: true,
+        cuotaActual: true,
+        cuotaTotal: true,
+        groupId: true,
+        pagada: true,
+      },
     });
 
     if (!existing) {
@@ -126,51 +446,91 @@ policiesRouter.put("/:id", async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const {
-      clienteNombre,
-      clienteDni,
-      clienteTelefono,
-      aseguradora,
-      rubro,
-      numeroPoliza,
-      fechaInicio,
-      fechaVencimiento,
-      medioPago,
-      prima,
-      porcentajeComision,
-      tipo,
-    } = req.body;
-
-    const comisionCalculada = prima != null && porcentajeComision != null
-      ? parseFloat(prima) * (parseFloat(porcentajeComision) / 100)
-      : existing.comisionCalculada;
-
-    const venc = fechaVencimiento ? new Date(fechaVencimiento) : existing.fechaVencimiento;
-    const estado = computeStatus(venc);
-
-    const policy = await prisma.policy.update({
-      where: { id },
-      data: {
-        clienteNombre,
-        clienteDni,
-        clienteTelefono,
-        aseguradora,
-        rubro,
-        numeroPoliza,
-        fechaInicio: fechaInicio ? new Date(fechaInicio) : undefined,
-        fechaVencimiento: venc,
-        medioPago,
-        prima: prima != null ? parseFloat(prima) : undefined,
-        porcentajeComision: porcentajeComision != null ? parseFloat(porcentajeComision) : undefined,
-        comisionCalculada,
-        estado,
-        tipo,
-      },
+    const policy = await prisma.$transaction(async (tx) => {
+      const data = await buildPolicyWriteData(tx, req.userId!, input, existing);
+      return tx.policy.update({
+        where: { id },
+        data,
+        include: policyInclude,
+      });
     });
 
     res.json(policy);
   } catch (error) {
     console.error("Update policy error:", error);
+    const message = error instanceof Error ? error.message : "Error interno del servidor";
+    res.status(message === "Campos obligatorios faltantes" ? 400 : 500).json({ error: message });
+  }
+});
+
+// Update payment status
+policiesRouter.patch("/:id/payment", async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.policy.findFirst({
+      where: { id, userId: req.userId },
+      select: { id: true, pagada: true, fechaPago: true },
+    });
+
+    if (!existing) {
+      res.status(404).json({ error: "Póliza no encontrada" });
+      return;
+    }
+
+    const pagada = typeof req.body?.pagada === "boolean" ? req.body.pagada : !existing.pagada;
+    const fechaPago = pagada ? asDate(req.body?.fechaPago) || existing.fechaPago || new Date() : null;
+
+    const policy = await prisma.policy.update({
+      where: { id },
+      data: {
+        pagada,
+        fechaPago,
+      },
+      include: policyInclude,
+    });
+
+    res.json(policy);
+  } catch (error) {
+    console.error("Update payment error:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
+// Track WhatsApp / Email interactions
+policiesRouter.post("/:id/interactions", async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const channel = req.body?.channel;
+
+    if (channel !== "WHATSAPP" && channel !== "EMAIL") {
+      res.status(400).json({ error: "Canal inválido" });
+      return;
+    }
+
+    const existing = await prisma.policy.findFirst({
+      where: { id, userId: req.userId },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      res.status(404).json({ error: "Póliza no encontrada" });
+      return;
+    }
+
+    const policy = await prisma.policy.update({
+      where: { id },
+      data: {
+        ultimaGestionTipo: channel as InteractionChannel,
+        ultimaGestionFecha: new Date(),
+        ultimaGestionWhatsappCount: channel === "WHATSAPP" ? { increment: 1 } : undefined,
+        ultimaGestionMailCount: channel === "EMAIL" ? { increment: 1 } : undefined,
+      },
+      include: policyInclude,
+    });
+
+    res.json(policy);
+  } catch (error) {
+    console.error("Track interaction error:", error);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
@@ -202,6 +562,7 @@ policiesRouter.post("/update-statuses", async (req: AuthRequest, res: Response) 
   try {
     const policies = await prisma.policy.findMany({
       where: { userId: req.userId },
+      select: { id: true, fechaVencimiento: true, estado: true },
     });
 
     let updated = 0;

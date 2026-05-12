@@ -1,9 +1,42 @@
 import { Router, Response } from "express";
 import prisma from "../lib/prisma.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
+import { getVigenciaLabel } from "../lib/generalPolicies.js";
 
 export const dashboardRouter = Router();
 dashboardRouter.use(authMiddleware);
+
+const dashboardPolicyInclude = {
+  cliente: {
+    select: {
+      id: true,
+      nombre: true,
+      dni: true,
+      telefono: true,
+      email: true,
+      direccion: true,
+      altura: true,
+      cp: true,
+      provincia: true,
+      localidad: true,
+    },
+  },
+  company: {
+    select: {
+      id: true,
+      razonSocial: true,
+      cuit: true,
+      telefono: true,
+      email: true,
+      direccion: true,
+      altura: true,
+      cp: true,
+      provincia: true,
+      localidad: true,
+      tipo: true,
+    },
+  },
+} as const;
 
 // Get dashboard stats
 dashboardRouter.get("/stats", async (req: AuthRequest, res: Response) => {
@@ -66,10 +99,7 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
       where,
       orderBy: { fechaVencimiento: "asc" },
       ...(take ? { take } : {}),
-      include: {
-        cliente: { select: { telefono: true, email: true } },
-        company: { select: { telefono: true, email: true } },
-      },
+      include: dashboardPolicyInclude,
     });
 
     // Map to frontend format
@@ -84,17 +114,50 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
 
       return {
         id: p.id,
-        cliente: p.clienteNombre,
+        clienteId: p.clienteId,
+        companyId: p.companyId,
+        cliente: p.company?.razonSocial || p.clienteNombre,
+        clienteNombre: p.clienteNombre,
+        clienteDni: p.clienteDni || p.cliente?.dni || p.company?.cuit || "",
+        clienteTelefono: p.clienteTelefono || p.cliente?.telefono || p.company?.telefono || "",
+        clienteEmail: p.clienteEmail || p.cliente?.email || p.company?.email || "",
         aseguradora: p.aseguradora,
         rubro: p.rubro,
+        inicio: p.fechaInicio.toISOString().split("T")[0],
         vencimiento: p.fechaVencimiento.toISOString().split("T")[0],
         poliza: p.numeroPoliza,
-        estado: estadoLabel,
-        tipo: p.tipo === "EMPRESA" ? "Empresa" : "Individual",
+        estado: p.estado,
+        estadoLabel,
+        tipo: p.tipo,
         medioPago: p.medioPago,
         diasRestantes: daysLeft,
         telefono: p.clienteTelefono || p.cliente?.telefono || p.company?.telefono || "",
-        email: p.cliente?.email || p.company?.email || "",
+        email: p.clienteEmail || p.cliente?.email || p.company?.email || "",
+        direccion: p.cliente?.direccion || p.company?.direccion || "",
+        altura: p.cliente?.altura || p.company?.altura || "",
+        cp: p.cliente?.cp || p.company?.cp || "",
+        provincia: p.cliente?.provincia || p.company?.provincia || "",
+        localidad: p.cliente?.localidad || p.company?.localidad || "",
+        vigencia: p.vigencia,
+        vigenciaLabel: getVigenciaLabel(p.vigencia),
+        cuotaActual: p.cuotaActual,
+        cuotaTotal: p.cuotaTotal,
+        cuota: `${p.cuotaActual}/${p.cuotaTotal}`,
+        groupId: p.groupId || p.id,
+        pagada: p.pagada,
+        fechaPago: p.fechaPago ? p.fechaPago.toISOString().split("T")[0] : "",
+        prima: p.prima,
+        porcentajeComision: p.porcentajeComision,
+        comisionCalculada: p.comisionCalculada,
+        ultimaGestion:
+          p.ultimaGestionTipo && p.ultimaGestionFecha
+            ? {
+                tipo: p.ultimaGestionTipo,
+                fecha: p.ultimaGestionFecha.toISOString().split("T")[0],
+                whatsappCount: p.ultimaGestionWhatsappCount,
+                mailCount: p.ultimaGestionMailCount,
+              }
+            : null,
       };
     });
 

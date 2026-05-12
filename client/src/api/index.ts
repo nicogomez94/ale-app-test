@@ -1,6 +1,84 @@
 const apiUrl = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 const API_BASE = apiUrl ? `${apiUrl}/api` : "/api";
 
+export type PolicyVigencia = "MENSUAL" | "BIMESTRAL" | "TRIMESTRAL" | "SEMESTRAL" | "ANUAL";
+export type PolicyType = "INDIVIDUAL" | "EMPRESA";
+export type InteractionChannel = "WHATSAPP" | "EMAIL";
+
+export interface DashboardPolicy {
+  id: string;
+  clienteId: string | null;
+  companyId: string | null;
+  cliente: string;
+  clienteNombre: string;
+  clienteDni: string;
+  clienteTelefono: string;
+  clienteEmail: string;
+  aseguradora: string;
+  rubro: string;
+  poliza: string;
+  inicio: string;
+  vencimiento: string;
+  estado: "ACTIVA" | "VENCE_PRONTO" | "VENCIDA";
+  estadoLabel: string;
+  tipo: PolicyType;
+  medioPago: string;
+  diasRestantes: number;
+  telefono: string;
+  email: string;
+  direccion: string;
+  altura: string;
+  cp: string;
+  provincia: string;
+  localidad: string;
+  vigencia: PolicyVigencia;
+  vigenciaLabel: string;
+  cuotaActual: number;
+  cuotaTotal: number;
+  cuota: string;
+  groupId: string;
+  pagada: boolean;
+  fechaPago: string;
+  prima: number;
+  porcentajeComision: number;
+  comisionCalculada: number;
+  ultimaGestion: {
+    tipo: InteractionChannel;
+    fecha: string;
+    whatsappCount: number;
+    mailCount: number;
+  } | null;
+}
+
+export interface PolicyPayload {
+  clienteId?: string | null;
+  companyId?: string | null;
+  clienteNombre: string;
+  clienteDni: string;
+  clienteTelefono: string;
+  clienteEmail: string;
+  clienteDireccion?: string;
+  clienteAltura?: string;
+  clienteCp?: string;
+  clienteProvincia?: string;
+  clienteLocalidad?: string;
+  aseguradora: string;
+  rubro: string;
+  numeroPoliza: string;
+  fechaInicio: string;
+  fechaVencimiento: string;
+  medioPago: string;
+  vigencia: PolicyVigencia;
+  cuotaActual: number;
+  cuotaTotal: number;
+  groupId: string;
+  pagada?: boolean;
+  fechaPago?: string;
+  prima: number;
+  porcentajeComision: number;
+  tipo: PolicyType;
+}
+
 function getToken(): string | null {
   return localStorage.getItem("pas_token");
 }
@@ -113,7 +191,7 @@ export const api = {
         params.set("limit", String(limit));
       }
       const qs = params.toString();
-      return request<any[]>(`/dashboard/policies${qs ? `?${qs}` : ""}`);
+      return request<DashboardPolicy[]>(`/dashboard/policies${qs ? `?${qs}` : ""}`);
     },
     alerts: () => request<any[]>("/dashboard/alerts"),
   },
@@ -153,14 +231,18 @@ export const api = {
   policies: {
     list: (params?: Record<string, string>) => {
       const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
-      return request<any[]>(`/policies${qs}`);
+      return request<DashboardPolicy[]>(`/policies${qs}`);
     },
-    create: (data: any) =>
-      request<any>("/policies", { method: "POST", body: JSON.stringify(data) }),
-    update: (id: string, data: any) =>
-      request<any>(`/policies/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    create: (data: PolicyPayload) =>
+      request<DashboardPolicy>("/policies", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: string, data: PolicyPayload) =>
+      request<DashboardPolicy>(`/policies/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: string) =>
       request<any>(`/policies/${id}`, { method: "DELETE" }),
+    updatePayment: (id: string, data: { pagada: boolean; fechaPago?: string }) =>
+      request<DashboardPolicy>(`/policies/${id}/payment`, { method: "PATCH", body: JSON.stringify(data) }),
+    trackInteraction: (id: string, channel: InteractionChannel) =>
+      request<DashboardPolicy>(`/policies/${id}/interactions`, { method: "POST", body: JSON.stringify({ channel }) }),
     updateStatuses: () =>
       request<any>("/policies/update-statuses", { method: "POST" }),
   },

@@ -37,6 +37,19 @@ enum PolicyType {
   EMPRESA
 }
 
+enum PolicyVigencia {
+  MENSUAL
+  BIMESTRAL
+  TRIMESTRAL
+  SEMESTRAL
+  ANUAL
+}
+
+enum InteractionChannel {
+  WHATSAPP
+  EMAIL
+}
+
 enum CompanyType {
   ART
   FLOTAS
@@ -95,7 +108,10 @@ model Client {
   telefono  String
   email     String
   direccion String?
+  altura    String?
   cp        String?
+  provincia String?
+  localidad String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -117,7 +133,10 @@ model Company {
   email       String
   telefono    String
   direccion   String?
+  altura      String?
   cp          String?
+  provincia   String?
+  localidad   String?
   tipo        CompanyType
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -129,26 +148,37 @@ model Company {
 }
 
 model Policy {
-  id                 String       @id @default(uuid())
-  userId             String
-  clienteId          String?
-  companyId          String?
-  clienteNombre      String
-  clienteDni         String?
-  clienteTelefono    String?
-  aseguradora        String
-  rubro              String
-  numeroPoliza       String
-  fechaInicio        DateTime
-  fechaVencimiento   DateTime
-  medioPago          String?
-  prima              Float
-  porcentajeComision Float
-  comisionCalculada  Float
-  estado             PolicyStatus @default(ACTIVA)
-  tipo               PolicyType   @default(INDIVIDUAL)
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  id                       String              @id @default(uuid())
+  userId                   String
+  clienteId                String?
+  companyId                String?
+  clienteNombre            String
+  clienteDni               String?
+  clienteTelefono          String?
+  clienteEmail             String?
+  aseguradora              String
+  rubro                    String
+  numeroPoliza             String
+  fechaInicio              DateTime
+  fechaVencimiento         DateTime
+  medioPago                String?
+  vigencia                 PolicyVigencia      @default(ANUAL)
+  cuotaActual              Int                 @default(1)
+  cuotaTotal               Int                 @default(1)
+  groupId                  String?
+  pagada                   Boolean             @default(false)
+  fechaPago                DateTime?
+  ultimaGestionTipo        InteractionChannel?
+  ultimaGestionFecha       DateTime?
+  ultimaGestionWhatsappCount Int               @default(0)
+  ultimaGestionMailCount   Int                 @default(0)
+  prima                    Float
+  porcentajeComision       Float
+  comisionCalculada        Float
+  estado                   PolicyStatus        @default(ACTIVA)
+  tipo                     PolicyType          @default(INDIVIDUAL)
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
 
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   cliente Client?  @relation(fields: [clienteId], references: [id], onDelete: SetNull)

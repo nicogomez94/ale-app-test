@@ -168,6 +168,8 @@ model Policy {
   groupId                  String?
   pagada                   Boolean             @default(false)
   fechaPago                DateTime?
+  recordatorioProximoEnviadoAt DateTime?
+  recordatorioVencidaEnviadoAt DateTime?
   ultimaGestionTipo        InteractionChannel?
   ultimaGestionFecha       DateTime?
   ultimaGestionWhatsappCount Int               @default(0)

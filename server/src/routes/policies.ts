@@ -332,6 +332,8 @@ async function buildPolicyWriteData(
       : await ensureCompanyLink(tx, userId, input, existingPolicy);
   const comisionCalculada = parseFloat((prima * (porcentajeComision / 100)).toFixed(2));
   const estado = computeStatus(fechaVencimiento);
+  const shouldResetReminderFlags =
+    !!existingPolicy && existingPolicy.fechaVencimiento.getTime() !== fechaVencimiento.getTime();
 
   return {
     clienteId: link.clienteId,
@@ -352,6 +354,12 @@ async function buildPolicyWriteData(
     groupId: asTrimmedString(input.groupId) || existingPolicy?.groupId || existingPolicy?.id || null,
     pagada,
     fechaPago: pagada ? fechaPago || new Date() : null,
+    ...(shouldResetReminderFlags
+      ? {
+          recordatorioProximoEnviadoAt: null,
+          recordatorioVencidaEnviadoAt: null,
+        }
+      : {}),
     prima,
     porcentajeComision,
     comisionCalculada,

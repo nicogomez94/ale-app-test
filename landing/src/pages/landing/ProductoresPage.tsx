@@ -9,7 +9,7 @@ const BENEFITS = [
   {
     icon: 'fa-gauge-high',
     title: 'Sistema de gestión incluido',
-    desc: 'Acceso completo a AD System: gestioná tu cartera de clientes, pólizas, comisiones y alertas desde un solo lugar.',
+    desc: 'Acceso completo a PAS Alert: gestioná tu cartera de clientes, pólizas, comisiones y alertas desde un solo lugar.',
   },
   {
     icon: 'fa-percent',
@@ -118,7 +118,7 @@ export function ProductoresPage() {
                 {[
                   { n: '01', t: 'Completá el formulario', d: 'Envianos tu información y nos ponemos en contacto en menos de 48 horas hábiles.' },
                   { n: '02', t: 'Entrevista inicial', d: 'Un integrante del equipo se comunica para presentarte las condiciones y resolver tus dudas.' },
-                  { n: '03', t: 'Alta como productor', d: 'Completamos el proceso de alta y configuramos tu cuenta en AD System.' },
+                  { n: '03', t: 'Alta como productor', d: 'Completamos el proceso de alta y configuramos tu cuenta en PAS Alert.' },
                   { n: '04', t: 'Empezá a operar', d: 'Accedés al sistema, tus herramientas y el soporte del equipo desde el primer día.' },
                 ].map((step) => (
                   <li key={step.n} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>

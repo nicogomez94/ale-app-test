@@ -208,7 +208,7 @@ export const LoginPage: React.FC = () => {
         </Card>
 
         <Typography variant="caption" color="text.secondary" sx={{ mt: 4 }}>
-          © 2026 AD System. Todos los derechos reservados.
+          © 2026 PAS Alert. Todos los derechos reservados.
         </Typography>
       </Box>
 

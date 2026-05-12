@@ -115,7 +115,7 @@ function AppSystem() {
                 SuscripciÃ³n Vencida
               </Typography>
               <Typography sx={{ mb: 3 }}>
-                Tu plan ha expirado. RenovÃ¡ tu suscripciÃ³n para seguir usando AD System.
+                Tu plan ha expirado. RenovÃ¡ tu suscripciÃ³n para seguir usando PAS Alert.
               </Typography>
               <Button variant="contained" size="large" onClick={() => {
                 setSubscriptionExpired(false);

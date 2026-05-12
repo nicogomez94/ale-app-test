@@ -214,6 +214,8 @@ adminRouter.post("/test-seed", async (req: AuthRequest, res: Response) => {
             data: {
               fechaInicio: new Date(p.fechaInicio.getTime() - shift),
               fechaVencimiento: new Date(p.fechaVencimiento.getTime() - shift),
+              recordatorioProximoEnviadoAt: null,
+              recordatorioVencidaEnviadoAt: null,
             },
           });
         }
@@ -224,7 +226,14 @@ adminRouter.post("/test-seed", async (req: AuthRequest, res: Response) => {
         const policies = await prisma.policy.findMany({ where: { userId }, select: { id: true } });
         const newVenc = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
         for (const p of policies) {
-          await prisma.policy.update({ where: { id: p.id }, data: { fechaVencimiento: newVenc } });
+          await prisma.policy.update({
+            where: { id: p.id },
+            data: {
+              fechaVencimiento: newVenc,
+              recordatorioProximoEnviadoAt: null,
+              recordatorioVencidaEnviadoAt: null,
+            },
+          });
         }
         res.json({ message: `${policies.length} póliza(s) seteadas para vencer en 3 días`, value: newVenc });
         break;

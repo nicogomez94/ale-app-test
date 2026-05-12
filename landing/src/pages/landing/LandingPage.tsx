@@ -70,13 +70,13 @@ export function LandingPage() {
             </div>
           </section>
 
-          {/* ── AD System Banner ── */}
+          {/* ── PAS Alert Banner ── */}
           <div className="pas-alert-banner scroll-anim" data-anim="slam-up">
             <div className="pas-alert-icon">
               <i className="fa-solid fa-gauge-high" />
             </div>
             <div className="pas-alert-copy">
-              <h2>AD System — Gestión para Productores Asesores</h2>
+              <h2>PAS Alert — Gestión para Productores Asesores</h2>
               <p>
                 Plataforma digital exclusiva para productores de AD SEGUROS. Gestioná tus clientes, pólizas,
                 comisiones y siniestros desde un solo lugar.

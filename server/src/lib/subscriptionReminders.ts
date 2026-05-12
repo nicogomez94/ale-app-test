@@ -3,6 +3,16 @@ import { sendEmail } from "./email.js";
 
 const INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function getDaysRemaining(target: Date, now: Date): number {
+  const targetDay = startOfDay(target).getTime();
+  const currentDay = startOfDay(now).getTime();
+  return Math.round((targetDay - currentDay) / (1000 * 60 * 60 * 24));
+}
+
 // ─── Policy status update ────────────────────────────────────────────────────
 
 async function updatePolicyStatuses(onlyTestUsers = false): Promise<void> {
@@ -37,6 +47,118 @@ async function updatePolicyStatuses(onlyTestUsers = false): Promise<void> {
     );
   } else {
     console.log("[PolicyJob] Sin cambios de estado en pólizas.");
+  }
+}
+
+async function sendPolicyExpirationReminders(onlyTestUsers = false): Promise<void> {
+  const now = new Date();
+  const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const policies = await prisma.policy.findMany({
+    where: {
+      clienteEmail: { not: null },
+      user: {
+        estado: "ACTIVO",
+        ...(onlyTestUsers ? { isTestUser: true } : {}),
+      },
+      fechaVencimiento: { lte: in7Days },
+    },
+    select: {
+      id: true,
+      clienteNombre: true,
+      clienteEmail: true,
+      numeroPoliza: true,
+      aseguradora: true,
+      fechaVencimiento: true,
+      recordatorioProximoEnviadoAt: true,
+      recordatorioVencidaEnviadoAt: true,
+      user: {
+        select: {
+          nombre: true,
+          email: true,
+        },
+      },
+    },
+    orderBy: { fechaVencimiento: "asc" },
+  });
+
+  let sentSoon = 0;
+  let sentExpired = 0;
+
+  for (const policy of policies) {
+    const recipient = (policy.clienteEmail || "").trim();
+    if (!recipient) continue;
+
+    const daysRemaining = getDaysRemaining(policy.fechaVencimiento, now);
+    const producerName = policy.user.nombre;
+    const producerEmail = policy.user.email;
+
+    if (daysRemaining >= 0 && daysRemaining <= 7 && !policy.recordatorioProximoEnviadoAt) {
+      const dueText =
+        daysRemaining === 0
+          ? "vence hoy"
+          : daysRemaining === 1
+            ? "vence mañana"
+            : `vence en ${daysRemaining} dias`;
+
+      const message =
+        `Hola ${policy.clienteNombre},\n\n` +
+        `Te recordamos que tu poliza N° ${policy.numeroPoliza} con ${policy.aseguradora} ${dueText}.\n\n` +
+        `Si queres gestionarla o renovarla, podes responder este correo o contactar a ${producerName}.\n\n` +
+        `Saludos,\n${producerName}\nPAS Alert`;
+
+      try {
+        await sendEmail({
+          name: producerName,
+          email: producerEmail,
+          to: recipient,
+          message,
+        });
+
+        await prisma.policy.update({
+          where: { id: policy.id },
+          data: { recordatorioProximoEnviadoAt: new Date() },
+        });
+
+        sentSoon++;
+        console.log(`[PolicyReminders] Recordatorio proximo enviado a ${recipient} (${policy.numeroPoliza})`);
+      } catch (err) {
+        console.error(`[PolicyReminders] Error enviando recordatorio proximo a ${recipient}:`, err);
+      }
+
+      continue;
+    }
+
+    if (daysRemaining < 0 && !policy.recordatorioVencidaEnviadoAt) {
+      const message =
+        `Hola ${policy.clienteNombre},\n\n` +
+        `Te informamos que tu poliza N° ${policy.numeroPoliza} con ${policy.aseguradora} ya se encuentra vencida.\n\n` +
+        `Por favor, contactate con ${producerName} para revisar la renovacion.\n\n` +
+        `Saludos,\n${producerName}\nPAS Alert`;
+
+      try {
+        await sendEmail({
+          name: producerName,
+          email: producerEmail,
+          to: recipient,
+          message,
+        });
+
+        await prisma.policy.update({
+          where: { id: policy.id },
+          data: { recordatorioVencidaEnviadoAt: new Date() },
+        });
+
+        sentExpired++;
+        console.log(`[PolicyReminders] Recordatorio de vencida enviado a ${recipient} (${policy.numeroPoliza})`);
+      } catch (err) {
+        console.error(`[PolicyReminders] Error enviando recordatorio de vencida a ${recipient}:`, err);
+      }
+    }
+  }
+
+  if (sentSoon === 0 && sentExpired === 0) {
+    console.log("[PolicyReminders] Sin recordatorios automaticos de polizas para enviar hoy.");
   }
 }
 
@@ -120,18 +242,24 @@ async function sendReminders(onlyTestUsers = false): Promise<void> {
 
 async function runAllJobs(): Promise<void> {
   await updatePolicyStatuses().catch((err) => console.error("[PolicyJob] Error:", err));
+  await sendPolicyExpirationReminders().catch((err) => console.error("[PolicyReminders] Error:", err));
   await resetMonthlyReferrals().catch((err) => console.error("[ReferralJob] Error:", err));
   await sendReminders().catch((err) => console.error("[Reminders] Error:", err));
 }
 
 // Exported for manual trigger (admin endpoint / testing)
 // onlyTestUsers=true: only affects users with isTestUser=true (used from admin panel)
-export async function runJobsNow(onlyTestUsers = false): Promise<{ policies: string; referrals: string; reminders: string }> {
-  const results = { policies: "ok", referrals: "ok", reminders: "ok" };
+export async function runJobsNow(onlyTestUsers = false): Promise<{ policies: string; policyReminders: string; referrals: string; reminders: string }> {
+  const results = { policies: "ok", policyReminders: "ok", referrals: "ok", reminders: "ok" };
 
   await updatePolicyStatuses(onlyTestUsers).catch((err) => {
     console.error("[PolicyJob] Error:", err);
     results.policies = String(err?.message || err);
+  });
+
+  await sendPolicyExpirationReminders(onlyTestUsers).catch((err) => {
+    console.error("[PolicyReminders] Error:", err);
+    results.policyReminders = String(err?.message || err);
   });
 
   await resetMonthlyReferrals().catch((err) => {

@@ -10,11 +10,16 @@ export async function subscriptionGuard(req: AuthRequest, res: Response, next: N
 
   const user = await prisma.user.findUnique({
     where: { id: req.userId },
-    select: { plan: true, planVencimiento: true, trialFin: true, estado: true },
+    select: { isAdmin: true, plan: true, planVencimiento: true, trialFin: true, estado: true },
   });
 
   if (!user) {
     res.status(404).json({ error: "Usuario no encontrado" });
+    return;
+  }
+
+  if (user.isAdmin) {
+    next();
     return;
   }
 

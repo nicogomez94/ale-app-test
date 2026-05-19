@@ -86,7 +86,7 @@ authRouter.post("/login", async (req: Request, res: Response) => {
 
     // Check subscription status
     const now = new Date();
-    if (user.planVencimiento && user.planVencimiento < now && user.plan !== "TRIAL") {
+    if (!user.isAdmin && user.planVencimiento && user.planVencimiento < now && user.plan !== "TRIAL") {
       await prisma.user.update({
         where: { id: user.id },
         data: { estado: "INACTIVO" },

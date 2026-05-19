@@ -64,6 +64,7 @@ subscriptionsRouter.get("/current", authMiddleware, async (req: AuthRequest, res
         planVencimiento: true,
         trialFin: true,
         estado: true,
+        isAdmin: true,
         createdAt: true,
       },
     });
@@ -87,8 +88,8 @@ subscriptionsRouter.get("/current", authMiddleware, async (req: AuthRequest, res
       planVencimiento: vencimiento,
       diasRestantes,
       estado: user.estado,
-      mostrarAviso,
-      accesoBloqueado,
+      mostrarAviso: user.isAdmin ? false : mostrarAviso,
+      accesoBloqueado: user.isAdmin ? false : accesoBloqueado,
     });
   } catch (error) {
     console.error("Current subscription error:", error);

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, Component, ReactNode } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Box, CircularProgress, Alert, Button, Card, Typography } from '@mui/material';
 import { api } from './api';
 import { getTheme } from './theme';
@@ -51,11 +51,30 @@ function AppSystem() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [subscriptionExpired, setSubscriptionExpired] = useState(false);
   const [subscriptionWarning, setSubscriptionWarning] = useState<{ show: boolean; diasRestantes: number }>({ show: false, diasRestantes: 0 });
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const theme = useMemo(() => createTheme(getTheme(isDarkMode ? 'dark' : 'light')), [isDarkMode]);
+  const isSubscriptionPage = location.pathname === '/app/pagos';
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      setSubscriptionExpired(false);
+      setSubscriptionWarning({ show: false, diasRestantes: 0 });
+      return;
+    }
+
+    if (user?.isAdmin) {
+      setSubscriptionExpired(false);
+      setSubscriptionWarning({ show: false, diasRestantes: 0 });
+      return;
+    }
+
+    if (isSubscriptionPage) {
+      setSubscriptionExpired(false);
+      return;
+    }
+
     api.subscriptions.current().then((sub: any) => {
       if (sub.accesoBloqueado) {
         setSubscriptionExpired(true);
@@ -63,10 +82,12 @@ function AppSystem() {
         setSubscriptionWarning({ show: true, diasRestantes: sub.diasRestantes });
       }
     }).catch(() => {});
-    const handler = () => setSubscriptionExpired(true);
+    const handler = () => {
+      if (!user?.isAdmin && !isSubscriptionPage) setSubscriptionExpired(true);
+    };
     window.addEventListener('subscription_expired', handler);
     return () => window.removeEventListener('subscription_expired', handler);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.isAdmin, isSubscriptionPage]);
 
   if (isLoading) {
     return (
@@ -128,9 +149,12 @@ function AppSystem() {
               </Typography>
               <Button variant="contained" size="large" onClick={() => {
                 setSubscriptionExpired(false);
-                window.location.href = '/app/pagos';
+                navigate('/app/pagos');
               }}>
                 Ir a Suscripción
+              </Button>
+              <Button variant="text" sx={{ mt: 1 }} onClick={logout}>
+                Cerrar sesión
               </Button>
             </Card>
           </Box>

@@ -76,6 +76,7 @@ export interface PolicyPayload {
   fechaPago?: string;
   prima: number;
   porcentajeComision: number;
+  moneda?: string;
   tipo: PolicyType;
 }
 
@@ -158,6 +159,11 @@ export const api = {
       request<{ message: string }>("/auth/reset-password", {
         method: "POST",
         body: JSON.stringify({ email, code, newPassword }),
+      }),
+    googleLogin: (idToken: string, nombre: string, email: string, photoURL?: string) =>
+      request<{ token: string; user: any }>("/auth/google", {
+        method: "POST",
+        body: JSON.stringify({ idToken, nombre, email, photoURL }),
       }),
   },
 
@@ -327,5 +333,41 @@ export const api = {
       request<any>("/admin/run-jobs", { method: "POST" }),
     testSeed: (userId: string, scenario: string) =>
       request<any>("/admin/test-seed", { method: "POST", body: JSON.stringify({ userId, scenario }) }),
+  },
+
+  // Siniestros
+  siniestros: {
+    list: (params?: Record<string, string>) => {
+      const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
+      return request<any[]>(`/siniestros${qs}`);
+    },
+    kpis: () => request<{ total: number; activos: number; montoReclamadoTotal: number; montoPagadoTotal: number }>("/siniestros/kpis"),
+    create: (data: any) =>
+      request<any>("/siniestros", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: string, data: any) =>
+      request<any>(`/siniestros/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    delete: (id: string) =>
+      request<any>(`/siniestros/${id}`, { method: "DELETE" }),
+    addNota: (id: string, texto: string) =>
+      request<any>(`/siniestros/${id}/notas`, { method: "POST", body: JSON.stringify({ texto }) }),
+    export: () => request<Blob>("/siniestros/export"),
+  },
+
+  // Cotizaciones
+  cotizaciones: {
+    list: (params?: { tipo?: string; search?: string }) => {
+      const qs = params ? `?${new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v))).toString()}` : "";
+      return request<any[]>(`/cotizaciones${qs}`);
+    },
+    create: (data: any) =>
+      request<any>("/cotizaciones", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: string, data: any) =>
+      request<any>(`/cotizaciones/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    delete: (id: string) =>
+      request<any>(`/cotizaciones/${id}`, { method: "DELETE" }),
+    export: (params?: { tipo?: string }) => {
+      const qs = params?.tipo ? `?tipo=${params.tipo}` : "";
+      return request<Blob>(`/cotizaciones/export${qs}`);
+    },
   },
 };

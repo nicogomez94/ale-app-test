@@ -16,6 +16,8 @@ import { profileRouter } from "./routes/profile.js";
 import { dashboardRouter } from "./routes/dashboard.js";
 import { adminRouter } from "./routes/admin.js";
 import { publicRouter } from "./routes/public.js";
+import { siniestrosRouter } from "./routes/siniestros.js";
+import { cotizacionesRouter } from "./routes/cotizaciones.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { subscriptionGuard } from "./middleware/subscriptionGuard.js";
 import { startSubscriptionReminders } from "./lib/subscriptionReminders.js";
@@ -68,6 +70,8 @@ app.use("/api/life-policies", authMiddleware, subscriptionGuard, lifeFinanceRout
 app.use("/api/commissions", authMiddleware, subscriptionGuard, commissionsRouter);
 app.use("/api/referrals", authMiddleware, subscriptionGuard, referralsRouter);
 app.use("/api/dashboard", authMiddleware, subscriptionGuard, dashboardRouter);
+app.use("/api/siniestros", authMiddleware, subscriptionGuard, siniestrosRouter);
+app.use("/api/cotizaciones", cotizacionesRouter); // has mixed public/protected routes internally
 app.use("/api/admin", adminRouter);
 
 // Health check

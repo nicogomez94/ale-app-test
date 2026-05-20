@@ -52,6 +52,7 @@ const schema = z.object({
   vigencia: z.enum(['MENSUAL', 'BIMESTRAL', 'TRIMESTRAL', 'SEMESTRAL', 'ANUAL']),
   prima: z.number({ error: 'Prima requerida' }).min(1, 'Prima debe ser mayor a 0'),
   porcentajeComision: z.number({ error: 'Comision requerida' }).min(0).max(100),
+  moneda: z.enum(['ARS', 'USD', 'EUR', 'BRL']).default('ARS'),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -126,6 +127,7 @@ export const PolicyForm: React.FC = () => {
       vigencia: 'ANUAL',
       prima: 0 as unknown as number,
       porcentajeComision: 15,
+      moneda: 'ARS' as const,
     };
   }, [defaultFechaInicio]);
 
@@ -171,6 +173,7 @@ export const PolicyForm: React.FC = () => {
         cuotaTotal,
         pagada: false,
         tipo: policyType,
+        moneda: data.moneda,
       };
 
       await api.policies.create(payload);
@@ -441,6 +444,31 @@ export const PolicyForm: React.FC = () => {
                           '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' },
                         }}
                       />
+                    )}
+                  />
+                </Box>
+                <Box sx={{ mb: 3 }}>
+                  <Controller
+                    name="moneda"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        select
+                        fullWidth
+                        label="Moneda"
+                        sx={{
+                          '& .MuiOutlinedInput-root': { color: 'white' },
+                          '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
+                          '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' },
+                          '& .MuiSvgIcon-root': { color: 'white' },
+                        }}
+                      >
+                        <MenuItem value="ARS">ARS — Peso Argentino</MenuItem>
+                        <MenuItem value="USD">USD — Dólar Estadounidense</MenuItem>
+                        <MenuItem value="EUR">EUR — Euro</MenuItem>
+                        <MenuItem value="BRL">BRL — Real Brasileño</MenuItem>
+                      </TextField>
                     )}
                   />
                 </Box>

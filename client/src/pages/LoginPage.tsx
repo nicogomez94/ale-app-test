@@ -9,8 +9,24 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import { DEBUG, debugData } from '../data/debugData';
 
+// Extend window to include Google Identity Services
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: object) => void;
+          prompt: () => void;
+          renderButton: (parent: HTMLElement, options: object) => void;
+          disableAutoSelect: () => void;
+        };
+      };
+    };
+  }
+}
+
 export const LoginPage: React.FC = () => {
-  const { login, register } = useAuth();
+  const { login, register, loginWithGoogle } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState(DEBUG ? debugData.login.email : '');
@@ -18,6 +34,7 @@ export const LoginPage: React.FC = () => {
   const [nombre, setNombre] = useState(DEBUG ? 'Usuario Debug' : '');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   // Forgot password state
   const [forgotOpen, setForgotOpen] = useState(false);
@@ -89,6 +106,48 @@ export const LoginPage: React.FC = () => {
     setForgotConfirm('');
     setForgotError('');
     setForgotSuccess('');
+  };
+
+  const handleGoogleLogin = async () => {
+    setError('');
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      setError('Google login no configurado. Falta VITE_GOOGLE_CLIENT_ID.');
+      return;
+    }
+    if (!window.google) {
+      setError('No se pudo cargar Google. Intentá recargar la página.');
+      return;
+    }
+    setGoogleLoading(true);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        window.google!.accounts.id.initialize({
+          client_id: clientId,
+          callback: async (response: { credential: string }) => {
+            try {
+              // Decode payload from JWT to get name + email
+              const payload = JSON.parse(atob(response.credential.split('.')[1]));
+              await loginWithGoogle(
+                response.credential,
+                payload.name || payload.email,
+                payload.email,
+                payload.picture,
+              );
+              resolve();
+            } catch (err: any) {
+              reject(err);
+            }
+          },
+          cancel_on_tap_outside: true,
+        });
+        window.google!.accounts.id.prompt();
+      });
+    } catch (err: any) {
+      setError(err.message || 'Error al iniciar sesión con Google');
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   return (
@@ -191,7 +250,25 @@ export const LoginPage: React.FC = () => {
               </Button>
             </Box>
 
-            <Box sx={{ mt: 4, textAlign: 'center' }}>
+            <Divider sx={{ my: 3 }}>
+              <Typography variant="caption" color="text.secondary">o continuar con</Typography>
+            </Divider>
+
+            <Button
+              fullWidth
+              variant="outlined"
+              size="large"
+              disabled={googleLoading}
+              onClick={handleGoogleLogin}
+              sx={{ py: 1.5, borderRadius: 2, borderColor: 'divider', color: 'text.primary', gap: 1.5 }}
+              startIcon={
+                <Box component="img" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" sx={{ width: 20, height: 20 }} />
+              }
+            >
+              {googleLoading ? 'Conectando...' : 'Continuar con Google'}
+            </Button>
+
+            <Box sx={{ mt: 3, textAlign: 'center' }}>
               <Typography variant="body2" color="text.secondary">
                 {isRegister ? '¿Ya tienes una cuenta? ' : '¿No tienes una cuenta? '}
                 <Link

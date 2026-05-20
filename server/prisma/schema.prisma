@@ -63,6 +63,41 @@ enum LifePolicyType {
   RETIRO
 }
 
+enum SiniestroEstado {
+  DENUNCIADO
+  EN_GESTION
+  EN_INSPECCION
+  EN_ANALISIS
+  APROBADO
+  RECHAZADO
+  PAGADO
+}
+
+enum SiniestroProioridad {
+  ALTA
+  MEDIA
+  BAJA
+}
+
+enum CotizacionTipo {
+  AUTO
+  MOTO
+  HOGAR
+  OTROS
+}
+
+enum CotizacionOrigen {
+  MANUAL
+  LINK_PUBLICO
+}
+
+enum CurrencyType {
+  ARS
+  USD
+  EUR
+  BRL
+}
+
 // ─── Models ──────────────────────────────────────────────
 
 model User {
@@ -98,6 +133,8 @@ model User {
   referrals        Referral[]
   subscriptions    Subscription[]
   payments         Payment[]
+  siniestros       Siniestro[]
+  cotizaciones     Cotizacion[]
 }
 
 model Client {
@@ -175,6 +212,7 @@ model Policy {
   ultimaGestionWhatsappCount Int               @default(0)
   ultimaGestionMailCount   Int                 @default(0)
   prima                    Float
+  moneda                   CurrencyType        @default(ARS)
   porcentajeComision       Float
   comisionCalculada        Float
   estado                   PolicyStatus        @default(ACTIVA)
@@ -327,4 +365,84 @@ model LandingProducerLead {
   createdAt      DateTime @default(now())
 
   @@index([createdAt])
+}
+
+model Siniestro {
+  id                         String              @id @default(uuid())
+  userId                     String
+  numeroSiniestro            String
+  numeroPoliza               String
+  aseguradora                String
+  tipoSeguro                 String
+  clienteNombre              String
+  clienteDni                 String?
+  fechaSiniestro             DateTime
+  horaSiniestro              String?
+  lugarSiniestro             String?
+  descripcion                String
+  patente                    String?
+  marcaModelo                String?
+  tipoDanio                  String?
+  estado                     SiniestroEstado     @default(DENUNCIADO)
+  prioridad                  SiniestroProioridad @default(BAJA)
+  responsable                String?
+  importeReclamado           Float?
+  deducible                  Float?
+  montoAprobado              Float?
+  ultimoContactoAseguradora  DateTime?
+  ultimoContactoCliente      DateTime?
+  createdAt                  DateTime            @default(now())
+  updatedAt                  DateTime            @updatedAt
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notas SiniestroNota[]
+
+  @@index([userId])
+  @@index([estado])
+}
+
+model SiniestroNota {
+  id          String    @id @default(uuid())
+  siniestroId String
+  texto       String
+  createdAt   DateTime  @default(now())
+
+  siniestro Siniestro @relation(fields: [siniestroId], references: [id], onDelete: Cascade)
+
+  @@index([siniestroId])
+}
+
+model Cotizacion {
+  id                 String           @id @default(uuid())
+  userId             String
+  tipo               CotizacionTipo
+  origen             CotizacionOrigen @default(MANUAL)
+  nombre             String
+  apellido           String?
+  cuitCuil           String?
+  fechaNacimiento    String?
+  email              String?
+  celular            String?
+  calle              String?
+  cp                 String?
+  localidad          String?
+  provincia          String?
+  marca              String?
+  modelo             String?
+  anio               Int?
+  patente            String?
+  tipoUso            String?
+  tieneGnc           Boolean?
+  tieneGps           Boolean?
+  formaPago          String?
+  tipoVivienda       String?
+  superficieCubierta Float?
+  descripcionRiesgo  String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tipo])
 }

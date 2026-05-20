@@ -311,3 +311,130 @@ authRouter.post("/reset-password", async (req: Request, res: Response) => {
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
+
+// Google OAuth — verify Firebase ID token and create/login user
+authRouter.post("/google", async (req: Request, res: Response) => {
+  try {
+    const { idToken, nombre, email, photoURL } = req.body;
+
+    if (!idToken || !email) {
+      res.status(400).json({ error: "Token e email son requeridos" });
+      return;
+    }
+
+    // Verify the Firebase ID token by calling Firebase's tokeninfo endpoint
+    const verifyRes = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`
+    );
+
+    if (!verifyRes.ok) {
+      res.status(401).json({ error: "Token de Google inválido" });
+      return;
+    }
+
+    const tokenData = await verifyRes.json() as any;
+
+    // Validate token audience matches our Firebase project
+    const allowedAudiences = (process.env.FIREBASE_PROJECT_IDS || "").split(",").map(s => s.trim()).filter(Boolean);
+    if (allowedAudiences.length > 0 && !allowedAudiences.includes(tokenData.aud)) {
+      res.status(401).json({ error: "Token de Google inválido" });
+      return;
+    }
+
+    // Verify the email matches
+    if (tokenData.email !== email) {
+      res.status(401).json({ error: "Token de Google inválido" });
+      return;
+    }
+
+    const now = new Date();
+
+    // Find or create user
+    let user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        nombre: true,
+        plan: true,
+        isAdmin: true,
+        estado: true,
+        avatar: true,
+        referralCode: true,
+        planVencimiento: true,
+        telefono: true,
+        direccion: true,
+        matriculaPas: true,
+      },
+    });
+
+    if (!user) {
+      // Create new user with a random secure password (they'll use Google to login)
+      const randomPassword = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12);
+      const trialFin = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
+      const displayName = nombre || email.split("@")[0];
+      const referralCode = `PAS-${displayName.split(" ")[0].toUpperCase().replace(/[^A-Z0-9]/g, "")}-${Date.now().toString(36).toUpperCase()}`;
+
+      user = await prisma.user.create({
+        data: {
+          email,
+          password: randomPassword,
+          nombre: displayName,
+          avatar: photoURL ?? null,
+          plan: "TRIAL",
+          trialInicio: now,
+          trialFin,
+          planVencimiento: trialFin,
+          referralCode,
+        },
+        select: {
+          id: true,
+          email: true,
+          nombre: true,
+          plan: true,
+          isAdmin: true,
+          estado: true,
+          avatar: true,
+          referralCode: true,
+          planVencimiento: true,
+          telefono: true,
+          direccion: true,
+          matriculaPas: true,
+        },
+      });
+    } else {
+      // Update last login and avatar if available
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          lastLogin: now,
+          ...(photoURL && !user.avatar ? { avatar: photoURL } : {}),
+        },
+        select: { id: true },
+      });
+    }
+
+    const token = generateToken(user.id);
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        nombre: user.nombre,
+        plan: user.plan,
+        isAdmin: user.isAdmin,
+        estado: user.estado,
+        avatar: user.avatar,
+        referralCode: user.referralCode,
+        planVencimiento: user.planVencimiento,
+        telefono: user.telefono,
+        direccion: user.direccion,
+        matriculaPas: user.matriculaPas,
+      },
+    });
+  } catch (error) {
+    console.error("Google auth error:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});

@@ -18,6 +18,9 @@ import { ProfilePage } from './pages/ProfilePage';
 import { CompaniesPage } from './pages/CompaniesPage';
 import { LifeAndFinancePage } from './pages/LifeAndFinancePage';
 import { AdminPage } from './pages/AdminPage';
+import { SiniestrosPage } from './pages/SiniestrosPage';
+import { CotizacionesPage } from './pages/CotizacionesPage';
+import { CotizacionPublicaPage } from './pages/CotizacionPublicaPage';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -91,6 +94,19 @@ function AppSystem() {
     );
   }
 
+  // Public routes accessible without auth
+  if (location.pathname.startsWith('/cotizar/')) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Routes>
+          <Route path="/cotizar/:userId/:tipo?" element={<CotizacionPublicaPage />} />
+          <Route path="*" element={<Navigate to="/cotizar/not-found" replace />} />
+        </Routes>
+      </ThemeProvider>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <ThemeProvider theme={theme}>
@@ -117,6 +133,8 @@ function AppSystem() {
             <Route path="/empresas" element={<CompaniesPage />} />
             <Route path="/vida-finanzas" element={<LifeAndFinancePage />} />
             <Route path="/polizas" element={<PolicyForm />} />
+            <Route path="/siniestros" element={<SiniestrosPage />} />
+            <Route path="/cotizaciones" element={<CotizacionesPage />} />
             <Route path="/comisiones" element={<CommissionsPage />} />
             <Route path="/referidos" element={<ReferralPage />} />
             <Route path="/pagos" element={<PaymentPage />} />

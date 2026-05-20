@@ -7,7 +7,7 @@ import {
 import {
   LayoutDashboard, FileText, Users, CreditCard, Bell, LogOut,
   Menu as MenuIcon, UserCircle, BarChart3, Sun, Moon, Building2, HeartPulse,
-  Calendar, Clock, Shield, AlertTriangle
+  Calendar, Clock, Shield, AlertTriangle, ClipboardList, MessageSquare
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -59,6 +59,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
     { text: 'Empresas', icon: <Building2 size={20} color="#8b5cf6" />, path: '/empresas' },
     { text: 'Vida y Finanzas', icon: <HeartPulse size={20} color="#ef4444" />, path: '/vida-finanzas' },
     { text: 'Pólizas', icon: <FileText size={20} color="#f59e0b" />, path: '/polizas' },
+    { text: 'Siniestros', icon: <ClipboardList size={20} color="#dc2626" />, path: '/siniestros' },
+    { text: 'Cotizaciones', icon: <MessageSquare size={20} color="#0891b2" />, path: '/cotizaciones' },
     { text: 'Comisiones', icon: <BarChart3 size={20} color="#10b981" />, path: '/comisiones' },
     { text: 'Referidos', icon: <Users size={20} color="#ec4899" />, path: '/referidos' },
     { text: 'Suscripción', icon: <CreditCard size={20} color="#6366f1" />, path: '/pagos' },

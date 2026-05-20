@@ -495,6 +495,21 @@ export const CotizacionesPage: React.FC = () => {
             </Box>
           </Card>
 
+          <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <QrCode size={16} /> Código QR
+            </Typography>
+            <Box sx={{ p: 1.5, bgcolor: 'white', borderRadius: 2, border: '1px solid', borderColor: 'divider', display: 'inline-block' }}>
+              <Box
+                component="img"
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(publicLink)}`}
+                alt="QR Code"
+                sx={{ display: 'block', width: 180, height: 180 }}
+              />
+            </Box>
+            <Typography variant="caption" color="text.secondary">Escaneá con el celular para abrir el formulario</Typography>
+          </Box>
+
           <Alert severity="info" sx={{ mt: 2 }}>
             También podés compartir <b>/cotizar/{'{'}userId{'}'}</b> para que el cliente elija el tipo.
           </Alert>

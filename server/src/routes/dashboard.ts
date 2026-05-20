@@ -148,6 +148,7 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
         fechaPago: p.fechaPago ? p.fechaPago.toISOString().split("T")[0] : "",
         prima: p.prima,
         porcentajeComision: p.porcentajeComision,
+        moneda: (p as any).moneda ?? "ARS",
         comisionCalculada: p.comisionCalculada,
         ultimaGestion:
           p.ultimaGestionTipo && p.ultimaGestionFecha

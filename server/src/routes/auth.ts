@@ -334,8 +334,8 @@ authRouter.post("/google", async (req: Request, res: Response) => {
 
     const tokenData = await verifyRes.json() as any;
 
-    // Validate token audience matches our Firebase project
-    const allowedAudiences = (process.env.FIREBASE_PROJECT_IDS || "").split(",").map(s => s.trim()).filter(Boolean);
+    // Validate token audience matches our Google Client ID
+    const allowedAudiences = (process.env.GOOGLE_CLIENT_ID || "").split(",").map(s => s.trim()).filter(Boolean);
     if (allowedAudiences.length > 0 && !allowedAudiences.includes(tokenData.aud)) {
       res.status(401).json({ error: "Token de Google inválido" });
       return;

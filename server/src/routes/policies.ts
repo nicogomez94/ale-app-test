@@ -1,4 +1,4 @@
-import { CompanyType, InteractionChannel, PolicyType, PolicyVigencia, Prisma } from "@prisma/client";
+import { CompanyType, CurrencyType, InteractionChannel, PolicyType, PolicyVigencia, Prisma } from "@prisma/client";
 import { Router, Response } from "express";
 import prisma from "../lib/prisma.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
@@ -71,6 +71,7 @@ type PolicyPayload = {
   fechaPago?: string | null;
   prima?: number | string;
   porcentajeComision?: number | string;
+  moneda?: string | null;
   tipo?: PolicyType | string | null;
 };
 
@@ -362,6 +363,7 @@ async function buildPolicyWriteData(
       : {}),
     prima,
     porcentajeComision,
+    moneda: (input.moneda === "USD" || input.moneda === "EUR" || input.moneda === "BRL") ? input.moneda as CurrencyType : CurrencyType.ARS,
     comisionCalculada,
     estado,
     tipo,

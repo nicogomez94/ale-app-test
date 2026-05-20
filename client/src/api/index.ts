@@ -41,6 +41,7 @@ export interface DashboardPolicy {
   fechaPago: string;
   prima: number;
   porcentajeComision: number;
+  moneda: string;
   comisionCalculada: number;
   ultimaGestion: {
     tipo: InteractionChannel;

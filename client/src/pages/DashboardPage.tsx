@@ -82,6 +82,7 @@ type EditFormValues = {
   vigencia: PolicyVigencia;
   prima: string;
   porcentajeComision: string;
+  moneda: string;
   pagada: boolean;
   fechaPago: string;
 };
@@ -265,6 +266,11 @@ const PolicyTable = ({
                       <Typography variant="caption" display="block" color="text.secondary">
                         {policy.medioPago || '-'}
                       </Typography>
+                      {policy.moneda && policy.moneda !== 'ARS' && (
+                        <Typography variant="caption" sx={{ display: 'inline-block', px: 0.75, py: 0.1, borderRadius: 0.75, bgcolor: 'warning.light', color: 'warning.dark', fontWeight: 700, mt: 0.5 }}>
+                          {policy.moneda}
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell sx={{ textAlign: 'center', minWidth: 150 }}>
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75 }}>
@@ -427,6 +433,7 @@ function getEditValues(policy: DashboardPolicy): EditFormValues {
     vigencia: policy.vigencia || 'ANUAL',
     prima: String(policy.prima || 0),
     porcentajeComision: String(policy.porcentajeComision || 0),
+    moneda: policy.moneda || 'ARS',
     pagada: policy.pagada,
     fechaPago: policy.fechaPago || '',
   };
@@ -460,6 +467,7 @@ function buildPolicyPayload(policy: DashboardPolicy, values: EditFormValues): Po
     fechaPago: values.pagada ? values.fechaPago : '',
     prima: Number(values.prima || 0),
     porcentajeComision: Number(values.porcentajeComision || 0),
+    moneda: values.moneda || 'ARS',
     tipo,
   };
 }
@@ -820,6 +828,18 @@ export const Dashboard: React.FC = () => {
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
                   <TextField fullWidth label="Prima" value={formatAmountInput(editValues.prima)} onChange={(event) => setEditValues((prev) => prev ? { ...prev, prima: parseAmountInput(event.target.value) } : prev)} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    select fullWidth label="Moneda"
+                    value={editValues.moneda || 'ARS'}
+                    onChange={(event) => setEditValues((prev) => prev ? { ...prev, moneda: event.target.value } : prev)}
+                  >
+                    <MenuItem value="ARS">ARS — Peso Argentino</MenuItem>
+                    <MenuItem value="USD">USD — Dólar</MenuItem>
+                    <MenuItem value="EUR">EUR — Euro</MenuItem>
+                    <MenuItem value="BRL">BRL — Real</MenuItem>
+                  </TextField>
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
                   <TextField fullWidth label="Porcentaje Comision (%)" type="number" value={editValues.porcentajeComision} onChange={(event) => setEditValues((prev) => prev ? { ...prev, porcentajeComision: event.target.value } : prev)} />

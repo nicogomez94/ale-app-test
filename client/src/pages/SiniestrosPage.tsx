@@ -223,14 +223,21 @@ export const SiniestrosPage: React.FC = () => {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <Box sx={{
+        mb: 4,
+        display: 'flex',
+        flexDirection: { xs: 'column', md: 'row' },
+        justifyContent: 'space-between',
+        alignItems: { xs: 'stretch', md: 'flex-start' },
+        gap: 2,
+      }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>Módulo de Siniestros</Typography>
           <Typography variant="body1" color="text.secondary">
             Registrá, seguí y cerrá todos los reclamos de tus clientes.
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
           <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleExport}>
             Exportar Excel
           </Button>
@@ -248,7 +255,7 @@ export const SiniestrosPage: React.FC = () => {
           { label: 'Monto Reclamado', value: fmt(kpis.montoReclamadoTotal), icon: <AlertTriangle size={24} />, color: '#ef4444' },
           { label: 'Monto Pagado', value: fmt(kpis.montoPagadoTotal), icon: <CheckCircle size={24} />, color: '#10b981' },
         ].map(kpi => (
-          <Grid item xs={12} sm={6} md={3} key={kpi.label}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }} key={kpi.label}>
             <Card sx={{ borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -266,34 +273,42 @@ export const SiniestrosPage: React.FC = () => {
 
       {/* Filters */}
       <Card sx={{ mb: 3, borderRadius: 3 }}>
-        <CardContent>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={5}>
+        <CardContent
+          sx={{
+            p: 3,
+            '&:last-child': { pb: 3 },
+            '& .MuiOutlinedInput-root': { borderRadius: 2 },
+            '& .MuiInputLabel-root.MuiInputLabel-shrink': { bgcolor: 'background.paper', px: 0.5 },
+            '& .MuiSelect-select': { display: 'flex', alignItems: 'center', minHeight: 24 },
+          }}
+        >
+          <Grid container spacing={2.5} alignItems="center">
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth size="small" placeholder="Buscar por N° siniestro, cliente, aseguradora..."
                 value={search} onChange={e => setSearch(e.target.value)}
                 InputProps={{ startAdornment: <InputAdornment position="start"><Search size={18} /></InputAdornment> }}
               />
             </Grid>
-            <Grid item xs={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
               <FormControl fullWidth size="small">
-                <InputLabel>Estado</InputLabel>
-                <Select label="Estado" value={filterEstado} onChange={e => setFilterEstado(e.target.value)}>
+                <InputLabel shrink>Estado</InputLabel>
+                <Select label="Estado" notched value={filterEstado} onChange={e => setFilterEstado(e.target.value)}>
                   <MenuItem value="">Todos</MenuItem>
                   {ESTADOS.map(e => <MenuItem key={e.value} value={e.value}>{e.label}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
               <FormControl fullWidth size="small">
-                <InputLabel>Prioridad</InputLabel>
-                <Select label="Prioridad" value={filterPrioridad} onChange={e => setFilterPrioridad(e.target.value)}>
+                <InputLabel shrink>Prioridad</InputLabel>
+                <Select label="Prioridad" notched value={filterPrioridad} onChange={e => setFilterPrioridad(e.target.value)}>
                   <MenuItem value="">Todas</MenuItem>
                   {PRIORIDADES.map(p => <MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={1}>
+            <Grid size={{ xs: 12, md: 2 }}>
               {(search || filterEstado || filterPrioridad) && (
                 <Button size="small" onClick={() => { setSearch(''); setFilterEstado(''); setFilterPrioridad(''); }}>
                   Limpiar
@@ -365,57 +380,73 @@ export const SiniestrosPage: React.FC = () => {
       </TableContainer>
 
       {/* ─── Form Dialog ────────────────────────────────────────────────────── */}
-      <Dialog open={formOpen} onClose={() => setFormOpen(false)} maxWidth="md" fullWidth>
+      <Dialog
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
         <DialogTitle sx={{ fontWeight: 700 }}>
           {editingSiniestro ? 'Editar Siniestro' : 'Nuevo Siniestro'}
         </DialogTitle>
-        <DialogContent dividers>
-          <Grid container spacing={2} sx={{ mt: 0.5 }}>
-            <Grid item xs={12} sm={6}>
+        <DialogContent
+          dividers
+          sx={{
+            px: { xs: 2.5, sm: 3 },
+            py: 3,
+            '& .MuiOutlinedInput-root': { borderRadius: 2 },
+            '& .MuiInputLabel-root': { fontWeight: 600 },
+            '& .MuiInputLabel-root.MuiInputLabel-shrink': { bgcolor: 'background.paper', px: 0.5 },
+            '& .MuiSelect-select': { display: 'flex', alignItems: 'center', minHeight: 24 },
+          }}
+        >
+          <Grid container spacing={3} sx={{ mt: 0 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField fullWidth label="N° Siniestro *" size="small" value={form.numeroSiniestro} onChange={e => setF('numeroSiniestro', e.target.value)} />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField fullWidth label="N° Póliza *" size="small" value={form.numeroPoliza} onChange={e => setF('numeroPoliza', e.target.value)} />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField fullWidth label="Aseguradora *" size="small" value={form.aseguradora} onChange={e => setF('aseguradora', e.target.value)} />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth size="small">
-                <InputLabel>Tipo de Seguro *</InputLabel>
-                <Select label="Tipo de Seguro *" value={form.tipoSeguro} onChange={e => setF('tipoSeguro', e.target.value)}>
+                <InputLabel shrink>Tipo de Seguro *</InputLabel>
+                <Select label="Tipo de Seguro *" notched value={form.tipoSeguro} onChange={e => setF('tipoSeguro', e.target.value)}>
                   {['Automotor', 'Moto', 'Hogar', 'Vida', 'ART', 'Caución', 'Consorcio', 'Comercio', 'Otros'].map(t => (
                     <MenuItem key={t} value={t}>{t}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField fullWidth label="Nombre del Cliente *" size="small" value={form.clienteNombre} onChange={e => setF('clienteNombre', e.target.value)} />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField fullWidth label="DNI del Cliente" size="small" value={form.clienteDni} onChange={e => setF('clienteDni', e.target.value)} />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField fullWidth label="Fecha del Siniestro *" type="date" size="small" value={form.fechaSiniestro} onChange={e => setF('fechaSiniestro', e.target.value)} InputLabelProps={{ shrink: true }} />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField fullWidth label="Hora" type="time" size="small" value={form.horaSiniestro} onChange={e => setF('horaSiniestro', e.target.value)} InputLabelProps={{ shrink: true }} />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField fullWidth label="Lugar" size="small" value={form.lugarSiniestro} onChange={e => setF('lugarSiniestro', e.target.value)} />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField fullWidth label="Descripción del hecho *" size="small" multiline rows={3} value={form.descripcion} onChange={e => setF('descripcion', e.target.value)} />
             </Grid>
 
             {/* Dynamic fields: Automotor/Moto */}
             {isAutoMoto && (
               <>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField fullWidth label="Patente" size="small" value={form.patente} onChange={e => setF('patente', e.target.value)} />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField fullWidth label="Marca / Modelo" size="small" value={form.marcaModelo} onChange={e => setF('marcaModelo', e.target.value)} />
                 </Grid>
               </>
@@ -423,32 +454,32 @@ export const SiniestrosPage: React.FC = () => {
 
             {/* Dynamic fields: Hogar */}
             {isHogar && (
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField fullWidth label="Tipo de daño" size="small" value={form.tipoDanio} onChange={e => setF('tipoDanio', e.target.value)} />
               </Grid>
             )}
 
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <FormControl fullWidth size="small">
-                <InputLabel>Estado</InputLabel>
-                <Select label="Estado" value={form.estado} onChange={e => setF('estado', e.target.value as SiniestroEstado)}>
+                <InputLabel shrink>Estado</InputLabel>
+                <Select label="Estado" notched value={form.estado} onChange={e => setF('estado', e.target.value as SiniestroEstado)}>
                   {ESTADOS.map(e => <MenuItem key={e.value} value={e.value}>{e.label}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField fullWidth label="Responsable" size="small" value={form.responsable} onChange={e => setF('responsable', e.target.value)} />
             </Grid>
 
-            <Grid item xs={12}><Divider><Typography variant="caption" color="text.secondary">Montos</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Montos</Typography></Divider></Grid>
 
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField fullWidth label="Importe Reclamado" size="small" type="number" value={form.importeReclamado} onChange={e => setF('importeReclamado', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField fullWidth label="Deducible" size="small" type="number" value={form.deducible} onChange={e => setF('deducible', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField fullWidth label="Monto Aprobado" size="small" type="number" value={form.montoAprobado} onChange={e => setF('montoAprobado', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
             </Grid>
           </Grid>
@@ -514,7 +545,7 @@ export const SiniestrosPage: React.FC = () => {
                   ...(s.marcaModelo ? [{ label: 'Vehículo', value: s.marcaModelo }] : []),
                   ...(s.tipoDanio ? [{ label: 'Tipo de daño', value: s.tipoDanio }] : []),
                 ].map(({ label, value }) => (
-                  <Grid item xs={6} key={label}>
+                  <Grid size={{ xs: 6 }} key={label}>
                     <Typography variant="caption" color="text.secondary">{label}</Typography>
                     <Typography variant="body2" fontWeight={500}>{value}</Typography>
                   </Grid>
@@ -529,15 +560,15 @@ export const SiniestrosPage: React.FC = () => {
               <Card sx={{ bgcolor: '#f8fafc', mb: 3, borderRadius: 2 }}>
                 <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
                   <Grid container spacing={1}>
-                    <Grid item xs={4}>
+                    <Grid size={{ xs: 4 }}>
                       <Typography variant="caption" color="text.secondary">Reclamado</Typography>
                       <Typography variant="body2" fontWeight={700} color="error.main">{fmt(s.importeReclamado)}</Typography>
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={{ xs: 4 }}>
                       <Typography variant="caption" color="text.secondary">Deducible</Typography>
                       <Typography variant="body2" fontWeight={600}>{fmt(s.deducible)}</Typography>
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid size={{ xs: 4 }}>
                       <Typography variant="caption" color="text.secondary">Aprobado</Typography>
                       <Typography variant="body2" fontWeight={700} color="success.main">{fmt(s.montoAprobado)}</Typography>
                     </Grid>

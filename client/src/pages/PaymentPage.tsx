@@ -155,7 +155,8 @@ function getProviderStatusColor(status?: string | null): 'success' | 'warning' |
 export const PaymentPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { updateUser } = useAuth();
+  const { updateUser, user } = useAuth();
+  const isAdmin = !!user?.isAdmin;
   const [loading, setLoading] = useState<string | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [subscription, setSubscription] = useState<any>(null);
@@ -262,6 +263,10 @@ export const PaymentPage: React.FC = () => {
 
   const handleSubscribe = async (plan: PlanDefinition) => {
     if (plan.available === false) return;
+    if (isAdmin) {
+      setSubscribeError('Los administradores no pueden suscribirse.');
+      return;
+    }
 
     setSubscribeError(null);
     setSubscribeSuccess(null);
@@ -315,6 +320,12 @@ export const PaymentPage: React.FC = () => {
         <Chip label="Solo mensual en esta versión" color="primary" variant="outlined" />
       </Box>
 
+      {isAdmin && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Tu usuario es administrador, por eso no puede suscribirse ni renovar un plan.
+        </Alert>
+      )}
+
       {validating && (
         <Alert severity="info" sx={{ mb: 3 }}>
           Estamos esperando la sincronización del webhook de Mercado Pago.
@@ -335,7 +346,7 @@ export const PaymentPage: React.FC = () => {
         {PLANS.map((plan) => {
           const isCurrent = plan.key === currentPlan && currentPlan !== 'TRIAL';
           const isPopular = plan.key === 'PROFESIONAL';
-          const isDisabled = isCurrent || loading === plan.key || plan.available === false || !!subscription?.canCancel;
+          const isDisabled = isAdmin || isCurrent || loading === plan.key || plan.available === false || !!subscription?.canCancel;
 
           return (
             <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={plan.name}>
@@ -431,7 +442,7 @@ export const PaymentPage: React.FC = () => {
                       },
                     }}
                   >
-                    {isCurrent ? 'Plan actual' : loading === plan.key ? 'Redirigiendo...' : plan.buttonLabel}
+                    {isAdmin ? 'No disponible para admins' : isCurrent ? 'Plan actual' : loading === plan.key ? 'Redirigiendo...' : plan.buttonLabel}
                   </Button>
                 </Box>
               </Card>
@@ -597,4 +608,3 @@ export const PaymentPage: React.FC = () => {
     </Box>
   );
 };
-

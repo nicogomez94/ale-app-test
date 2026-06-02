@@ -43,6 +43,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
   const [expiringCount, setExpiringCount] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
+  const isAdmin = !!user?.isAdmin;
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -63,7 +64,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
     { text: 'Cotizaciones', icon: <MessageSquare size={20} color="#0891b2" />, path: '/cotizaciones' },
     { text: 'Comisiones', icon: <BarChart3 size={20} color="#10b981" />, path: '/comisiones' },
     { text: 'Referidos', icon: <Users size={20} color="#ec4899" />, path: '/referidos' },
-    { text: 'Suscripción', icon: <CreditCard size={20} color="#6366f1" />, path: '/pagos' },
+    ...(!isAdmin ? [{ text: 'Suscripción', icon: <CreditCard size={20} color="#6366f1" />, path: '/pagos' }] : []),
     ...(user?.isAdmin ? [{ text: 'Administración', icon: <Shield size={20} color="#dc2626" />, path: '/admin' }] : []),
   ];
 
@@ -96,10 +97,16 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
             <Typography variant="caption" sx={{ opacity: 0.8, textTransform: 'uppercase', letterSpacing: 1 }}>
               Plan Actual
             </Typography>
-            <Typography variant="h6" sx={{ mb: 1 }}>{user?.plan || 'Gratis'}</Typography>
-            <Button variant="contained" color="secondary" fullWidth size="small" onClick={() => navigate('/pagos')}>
-              Mejorar Plan
-            </Button>
+            <Typography variant="h6" sx={{ mb: 1 }}>{isAdmin ? 'Administrador' : user?.plan || 'Gratis'}</Typography>
+            {isAdmin ? (
+              <Typography variant="body2" sx={{ opacity: 0.85 }}>
+                No requiere suscripción.
+              </Typography>
+            ) : (
+              <Button variant="contained" color="secondary" fullWidth size="small" onClick={() => navigate('/pagos')}>
+                Mejorar Plan
+              </Button>
+            )}
           </CardContent>
         </Card>
       </Box>
@@ -214,4 +221,3 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
     </Box>
   );
 };
-

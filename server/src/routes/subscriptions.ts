@@ -436,6 +436,7 @@ subscriptionsRouter.post("/create-preapproval", authMiddleware, async (req: Auth
       select: {
         id: true,
         email: true,
+        isAdmin: true,
         planVencimiento: true,
         trialFin: true,
       },
@@ -443,6 +444,14 @@ subscriptionsRouter.post("/create-preapproval", authMiddleware, async (req: Auth
 
     if (!user) {
       res.status(404).json({ error: "Usuario no encontrado" });
+      return;
+    }
+
+    if (user.isAdmin) {
+      res.status(403).json({
+        error: "admin_cannot_subscribe",
+        message: "Los administradores no pueden suscribirse.",
+      });
       return;
     }
 

@@ -9,13 +9,21 @@ function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
 }
 
-function getClient(): MercadoPagoConfig {
-  const accessToken = process.env.MP_ACCESS_TOKEN;
+function getAccessToken(): string {
+  const accessToken =
+    process.env.MP_ACCESS_TOKEN_PROD?.trim() ||
+    process.env.MP_ACCESS_TOKEN?.trim() ||
+    "";
+
   if (!accessToken) {
-    throw new Error("MP_ACCESS_TOKEN no configurado en el backend");
+    throw new Error("MP_ACCESS_TOKEN o MP_ACCESS_TOKEN_PROD no configurado en el backend");
   }
 
-  return new MercadoPagoConfig({ accessToken });
+  return accessToken;
+}
+
+function getClient(): MercadoPagoConfig {
+  return new MercadoPagoConfig({ accessToken: getAccessToken() });
 }
 
 function getAppUrl(): string {
@@ -156,10 +164,7 @@ export async function getPaymentById(paymentId: string | number) {
 }
 
 export async function getAuthorizedPaymentById(authorizedPaymentId: string | number) {
-  const accessToken = process.env.MP_ACCESS_TOKEN;
-  if (!accessToken) {
-    throw new Error("MP_ACCESS_TOKEN no configurado en el backend");
-  }
+  const accessToken = getAccessToken();
 
   const response = await fetch(`https://api.mercadopago.com/authorized_payments/${authorizedPaymentId}`, {
     method: "GET",

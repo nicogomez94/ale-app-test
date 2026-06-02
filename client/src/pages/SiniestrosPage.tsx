@@ -12,6 +12,7 @@ import {
   XCircle, Clock, FileText, MessageCircle, X, ChevronRight, Notebook
 } from 'lucide-react';
 import { api } from '../api';
+import { DEBUG, debugData } from '../data/debugData';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type SiniestroEstado =
@@ -127,7 +128,7 @@ export const SiniestrosPage: React.FC = () => {
   // ─── Form handlers ──────────────────────────────────────────────────────────
   const openCreate = () => {
     setEditingSiniestro(null);
-    setForm({ ...EMPTY_FORM });
+    setForm(DEBUG ? { ...EMPTY_FORM, ...debugData.siniestro } : { ...EMPTY_FORM });
     setFormOpen(true);
   };
 

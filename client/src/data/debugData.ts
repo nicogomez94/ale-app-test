@@ -4,6 +4,7 @@
 // 2) URL query param ?debug=1 | true | on
 // 3) localStorage.setItem('debug_mode', 'true')
 const DEBUG_FROM_ENV = import.meta.env.VITE_DEBUG_MODE === 'true';
+const TODAY = new Date().toISOString().split('T')[0];
 
 const DEBUG_FROM_RUNTIME = (() => {
   if (typeof window === 'undefined') return false;
@@ -89,6 +90,51 @@ export const debugData = {
     vigencia: 'ANUAL',
     prima: 45000,
     porcentajeComision: 15,
+  },
+  siniestro: {
+    numeroSiniestro: 'SIN-2026-0042',
+    numeroPoliza: 'POL-2026-00099',
+    aseguradora: 'Federacion Patronal',
+    tipoSeguro: 'Automotor',
+    clienteNombre: 'Carlos Rodriguez',
+    clienteDni: '28456712',
+    fechaSiniestro: TODAY,
+    horaSiniestro: '14:30',
+    lugarSiniestro: 'Av. Corrientes 1234, CABA',
+    descripcion: 'Colision leve con tercero en maniobra de frenado brusco.',
+    patente: 'AA123BB',
+    marcaModelo: 'Toyota Corolla 2023',
+    tipoDanio: '',
+    estado: 'EN_GESTION',
+    prioridad: 'MEDIA',
+    responsable: 'Mesa de siniestros',
+    importeReclamado: '185000',
+    deducible: '35000',
+    montoAprobado: '0',
+  },
+  cotizacion: {
+    tipo: 'AUTO',
+    nombre: 'Laura',
+    apellido: 'Martinez',
+    cuitCuil: '27-34567890-1',
+    fechaNacimiento: '1990-04-18',
+    email: 'laura.martinez@email.com',
+    celular: '1162345678',
+    calle: 'Av. Santa Fe',
+    cp: '1425',
+    localidad: 'Palermo',
+    provincia: 'CABA',
+    marca: 'Honda',
+    modelo: 'Civic',
+    anio: '2024',
+    patente: 'AE123CD',
+    tipoUso: 'Particular',
+    tieneGnc: false,
+    tieneGps: true,
+    formaPago: 'Tarjeta',
+    tipoVivienda: 'Casa',
+    superficieCubierta: '180',
+    descripcionRiesgo: 'Auto particular usado para trayectos urbanos y viajes cortos.',
   },
   profile: {
     nombre: 'Alejandro Diaz',

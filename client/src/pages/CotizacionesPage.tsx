@@ -13,6 +13,7 @@ import {
   Link2, QrCode, Copy, Check
 } from 'lucide-react';
 import { api } from '../api';
+import { DEBUG, debugData } from '../data/debugData';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type CotizacionTipo = 'AUTO' | 'MOTO' | 'HOGAR' | 'OTROS';
@@ -107,7 +108,7 @@ export const CotizacionesPage: React.FC = () => {
 
   const openCreate = () => {
     setEditingCot(null);
-    setForm({ ...EMPTY_FORM });
+    setForm(DEBUG ? { ...EMPTY_FORM, ...debugData.cotizacion } : { ...EMPTY_FORM });
     setFormOpen(true);
   };
 

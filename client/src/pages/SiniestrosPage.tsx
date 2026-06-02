@@ -128,7 +128,11 @@ export const SiniestrosPage: React.FC = () => {
   // ─── Form handlers ──────────────────────────────────────────────────────────
   const openCreate = () => {
     setEditingSiniestro(null);
-    setForm(DEBUG ? { ...EMPTY_FORM, ...debugData.siniestro } : { ...EMPTY_FORM });
+    setForm(
+      DEBUG
+        ? { ...EMPTY_FORM, ...(debugData.siniestro as Partial<typeof EMPTY_FORM>) }
+        : { ...EMPTY_FORM }
+    );
     setFormOpen(true);
   };
 

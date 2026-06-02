@@ -108,7 +108,11 @@ export const CotizacionesPage: React.FC = () => {
 
   const openCreate = () => {
     setEditingCot(null);
-    setForm(DEBUG ? { ...EMPTY_FORM, ...debugData.cotizacion } : { ...EMPTY_FORM });
+    setForm(
+      DEBUG
+        ? { ...EMPTY_FORM, ...(debugData.cotizacion as Partial<typeof EMPTY_FORM>) }
+        : { ...EMPTY_FORM }
+    );
     setFormOpen(true);
   };
 

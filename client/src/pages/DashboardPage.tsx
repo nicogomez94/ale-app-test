@@ -497,17 +497,27 @@ export const Dashboard: React.FC = () => {
   const loadDashboardData = useCallback(async (withLoading = true) => {
     if (withLoading) setLoading(true);
     try {
-      const [s, p, lp] = await Promise.all([
+      const [s, p] = await Promise.all([
         api.dashboard.stats(),
         api.dashboard.policies(filter || undefined),
-        api.lifePolicies.list(),
       ]);
       setStats(s);
       setPolicies(p);
-      setLifePolicies(lp);
+
+      try {
+        const lp = await api.lifePolicies.list();
+        setLifePolicies(lp);
+      } catch (lifeError) {
+        console.warn('No se pudieron cargar las polizas de Vida y Finanzas:', lifeError);
+        setLifePolicies([]);
+      }
     } catch (error) {
       console.error(error);
-      setSnack({ open: true, severity: 'error', message: 'No se pudo cargar el dashboard.' });
+      setSnack({
+        open: true,
+        severity: 'error',
+        message: error instanceof Error ? error.message : 'No se pudo cargar el dashboard.',
+      });
     } finally {
       if (withLoading) setLoading(false);
     }

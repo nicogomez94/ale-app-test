@@ -3,10 +3,11 @@ import {
   Box, Typography, Card, CardContent, Button, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
   TextField, InputAdornment, Dialog, DialogTitle, DialogContent,
-  DialogActions, Grid, Chip, CircularProgress, Select, MenuItem,
+  DialogActions, Chip, CircularProgress, Select, MenuItem,
   FormControl, InputLabel, Tooltip, Divider, Alert, Snackbar,
   ToggleButtonGroup, ToggleButton, FormControlLabel, Checkbox
 } from '@mui/material';
+import Grid from '@mui/material/GridLegacy';
 import {
   Plus, Search, Edit2, Trash2, Download, Car, Home, Package,
   Link2, QrCode, Copy, Check

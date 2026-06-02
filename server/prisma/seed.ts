@@ -79,64 +79,6 @@ async function seedProviderPlans() {
   );
 }
 
-async function seedLandingLeads() {
-  const contactEmails = [
-    "martina.operaciones@example.com",
-    "seguros.consulta@example.com",
-  ];
-  const producerEmails = [
-    "lucas.productor@example.com",
-    "valeria.pas@example.com",
-  ];
-
-  await prisma.landingContactLead.deleteMany({
-    where: { email: { in: contactEmails } },
-  });
-  await prisma.landingProducerLead.deleteMany({
-    where: { email: { in: producerEmails } },
-  });
-
-  await prisma.landingContactLead.createMany({
-    data: [
-      {
-        nombre: "Martina Fernandez",
-        email: contactEmails[0],
-        telefono: "1145678899",
-        asunto: "Consulta por plan Profesional",
-        mensaje: "Quiero probar PAS Alert para una cartera de 250 polizas.",
-      },
-      {
-        nombre: "Estudio Seguros Norte",
-        email: contactEmails[1],
-        telefono: "1167891122",
-        asunto: "Demo para equipo comercial",
-        mensaje: "Necesitamos centralizar vencimientos y seguimiento de siniestros.",
-      },
-    ],
-  });
-
-  await prisma.landingProducerLead.createMany({
-    data: [
-      {
-        nombre: "Lucas Herrera",
-        email: producerEmails[0],
-        telefono: "1123457788",
-        provincia: "Buenos Aires",
-        experiencia: "3 anos",
-        mensaje: "Trabajo autos y hogar, busco ordenar renovaciones.",
-      },
-      {
-        nombre: "Valeria Rios",
-        email: producerEmails[1],
-        telefono: "1155554433",
-        provincia: "Cordoba",
-        experiencia: "8 anos",
-        mensaje: "Quiero administrar clientes corporativos y vida.",
-      },
-    ],
-  });
-}
-
 async function main() {
   console.log("Seeding database...");
 
@@ -181,7 +123,6 @@ async function main() {
 
   await resetDemoData(user.id);
   await seedProviderPlans();
-  await seedLandingLeads();
 
   const clients = await Promise.all([
     prisma.client.create({

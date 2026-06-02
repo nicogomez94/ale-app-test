@@ -1,6 +1,6 @@
-# Testing — Jobs periódicos y emails (Render)
+# Testing - Jobs periodicos y emails (VPS)
 
-API: `https://pas-alert-api.onrender.com`  
+API: `https://pasalert.com`  
 Base de datos: `nuevabase_czjq` — schema `pas_alert_nico`
 
 ## Usuarios en DB
@@ -14,11 +14,9 @@ Base de datos: `nuevabase_czjq` — schema `pas_alert_nico`
 
 ## Paso previo — Deploy
 
-Los endpoints `/run-jobs` y `/test-seed` son nuevos. Antes de testear, hacer el deploy desde Render:
+Los endpoints `/run-jobs` y `/test-seed` son nuevos. Antes de testear, hacer el deploy desde el VPS:
 
-**Render → pas-alert-api → Manual Deploy → Deploy latest commit**
-
-> En el free tier el server se duerme tras 15 min de inactividad. La primera request puede tardar ~30s en responder (cold start). Es normal.
+`BRANCH=colores APP_URL=https://pasalert.com API_URL=https://pasalert.com SERVICE_NAME=pas-alert-api ./scripts/deploy-vps.sh`
 
 ---
 
@@ -26,7 +24,7 @@ Los endpoints `/run-jobs` y `/test-seed` son nuevos. Antes de testear, hacer el 
 
 Conseguir el token admin (una sola vez):
 ```bash
-curl -s -X POST https://pas-alert-api.onrender.com/api/auth/login \
+curl -s -X POST https://pasalert.com/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"nicolas@gmail.com","password":"TU_PASSWORD"}' | grep -o '"token":"[^"]*"'
 ```
@@ -42,13 +40,13 @@ TOKEN="eyJhbGci..."
 
 ```bash
 # Paso 1: mover pólizas de pepe para que venzan en 3 días
-curl -X POST https://pas-alert-api.onrender.com/api/admin/test-seed \
+curl -X POST https://pasalert.com/api/admin/test-seed \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"userId":"a28ad896-5666-41c2-966f-50bcb0e8432b","scenario":"policy_vence_pronto"}'
 
 # Paso 2: correr el job
-curl -X POST https://pas-alert-api.onrender.com/api/admin/run-jobs \
+curl -X POST https://pasalert.com/api/admin/run-jobs \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -56,7 +54,7 @@ curl -X POST https://pas-alert-api.onrender.com/api/admin/run-jobs \
 
 Variante — pólizas ya vencidas:
 ```bash
-curl -X POST https://pas-alert-api.onrender.com/api/admin/test-seed \
+curl -X POST https://pasalert.com/api/admin/test-seed \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"userId":"a28ad896-5666-41c2-966f-50bcb0e8432b","scenario":"policy_vencida"}'
@@ -68,13 +66,13 @@ curl -X POST https://pas-alert-api.onrender.com/api/admin/test-seed \
 
 ```bash
 # Paso 1: setear trialFin de pepe a 1 día
-curl -X POST https://pas-alert-api.onrender.com/api/admin/test-seed \
+curl -X POST https://pasalert.com/api/admin/test-seed \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"userId":"a28ad896-5666-41c2-966f-50bcb0e8432b","scenario":"expiring_1d"}'
 
 # Paso 2: correr el job — debe llegar email a pepe@gmail.com
-curl -X POST https://pas-alert-api.onrender.com/api/admin/run-jobs \
+curl -X POST https://pasalert.com/api/admin/run-jobs \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -91,7 +89,7 @@ Variante — 3 días:
 
 ```bash
 # Paso 1: expirar la suscripción de pepe
-curl -X POST https://pas-alert-api.onrender.com/api/admin/test-seed \
+curl -X POST https://pasalert.com/api/admin/test-seed \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"userId":"a28ad896-5666-41c2-966f-50bcb0e8432b","scenario":"expired"}'
@@ -108,13 +106,13 @@ curl -X POST https://pas-alert-api.onrender.com/api/admin/test-seed \
 
 ```bash
 # Paso 1: poner referidosMes = 5 en pepe
-curl -X POST https://pas-alert-api.onrender.com/api/admin/test-seed \
+curl -X POST https://pasalert.com/api/admin/test-seed \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"userId":"a28ad896-5666-41c2-966f-50bcb0e8432b","scenario":"day1_referrals"}'
 
 # Paso 2: el 1° del mes, correr el job
-curl -X POST https://pas-alert-api.onrender.com/api/admin/run-jobs \
+curl -X POST https://pasalert.com/api/admin/run-jobs \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -126,7 +124,7 @@ Verificar en la sección Referidos del panel de pepe.
 ## Test 5 — Recuperación de contraseña
 
 ```bash
-curl -X POST https://pas-alert-api.onrender.com/api/auth/forgot-password \
+curl -X POST https://pasalert.com/api/auth/forgot-password \
   -H "Content-Type: application/json" \
   -d '{"email":"pepe@gmail.com"}'
 ```
@@ -135,7 +133,7 @@ curl -X POST https://pas-alert-api.onrender.com/api/auth/forgot-password \
 
 Verificar expiración — esperar 15 min y usar el código:
 ```bash
-curl -X POST https://pas-alert-api.onrender.com/api/auth/reset-password \
+curl -X POST https://pasalert.com/api/auth/reset-password \
   -H "Content-Type: application/json" \
   -d '{"email":"pepe@gmail.com","code":"123456","newPassword":"nueva1234"}'
 # Debe responder: "El código ha expirado. Solicita uno nuevo."

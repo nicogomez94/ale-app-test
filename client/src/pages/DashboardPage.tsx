@@ -146,6 +146,10 @@ const parseAmountInput = (value: string): string => {
   return Number.isFinite(parsed) ? String(parsed) : '';
 };
 
+const getErrorMessage = (error: unknown, fallback: string) => (
+  error instanceof Error && error.message ? error.message : fallback
+);
+
 const getStatusVisual = (policy: DashboardPolicy) => {
   if (policy.pagada) {
     return { label: 'PAGADO', color: 'success.main', textColor: 'white', detail: policy.fechaPago ? format(parseISO(policy.fechaPago), 'dd/MM/yyyy') : '' };
@@ -496,31 +500,52 @@ export const Dashboard: React.FC = () => {
 
   const loadDashboardData = useCallback(async (withLoading = true) => {
     if (withLoading) setLoading(true);
-    try {
-      const [s, p] = await Promise.all([
-        api.dashboard.stats(),
-        api.dashboard.policies(filter || undefined),
-      ]);
-      setStats(s);
-      setPolicies(p);
+    const [statsResult, policiesResult, lifePoliciesResult] = await Promise.allSettled([
+      api.dashboard.stats(),
+      api.dashboard.policies(filter || undefined),
+      api.lifePolicies.list(),
+    ]);
 
-      try {
-        const lp = await api.lifePolicies.list();
-        setLifePolicies(lp);
-      } catch (lifeError) {
-        console.warn('No se pudieron cargar las polizas de Vida y Finanzas:', lifeError);
-        setLifePolicies([]);
+    if (statsResult.status === 'fulfilled') {
+      setStats(statsResult.value);
+    }
+
+    if (policiesResult.status === 'fulfilled') {
+      setPolicies(policiesResult.value);
+    } else {
+      console.error('Dashboard policies error:', policiesResult.reason);
+      setPolicies([]);
+    }
+
+    if (lifePoliciesResult.status === 'fulfilled') {
+      setLifePolicies(lifePoliciesResult.value);
+    } else {
+      console.warn('No se pudieron cargar las polizas de Vida y Finanzas:', lifePoliciesResult.reason);
+      setLifePolicies([]);
+    }
+
+    if (statsResult.status === 'rejected' || policiesResult.status === 'rejected') {
+      if (statsResult.status === 'rejected') {
+        console.error('Dashboard stats error:', statsResult.reason);
       }
-    } catch (error) {
-      console.error(error);
+
+      const failedParts = [
+        statsResult.status === 'rejected'
+          ? `estadisticas: ${getErrorMessage(statsResult.reason, 'error desconocido')}`
+          : null,
+        policiesResult.status === 'rejected'
+          ? `polizas: ${getErrorMessage(policiesResult.reason, 'error desconocido')}`
+          : null,
+      ].filter(Boolean);
+
       setSnack({
         open: true,
         severity: 'error',
-        message: error instanceof Error ? error.message : 'No se pudo cargar el dashboard.',
+        message: `No se pudo cargar parte del dashboard (${failedParts.join(' | ')}).`,
       });
-    } finally {
-      if (withLoading) setLoading(false);
     }
+
+    if (withLoading) setLoading(false);
   }, [filter]);
 
   useEffect(() => {

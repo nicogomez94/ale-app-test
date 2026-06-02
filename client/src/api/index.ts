@@ -168,26 +168,6 @@ export const api = {
       }),
   },
 
-  // Public landing forms
-  landing: {
-    submitContacto: (data: {
-      nombre: string;
-      email: string;
-      telefono?: string;
-      asunto: string;
-      mensaje: string;
-    }) =>
-      request<{ message: string }>("/public/contacto", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-    submitProductor: (data: FormData) =>
-      request<{ message: string }>("/public/productores", {
-        method: "POST",
-        body: data,
-      }),
-  },
-
   // Dashboard
   dashboard: {
     stats: () => request<any>("/dashboard/stats"),

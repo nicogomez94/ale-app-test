@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Box, Typography, Card, CardContent, Button, TextField,
-  Grid, Select, MenuItem, FormControl, InputLabel, Divider,
+  Select, MenuItem, FormControl, InputLabel, Divider,
   ToggleButtonGroup, ToggleButton, FormControlLabel, Checkbox,
   CircularProgress, Alert, InputAdornment
 } from '@mui/material';
+import Grid from '@mui/material/GridLegacy';
 import { Car, Home, Package, CheckCircle2 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

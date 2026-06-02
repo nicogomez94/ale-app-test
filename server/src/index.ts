@@ -15,7 +15,6 @@ import { subscriptionsRouter } from "./routes/subscriptions.js";
 import { profileRouter } from "./routes/profile.js";
 import { dashboardRouter } from "./routes/dashboard.js";
 import { adminRouter } from "./routes/admin.js";
-import { publicRouter } from "./routes/public.js";
 import { siniestrosRouter } from "./routes/siniestros.js";
 import { cotizacionesRouter } from "./routes/cotizaciones.js";
 import { authMiddleware } from "./middleware/auth.js";
@@ -28,7 +27,6 @@ const PORT = parseInt(process.env.PORT || "3001");
 const allowedOrigins = [
   process.env.APP_URL,
   process.env.SYSTEM_APP_URL,
-  process.env.LANDING_URL,
   ...(process.env.CORS_ALLOWED_ORIGINS || "").split(","),
 ]
   .map((origin) => origin?.trim())
@@ -60,7 +58,6 @@ app.use(express.json({ limit: "5mb" }));
 app.use("/api/auth", authRouter);
 app.use("/api/subscriptions", subscriptionsRouter);
 app.use("/api/profile", profileRouter);
-app.use("/api/public", publicRouter);
 
 // Guarded routes (blocked when subscription expired)
 app.use("/api/clients", authMiddleware, subscriptionGuard, clientsRouter);

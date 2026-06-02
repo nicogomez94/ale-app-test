@@ -55,7 +55,7 @@ const schema = z.object({
   moneda: z.enum(['ARS', 'USD', 'EUR', 'BRL']).default('ARS'),
 });
 
-type FormData = z.infer<typeof schema>;
+type FormData = z.input<typeof schema>;
 
 const formatAmount = (value: number): string =>
   new Intl.NumberFormat('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(value);
@@ -173,7 +173,7 @@ export const PolicyForm: React.FC = () => {
         cuotaTotal,
         pagada: false,
         tipo: policyType,
-        moneda: data.moneda,
+        moneda: data.moneda ?? 'ARS',
       };
 
       await api.policies.create(payload);

@@ -10,7 +10,7 @@ import {
 import Grid from '@mui/material/GridLegacy';
 import {
   Plus, Search, Edit2, Trash2, Download, Car, Home, Package,
-  Link2, QrCode, Copy, Check
+  Link2, QrCode, Copy, Check, MessageCircle, Mail
 } from 'lucide-react';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 import { api } from '../api';
@@ -203,6 +203,17 @@ export const CotizacionesPage: React.FC = () => {
     });
   };
 
+  const handleWhatsApp = (celular?: string) => {
+    const phone = celular?.replace(/\D/g, '');
+    if (!phone) return;
+    window.open(`https://wa.me/${phone}`, '_blank');
+  };
+
+  const handleEmailClick = (email?: string) => {
+    if (!email) return;
+    window.open(`mailto:${email}`);
+  };
+
   const isAutoMoto = form.tipo === 'AUTO' || form.tipo === 'MOTO';
   const isHogar = form.tipo === 'HOGAR';
   const isOtros = form.tipo === 'OTROS';
@@ -320,6 +331,20 @@ export const CotizacionesPage: React.FC = () => {
                   </TableCell>
                   <TableCell>{new Date(c.createdAt).toLocaleDateString('es-AR')}</TableCell>
                   <TableCell>
+                    <Tooltip title={c.celular ? 'WhatsApp' : 'Sin celular'}>
+                      <span>
+                        <IconButton size="small" color="success" disabled={!c.celular} onClick={() => handleWhatsApp(c.celular)}>
+                          <MessageCircle size={16} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Tooltip title={c.email ? 'Email' : 'Sin email'}>
+                      <span>
+                        <IconButton size="small" color="info" disabled={!c.email} onClick={() => handleEmailClick(c.email)}>
+                          <Mail size={16} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
                     <Tooltip title="Editar">
                       <IconButton size="small" onClick={() => openEdit(c)}><Edit2 size={16} /></IconButton>
                     </Tooltip>

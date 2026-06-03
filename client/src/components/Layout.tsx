@@ -29,9 +29,9 @@ const Logo = () => (
   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
     <Box
       component="img"
-      src="/assets/pasalert.png"
+      src="/assets/pas%20alert%20chico.svg"
       alt="PAS Alert"
-      sx={{ height: { xs: 64, sm: 72 }, width: 'auto', maxWidth: '100%', objectFit: 'contain', display: 'block' }}
+      sx={{ height: { xs: 46, sm: 52 }, width: 'auto', maxWidth: '100%', objectFit: 'contain', display: 'block' }}
     />
   </Box>
 );

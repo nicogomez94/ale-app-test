@@ -1,6 +1,8 @@
 import { Router, Request, Response } from "express";
+import type { Cotizacion } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
+import { sendEmail } from "../lib/email.js";
 import * as XLSX from "xlsx";
 
 export const cotizacionesRouter = Router();
@@ -178,8 +180,13 @@ cotizacionesRouter.delete("/:id", async (req: AuthRequest, res: Response) => {
 const VALID_TIPOS = ["AUTO", "MOTO", "HOGAR", "OTROS"] as const;
 
 function buildCotizacionData(body: any) {
+  const tipo = typeof body.tipo === "string" ? body.tipo.toUpperCase() : body.tipo;
+  const isAutoMoto = tipo === "AUTO" || tipo === "MOTO";
+  const isHogar = tipo === "HOGAR";
+  const isOtros = tipo === "OTROS";
+
   return {
-    tipo: body.tipo,
+    tipo,
     nombre: body.nombre,
     apellido: body.apellido ?? null,
     cuitCuil: body.cuitCuil ?? null,
@@ -190,19 +197,19 @@ function buildCotizacionData(body: any) {
     cp: body.cp ?? null,
     localidad: body.localidad ?? null,
     provincia: body.provincia ?? null,
-    marca: body.marca ?? null,
-    modelo: body.modelo ?? null,
-    anio: body.anio ? parseInt(body.anio) : null,
-    patente: body.patente ?? null,
-    tipoUso: body.tipoUso ?? null,
-    tieneGnc: body.tieneGnc !== undefined ? Boolean(body.tieneGnc) : null,
-    tieneGps: body.tieneGps !== undefined ? Boolean(body.tieneGps) : null,
+    marca: isAutoMoto ? body.marca ?? null : null,
+    modelo: isAutoMoto ? body.modelo ?? null : null,
+    anio: isAutoMoto && body.anio ? parseInt(body.anio) : null,
+    patente: isAutoMoto ? body.patente ?? null : null,
+    tipoUso: isAutoMoto ? body.tipoUso ?? null : null,
+    tieneGnc: isAutoMoto && body.tieneGnc !== undefined ? Boolean(body.tieneGnc) : null,
+    tieneGps: isAutoMoto && body.tieneGps !== undefined ? Boolean(body.tieneGps) : null,
     formaPago: body.formaPago ?? null,
-    tipoVivienda: body.tipoVivienda ?? null,
-    superficieCubierta: body.superficieCubierta
+    tipoVivienda: isHogar ? body.tipoVivienda ?? null : null,
+    superficieCubierta: isHogar && body.superficieCubierta
       ? parseFloat(body.superficieCubierta)
       : null,
-    descripcionRiesgo: body.descripcionRiesgo ?? null,
+    descripcionRiesgo: isOtros ? body.descripcionRiesgo ?? null : null,
   };
 }
 
@@ -215,11 +222,103 @@ async function buildCotizacion(
   if (!VALID_TIPOS.includes(tipo)) throw new Error("INVALID_TIPO");
   if (!body.nombre?.trim()) throw new Error("MISSING_NOMBRE");
 
-  return prisma.cotizacion.create({
+  const cotizacion = await prisma.cotizacion.create({
     data: {
       userId,
       origen,
       ...buildCotizacionData({ ...body, tipo }),
     },
   });
+
+  notifyCotizacion(cotizacion).catch((err) => {
+    console.error("Error enviando email de cotizacion:", err);
+  });
+
+  return cotizacion;
+}
+
+function notifyCotizacion(cotizacion: Cotizacion) {
+  const to = process.env.COTIZACIONES_MAIL_TO || process.env.MAIL_TO;
+  if (!to) {
+    console.warn("COTIZACIONES_MAIL_TO no configurado; se omite email de cotizacion.");
+    return Promise.resolve();
+  }
+
+  const fullName = [cotizacion.nombre, cotizacion.apellido].filter(Boolean).join(" ");
+  const senderEmail = cotizacion.email || to;
+
+  return sendEmail({
+    name: fullName || "Nueva cotizacion",
+    email: senderEmail,
+    to,
+    message: buildCotizacionEmailMessage(cotizacion, fullName),
+  });
+}
+
+function buildCotizacionEmailMessage(cotizacion: Cotizacion, fullName: string) {
+  const lines = [
+    `Nueva solicitud de cotizacion: ${tipoLabel(cotizacion.tipo)}`,
+    "",
+    `Origen: ${origenLabel(cotizacion.origen)}`,
+    `Nombre: ${fullName || cotizacion.nombre}`,
+    fieldLine("CUIT/CUIL", cotizacion.cuitCuil),
+    fieldLine("Email", cotizacion.email),
+    fieldLine("Celular", cotizacion.celular),
+    fieldLine("Localidad", cotizacion.localidad),
+    fieldLine("Provincia", cotizacion.provincia),
+    fieldLine("Direccion", [cotizacion.calle, cotizacion.cp].filter(Boolean).join(" - ")),
+    "",
+    ...cotizacionDetailLines(cotizacion),
+  ].filter((line): line is string => line !== null);
+
+  return lines.join("\n");
+}
+
+function cotizacionDetailLines(cotizacion: Cotizacion) {
+  if (cotizacion.tipo === "AUTO" || cotizacion.tipo === "MOTO") {
+    return [
+      "Datos del vehiculo:",
+      fieldLine("Marca", cotizacion.marca),
+      fieldLine("Modelo", cotizacion.modelo),
+      fieldLine("Anio", cotizacion.anio?.toString()),
+      fieldLine("Patente", cotizacion.patente),
+      fieldLine("Uso", cotizacion.tipoUso),
+      fieldLine("GNC", cotizacion.tieneGnc === null ? null : cotizacion.tieneGnc ? "Si" : "No"),
+      fieldLine("GPS", cotizacion.tieneGps === null ? null : cotizacion.tieneGps ? "Si" : "No"),
+      fieldLine("Forma de pago", cotizacion.formaPago),
+    ].filter((line): line is string => line !== null);
+  }
+
+  if (cotizacion.tipo === "HOGAR") {
+    return [
+      "Datos del hogar:",
+      fieldLine("Tipo de vivienda", cotizacion.tipoVivienda),
+      fieldLine("Superficie cubierta", cotizacion.superficieCubierta ? `${cotizacion.superficieCubierta} m2` : null),
+      fieldLine("Forma de pago", cotizacion.formaPago),
+    ].filter((line): line is string => line !== null);
+  }
+
+  return [
+    "Datos del riesgo:",
+    fieldLine("Descripcion", cotizacion.descripcionRiesgo),
+    fieldLine("Forma de pago", cotizacion.formaPago),
+  ].filter((line): line is string => line !== null);
+}
+
+function fieldLine(label: string, value: string | null | undefined) {
+  return value ? `${label}: ${value}` : null;
+}
+
+function tipoLabel(tipo: string) {
+  const labels: Record<string, string> = {
+    AUTO: "Auto",
+    MOTO: "Moto",
+    HOGAR: "Hogar",
+    OTROS: "Otros",
+  };
+  return labels[tipo] || tipo;
+}
+
+function origenLabel(origen: string) {
+  return origen === "LINK_PUBLICO" ? "Link publico" : "Carga manual";
 }

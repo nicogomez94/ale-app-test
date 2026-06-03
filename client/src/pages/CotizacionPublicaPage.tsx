@@ -8,13 +8,14 @@ import {
 } from '@mui/material';
 import Grid from '@mui/material/GridLegacy';
 import { Car, Home, Package, CheckCircle2 } from 'lucide-react';
+import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type CotizacionTipo = 'AUTO' | 'MOTO' | 'HOGAR' | 'OTROS';
 
 const TIPO_CONFIG: Record<CotizacionTipo, { label: string; icon: React.ReactNode }> = {
   AUTO:  { label: 'Auto',  icon: <Car size={18} /> },
-  MOTO:  { label: 'Moto',  icon: <Car size={18} /> },
+  MOTO:  { label: 'Moto',  icon: <TwoWheelerIcon sx={{ fontSize: 18 }} /> },
   HOGAR: { label: 'Hogar', icon: <Home size={18} /> },
   OTROS: { label: 'Otros', icon: <Package size={18} /> },
 };
@@ -29,6 +30,36 @@ const PROVINCIAS = [
 
 const apiUrl = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 const API_BASE = apiUrl ? `${apiUrl}/api` : '/api';
+
+const buildCotizacionPayload = (
+  tipo: CotizacionTipo,
+  form: {
+    nombre: string; apellido: string; cuitCuil: string; fechaNacimiento: string;
+    email: string; celular: string; calle: string; cp: string; localidad: string; provincia: string;
+    marca: string; modelo: string; anio: string; patente: string; tipoUso: string;
+    tieneGnc: boolean; tieneGps: boolean; formaPago: string;
+    tipoVivienda: string; superficieCubierta: string; descripcionRiesgo: string;
+  }
+) => {
+  const isAutoMoto = tipo === 'AUTO' || tipo === 'MOTO';
+  const isHogar = tipo === 'HOGAR';
+  const isOtros = tipo === 'OTROS';
+
+  return {
+    tipo,
+    ...form,
+    marca: isAutoMoto ? form.marca : null,
+    modelo: isAutoMoto ? form.modelo : null,
+    anio: isAutoMoto ? form.anio : null,
+    patente: isAutoMoto ? form.patente : null,
+    tipoUso: isAutoMoto ? form.tipoUso : null,
+    tieneGnc: isAutoMoto ? form.tieneGnc : null,
+    tieneGps: isAutoMoto ? form.tieneGps : null,
+    tipoVivienda: isHogar ? form.tipoVivienda : null,
+    superficieCubierta: isHogar ? form.superficieCubierta : null,
+    descripcionRiesgo: isOtros ? form.descripcionRiesgo : null,
+  };
+};
 
 export const CotizacionPublicaPage: React.FC = () => {
   const { userId, tipo: tipoParam } = useParams<{ userId: string; tipo?: string }>();
@@ -67,7 +98,7 @@ export const CotizacionPublicaPage: React.FC = () => {
       const res = await fetch(`${API_BASE}/cotizaciones/public/${userId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo, ...form }),
+        body: JSON.stringify(buildCotizacionPayload(tipo, form)),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

@@ -12,6 +12,7 @@ import {
   Plus, Search, Edit2, Trash2, Download, Car, Home, Package,
   Link2, QrCode, Copy, Check
 } from 'lucide-react';
+import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 import { api } from '../api';
 import { DEBUG, debugData } from '../data/debugData';
 
@@ -45,7 +46,7 @@ interface Cotizacion {
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TIPO_CONFIG: Record<CotizacionTipo, { label: string; icon: React.ReactNode; color: string }> = {
   AUTO:  { label: 'Auto',  icon: <Car size={16} />,     color: '#3b82f6' },
-  MOTO:  { label: 'Moto',  icon: <Car size={16} />,     color: '#8b5cf6' },
+  MOTO:  { label: 'Moto',  icon: <TwoWheelerIcon sx={{ fontSize: 16 }} />, color: '#8b5cf6' },
   HOGAR: { label: 'Hogar', icon: <Home size={16} />,    color: '#f59e0b' },
   OTROS: { label: 'Otros', icon: <Package size={16} />, color: '#6b7280' },
 };
@@ -67,6 +68,26 @@ const EMPTY_FORM = {
   tieneGnc: false, tieneGps: false, formaPago: '',
   tipoVivienda: 'Casa', superficieCubierta: '',
   descripcionRiesgo: '',
+};
+
+const buildCotizacionPayload = (form: typeof EMPTY_FORM) => {
+  const isAutoMoto = form.tipo === 'AUTO' || form.tipo === 'MOTO';
+  const isHogar = form.tipo === 'HOGAR';
+  const isOtros = form.tipo === 'OTROS';
+
+  return {
+    ...form,
+    marca: isAutoMoto ? form.marca : null,
+    modelo: isAutoMoto ? form.modelo : null,
+    anio: isAutoMoto ? form.anio : null,
+    patente: isAutoMoto ? form.patente : null,
+    tipoUso: isAutoMoto ? form.tipoUso : null,
+    tieneGnc: isAutoMoto ? form.tieneGnc : null,
+    tieneGps: isAutoMoto ? form.tieneGps : null,
+    tipoVivienda: isHogar ? form.tipoVivienda : null,
+    superficieCubierta: isHogar ? form.superficieCubierta : null,
+    descripcionRiesgo: isOtros ? form.descripcionRiesgo : null,
+  };
 };
 
 export const CotizacionesPage: React.FC = () => {
@@ -145,11 +166,12 @@ export const CotizacionesPage: React.FC = () => {
   };
 
   const handleSave = async () => {
+    const payload = buildCotizacionPayload(form);
     try {
       if (editingCot) {
-        await api.cotizaciones.update(editingCot.id, form);
+        await api.cotizaciones.update(editingCot.id, payload);
       } else {
-        await api.cotizaciones.create(form);
+        await api.cotizaciones.create(payload);
       }
       setFormOpen(false);
       loadData();
@@ -260,6 +282,9 @@ export const CotizacionesPage: React.FC = () => {
               </TableRow>
             ) : cotizaciones.map(c => {
               const tc = TIPO_CONFIG[c.tipo];
+              const hasVehicleData = (c.tipo === 'AUTO' || c.tipo === 'MOTO') && (c.patente || c.marca || c.modelo || c.anio);
+              const hasHomeData = c.tipo === 'HOGAR' && (c.tipoVivienda || c.superficieCubierta);
+              const hasOtherData = c.tipo === 'OTROS' && c.descripcionRiesgo;
               return (
                 <TableRow key={c.id} hover>
                   <TableCell>
@@ -273,10 +298,14 @@ export const CotizacionesPage: React.FC = () => {
                     {c.cuitCuil && <Typography variant="caption" color="text.secondary">CUIT: {c.cuitCuil}</Typography>}
                   </TableCell>
                   <TableCell>
-                    {c.patente && <Typography variant="body2">{c.patente} — {c.marca} {c.modelo} {c.anio}</Typography>}
-                    {c.tipoVivienda && <Typography variant="body2">{c.tipoVivienda}{c.superficieCubierta ? ` · ${c.superficieCubierta} m²` : ''}</Typography>}
-                    {c.descripcionRiesgo && <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>{c.descripcionRiesgo}</Typography>}
-                    {!c.patente && !c.tipoVivienda && !c.descripcionRiesgo && '—'}
+                    {hasVehicleData && (
+                      <Typography variant="body2">
+                        {[c.patente, [c.marca, c.modelo, c.anio].filter(Boolean).join(' ')].filter(Boolean).join(' — ')}
+                      </Typography>
+                    )}
+                    {hasHomeData && <Typography variant="body2">{c.tipoVivienda}{c.superficieCubierta ? ` · ${c.superficieCubierta} m²` : ''}</Typography>}
+                    {hasOtherData && <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>{c.descripcionRiesgo}</Typography>}
+                    {!hasVehicleData && !hasHomeData && !hasOtherData && '—'}
                   </TableCell>
                   <TableCell>
                     {c.email && <Typography variant="body2">{c.email}</Typography>}

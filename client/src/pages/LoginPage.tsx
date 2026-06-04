@@ -162,9 +162,9 @@ export const LoginPage: React.FC = () => {
           <Box sx={{ mb: 4 }}>
             <Box
               component="img"
-              src="/assets/pas alert grande.png"
+              src="/assets/2.svg"
               alt="PAS Alert"
-              sx={{ height: 96, width: 'auto', maxWidth: 320, objectFit: 'contain', display: 'block' }}
+              sx={{ height: 150, width: 'auto', maxWidth: 460, objectFit: 'contain', display: 'block' }}
             />
           </Box>
           <Typography variant="h4" sx={{ mb: 2, fontWeight: 600 }}>

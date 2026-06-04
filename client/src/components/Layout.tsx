@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Grid, Card, CardContent, Button, AppBar, Toolbar,
   IconButton, Drawer, List, ListItem, ListItemIcon, ListItemText,
-  Divider, Avatar, Menu, MenuItem, Badge
+  Divider, Avatar, Menu, MenuItem, Badge, Tooltip
 } from '@mui/material';
 import {
   LayoutDashboard, FileText, Users, CreditCard, Bell, LogOut,
   Menu as MenuIcon, UserCircle, BarChart3, Sun, Moon, Building2, HeartPulse,
-  Calendar, Clock, Shield, AlertTriangle, ClipboardList, MessageSquare
+  Calendar, Clock, Shield, AlertTriangle, ClipboardList, MessageSquare,
+  PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -24,12 +25,13 @@ interface LayoutProps {
 }
 
 const drawerWidth = 260;
+const collapsedDrawerWidth = 84;
 
 const Logo = () => (
   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
     <Box
       component="img"
-      src="/assets/pas%20alert%20chico.svg"
+      src="/assets/2.svg"
       alt="PAS Alert"
       sx={{ height: { xs: 46, sm: 52 }, width: 'auto', maxWidth: '100%', objectFit: 'contain', display: 'block' }}
     />
@@ -38,6 +40,7 @@ const Logo = () => (
 
 export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDarkMode, onToggleDarkMode, subscriptionWarning }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [expiringCount, setExpiringCount] = useState(0);
@@ -68,30 +71,67 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
     ...(user?.isAdmin ? [{ text: 'Administración', icon: <Shield size={20} color="#dc2626" />, path: '/admin' }] : []),
   ];
 
-  const drawer = (
+  const activeDrawerWidth = sidebarCollapsed ? collapsedDrawerWidth : drawerWidth;
+
+  const renderDrawer = (collapsed = false, showCollapseButton = false) => (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center' }}><Logo /></Box>
+      <Box
+        sx={{
+          p: collapsed ? 1.5 : 3,
+          minHeight: 88,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: collapsed ? 'center' : 'space-between',
+          gap: 1,
+        }}
+      >
+        {!collapsed && <Logo />}
+        {showCollapseButton && (
+          <Tooltip title={collapsed ? 'Ampliar menú' : 'Esconder menú'} placement="right">
+            <IconButton
+              color="inherit"
+              onClick={() => setSidebarCollapsed((prev) => !prev)}
+              aria-label={collapsed ? 'Ampliar menú' : 'Esconder menú'}
+              sx={{
+                flexShrink: 0,
+                border: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'background.paper',
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              {collapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+            </IconButton>
+          </Tooltip>
+        )}
+      </Box>
       <Divider sx={{ opacity: 0.5 }} />
-      <List sx={{ px: 2, py: 3, flexGrow: 1 }}>
+      <List sx={{ px: collapsed ? 1.25 : 2, py: 3, flexGrow: 1 }}>
         {menuItems.map((item) => (
-          <ListItem
-            key={item.text}
-            component="div"
-            onClick={() => { navigate(item.path); setMobileOpen(false); }}
-            sx={{
-              borderRadius: 2, mb: 1, cursor: 'pointer',
-              bgcolor: location.pathname === item.path ? 'primary.main' : 'transparent',
-              color: location.pathname === item.path ? 'white' : 'text.primary',
-              '& .MuiListItemIcon-root': { color: location.pathname === item.path ? 'white' : 'text.secondary' },
-              '&:hover': { bgcolor: location.pathname === item.path ? 'primary.main' : 'primary.light', color: 'white', '& .MuiListItemIcon-root': { color: 'white' } }
-            }}
-          >
-            <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.text} primaryTypographyProps={{ fontWeight: 500 }} />
-          </ListItem>
+          <Tooltip key={item.text} title={collapsed ? item.text : ''} placement="right">
+            <ListItem
+              component="div"
+              onClick={() => { navigate(item.path); setMobileOpen(false); }}
+              sx={{
+                borderRadius: 2,
+                mb: 1,
+                cursor: 'pointer',
+                minHeight: 48,
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                px: collapsed ? 1 : 2,
+                bgcolor: location.pathname === item.path ? 'primary.main' : 'transparent',
+                color: location.pathname === item.path ? 'white' : 'text.primary',
+                '& .MuiListItemIcon-root': { color: location.pathname === item.path ? 'white' : 'text.secondary' },
+                '&:hover': { bgcolor: location.pathname === item.path ? 'primary.main' : 'primary.light', color: 'white', '& .MuiListItemIcon-root': { color: 'white' } }
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: collapsed ? 0 : 40, justifyContent: 'center' }}>{item.icon}</ListItemIcon>
+              {!collapsed && <ListItemText primary={item.text} primaryTypographyProps={{ fontWeight: 500 }} />}
+            </ListItem>
+          </Tooltip>
         ))}
       </List>
-      <Box sx={{ p: 2 }}>
+      {!collapsed && <Box sx={{ p: 2 }}>
         <Card sx={{ bgcolor: 'primary.dark', color: 'white', borderRadius: 3 }}>
           <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
             <Typography variant="caption" sx={{ opacity: 0.8, textTransform: 'uppercase', letterSpacing: 1 }}>
@@ -109,17 +149,26 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
             )}
           </CardContent>
         </Card>
-      </Box>
+      </Box>}
       <Divider sx={{ opacity: 0.5 }} />
-      <List sx={{ px: 2, py: 2 }}>
-        <ListItem
-          component="div"
-          onClick={onLogout}
-          sx={{ borderRadius: 2, cursor: 'pointer', '&:hover': { bgcolor: 'error.light', color: 'white', '& .MuiListItemIcon-root': { color: 'white' } } }}
-        >
-          <ListItemIcon sx={{ minWidth: 40, color: 'text.secondary' }}><LogOut size={20} /></ListItemIcon>
-          <ListItemText primary="Cerrar Sesión" />
-        </ListItem>
+      <List sx={{ px: collapsed ? 1.25 : 2, py: 2 }}>
+        <Tooltip title={collapsed ? 'Cerrar Sesión' : ''} placement="right">
+          <ListItem
+            component="div"
+            onClick={onLogout}
+            sx={{
+              borderRadius: 2,
+              cursor: 'pointer',
+              minHeight: 48,
+              justifyContent: collapsed ? 'center' : 'flex-start',
+              px: collapsed ? 1 : 2,
+              '&:hover': { bgcolor: 'error.light', color: 'white', '& .MuiListItemIcon-root': { color: 'white' } }
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: collapsed ? 0 : 40, justifyContent: 'center', color: 'text.secondary' }}><LogOut size={20} /></ListItemIcon>
+            {!collapsed && <ListItemText primary="Cerrar Sesión" />}
+          </ListItem>
+        </Tooltip>
       </List>
     </Box>
   );
@@ -129,10 +178,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
       <AppBar
         position="fixed"
         sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` },
+          width: { sm: `calc(100% - ${activeDrawerWidth}px)` },
+          ml: { sm: `${activeDrawerWidth}px` },
           bgcolor: 'background.paper', color: 'text.primary',
           boxShadow: 'none', borderBottom: '1px solid', borderColor: 'divider',
+          transition: (theme) => theme.transitions.create(['margin-left', 'width'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.standard,
+          }),
         }}
       >
         <Toolbar sx={{ justifyContent: 'space-between' }}>
@@ -186,21 +239,57 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
         </Toolbar>
       </AppBar>
 
-      <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>
+      <Box
+        component="nav"
+        sx={{
+          width: { sm: activeDrawerWidth },
+          flexShrink: { sm: 0 },
+          transition: (theme) => theme.transitions.create('width', {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.standard,
+          }),
+        }}
+      >
         <Drawer variant="temporary" open={mobileOpen} onClose={() => setMobileOpen(false)} ModalProps={{ keepMounted: true }}
           sx={{ display: { xs: 'block', sm: 'none' }, '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth } }}
         >
-          {drawer}
+          {renderDrawer(false)}
         </Drawer>
         <Drawer variant="permanent"
-          sx={{ display: { xs: 'none', sm: 'block' }, '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, borderRight: '1px solid', borderColor: 'divider' } }}
+          sx={{
+            display: { xs: 'none', sm: 'block' },
+            '& .MuiDrawer-paper': {
+              boxSizing: 'border-box',
+              width: activeDrawerWidth,
+              overflowX: 'hidden',
+              borderRight: '1px solid',
+              borderColor: 'divider',
+              transition: (theme) => theme.transitions.create('width', {
+                easing: theme.transitions.easing.sharp,
+                duration: theme.transitions.duration.standard,
+              }),
+            }
+          }}
           open
         >
-          {drawer}
+          {renderDrawer(sidebarCollapsed, true)}
         </Drawer>
       </Box>
 
-      <Box component="main" sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` }, mt: '64px', bgcolor: 'background.default' }}>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          width: { sm: `calc(100% - ${activeDrawerWidth}px)` },
+          mt: '64px',
+          bgcolor: 'background.default',
+          transition: (theme) => theme.transitions.create('width', {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.standard,
+          }),
+        }}
+      >
         {subscriptionWarning?.show && (
           <Box sx={{
             display: 'flex', alignItems: 'center', gap: 2, p: 2, mb: 2,

@@ -284,9 +284,21 @@ export const LoginPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 4 }}>
-          © 2026 PAS Alert. Todos los derechos reservados.
-        </Typography>
+        <Box sx={{ mt: 4, textAlign: 'center' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+            © 2026 PAS Alert. Todos los derechos reservados.
+          </Typography>
+          <Link
+            href="https://zigodev.com.ar"
+            target="_blank"
+            rel="noopener"
+            underline="hover"
+            color="text.secondary"
+            sx={{ display: 'inline-block', mt: 0.75, fontSize: '0.75rem', fontWeight: 600 }}
+          >
+            Hecho por ZigoDev
+          </Link>
+        </Box>
       </Box>
 
       {/* Forgot Password Dialog */}

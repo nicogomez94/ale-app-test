@@ -91,6 +91,7 @@ const StatCard = ({ title, value, icon, color, subtitle, onClick, active }: any)
   <Card
     sx={{
       height: '100%',
+      minWidth: 0,
       minHeight: 118,
       position: 'relative',
       overflow: 'hidden',
@@ -105,7 +106,7 @@ const StatCard = ({ title, value, icon, color, subtitle, onClick, active }: any)
     <CardContent sx={{ p: 2.25, '&:last-child': { pb: 2.25 } }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Box sx={{ minWidth: 0 }}>
-          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: 1, lineHeight: 1.2 }}>{title}</Typography>
+          <Typography variant="overline" color="text.secondary" sx={{ display: 'block', fontWeight: 700, letterSpacing: 1, lineHeight: 1.2, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{title}</Typography>
           <Typography variant="h5" sx={{ mt: 0.75, fontWeight: 800, lineHeight: 1 }}>{value}</Typography>
         </Box>
         <Box
@@ -199,18 +200,18 @@ const PolicyTable = ({
   const visiblePolicies = showAll ? policies : policies.slice(0, VISIBLE_POLICIES_LIMIT);
 
   return (
-    <Card sx={{ mb: 4 }}>
-      <CardContent>
-        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>{title}</Typography>
+    <Card sx={{ mb: 4, minWidth: 0, maxWidth: '100%' }}>
+      <CardContent sx={{ px: { xs: 2, sm: 3 }, '&:last-child': { pb: { xs: 2, sm: 3 } } }}>
+        <Box sx={{ mb: 3, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 1.5, minWidth: 0 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{title}</Typography>
           {totalCount > VISIBLE_POLICIES_LIMIT && (
             <Button size="small" onClick={onToggleShowAll}>
               {showAll ? 'Ver menos' : 'Ver todas'}
             </Button>
           )}
         </Box>
-        <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
-          <Table>
+        <TableContainer component={Paper} elevation={0} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto', border: '1px solid', borderColor: 'divider' }}>
+          <Table sx={{ minWidth: 1080 }}>
             <TableHead sx={{ bgcolor: headerColor }}>
               <TableRow>
                 <TableCell sx={{ color: 'white', fontWeight: 700 }}>Cliente / Empresa</TableCell>
@@ -360,10 +361,10 @@ const LifeFinanceTable = ({
   onWhatsApp,
   onEmail,
 }: any) => (
-  <Card sx={{ mb: 4 }}>
-    <CardContent>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+  <Card sx={{ mb: 4, minWidth: 0, maxWidth: '100%' }}>
+    <CardContent sx={{ px: { xs: 2, sm: 3 }, '&:last-child': { pb: { xs: 2, sm: 3 } } }}>
+      <Box sx={{ mb: 3, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 1.5, minWidth: 0 }}>
+        <Typography variant="h6" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>
           Polizas de Vida y Finanzas (Total: {policies.length})
         </Typography>
         {policies.length > VISIBLE_POLICIES_LIMIT && (
@@ -372,8 +373,8 @@ const LifeFinanceTable = ({
           </Button>
         )}
       </Box>
-      <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
-        <Table>
+      <TableContainer component={Paper} elevation={0} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto', border: '1px solid', borderColor: 'divider' }}>
+        <Table sx={{ minWidth: 860 }}>
           <TableHead sx={{ bgcolor: 'error.main' }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 700 }}>Cliente</TableCell>
@@ -687,19 +688,19 @@ export const Dashboard: React.FC = () => {
   }
 
   return (
-    <Box>
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          <Typography variant="h4" gutterBottom sx={{ fontWeight: 800 }}>Panel de Control</Typography>
-          <Typography variant="body1" color="text.secondary">Bienvenido de nuevo. Aqui tienes un resumen de tu actividad.</Typography>
+    <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
+      <Box sx={{ mb: 4, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2, minWidth: 0 }}>
+        <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
+          <Typography variant="h4" gutterBottom sx={{ fontWeight: 800, fontSize: { xs: '2rem', sm: '2.125rem' }, overflowWrap: 'anywhere' }}>Panel de Control</Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>Bienvenido de nuevo. Aqui tienes un resumen de tu actividad.</Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap', width: { xs: '100%', md: 'auto' } }}>
           {filter && (
             <Button variant="outlined" color="error" startIcon={<X size={20} />} onClick={() => navigate('/dashboard')}>
               Quitar Filtro
             </Button>
           )}
-          <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => navigate('/polizas')} sx={{ px: 3, py: 1.5, borderRadius: 3 }}>
+          <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => navigate('/polizas')} sx={{ px: 3, py: 1.5, borderRadius: 3, width: { xs: '100%', sm: 'auto' } }}>
             Nueva Poliza
           </Button>
         </Box>
@@ -733,16 +734,17 @@ export const Dashboard: React.FC = () => {
           },
           gap: 2,
           mb: 3,
+          minWidth: 0,
         }}
       >
         {statCards.map((stat, index) => (
-          <Box key={index}>
+          <Box key={index} sx={{ minWidth: 0 }}>
             <StatCard {...stat} />
           </Box>
         ))}
       </Box>
 
-      <Box>
+      <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
           <PolicyTable
             title={`Gestion de Polizas de Clientes (Total: ${individualPolicies.length})`}
             policies={individualPolicies}

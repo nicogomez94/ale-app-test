@@ -174,12 +174,13 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
   );
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', width: '100%', overflowX: 'hidden' }}>
       <AppBar
         position="fixed"
         sx={{
           width: { sm: `calc(100% - ${activeDrawerWidth}px)` },
           ml: { sm: `${activeDrawerWidth}px` },
+          maxWidth: '100%',
           bgcolor: 'background.paper', color: 'text.primary',
           boxShadow: 'none', borderBottom: '1px solid', borderColor: 'divider',
           transition: (theme) => theme.transitions.create(['margin-left', 'width'], {
@@ -188,7 +189,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
           }),
         }}
       >
-        <Toolbar sx={{ justifyContent: 'space-between' }}>
+        <Toolbar sx={{ justifyContent: 'space-between', minWidth: 0, gap: { xs: 1, sm: 2 } }}>
           <IconButton color="inherit" edge="start" onClick={() => setMobileOpen(!mobileOpen)} sx={{ mr: 2, display: { sm: 'none' } }}>
             <MenuIcon />
           </IconButton>
@@ -208,7 +209,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
             </Box>
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 }, minWidth: 0 }}>
             <IconButton onClick={onToggleDarkMode} color="inherit">
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
             </IconButton>
@@ -280,8 +281,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
-          width: { sm: `calc(100% - ${activeDrawerWidth}px)` },
+          minWidth: 0,
+          maxWidth: '100%',
+          p: { xs: 2, sm: 3 },
+          width: { xs: '100%', sm: `calc(100% - ${activeDrawerWidth}px)` },
           mt: '64px',
           bgcolor: 'background.default',
           transition: (theme) => theme.transitions.create('width', {

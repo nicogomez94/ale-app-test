@@ -91,6 +91,7 @@ const StatCard = ({ title, value, icon, color, subtitle, onClick, active }: any)
   <Card
     sx={{
       height: '100%',
+      minHeight: 118,
       position: 'relative',
       overflow: 'hidden',
       cursor: onClick ? 'pointer' : 'default',
@@ -101,18 +102,20 @@ const StatCard = ({ title, value, icon, color, subtitle, onClick, active }: any)
     }}
     onClick={onClick}
   >
-    <CardContent>
+    <CardContent sx={{ p: 2.25, '&:last-child': { pb: 2.25 } }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <Box>
-          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: 1 }}>{title}</Typography>
-          <Typography variant="h4" sx={{ mt: 1, fontWeight: 700 }}>{value}</Typography>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: 1, lineHeight: 1.2 }}>{title}</Typography>
+          <Typography variant="h5" sx={{ mt: 0.75, fontWeight: 800, lineHeight: 1 }}>{value}</Typography>
         </Box>
         <Box
           sx={{
-            p: 1.5,
+            width: 40,
+            height: 40,
             borderRadius: '50%',
             bgcolor: `${color}.main`,
             color: 'common.white',
+            flex: '0 0 auto',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -122,7 +125,7 @@ const StatCard = ({ title, value, icon, color, subtitle, onClick, active }: any)
           {icon}
         </Box>
       </Box>
-      {subtitle && <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>{subtitle}</Typography>}
+      {subtitle && <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>{subtitle}</Typography>}
     </CardContent>
   </Card>
 );
@@ -567,11 +570,11 @@ export const Dashboard: React.FC = () => {
   };
 
   const statCards = [
-    { title: 'Polizas Activas', value: stats.polizasActivas, icon: <FileCheck size={24} />, color: 'primary', onClick: () => applyFilter(filter === 'active' ? null : 'active'), active: filter === 'active' },
-    { title: 'Vencen en 7 dias', value: stats.vencen7Dias, icon: <Clock size={24} />, color: 'warning', subtitle: 'Requieren atencion', onClick: () => applyFilter(filter === 'expiring' ? null : 'expiring'), active: filter === 'expiring' },
-    { title: 'Polizas Vencidas', value: stats.polizasVencidas, icon: <AlertCircle size={24} />, color: 'error', subtitle: 'Accion inmediata', onClick: () => applyFilter(filter === 'expired' ? null : 'expired'), active: filter === 'expired' },
-    { title: 'Clientes Totales', value: stats.clientesTotales, icon: <Users size={24} />, color: 'info', subtitle: 'Cartera activa' },
-    { title: 'Vida y Finanzas', value: lifePolicies.length, icon: <HeartPulse size={24} />, color: 'secondary', subtitle: 'Total de polizas', onClick: () => navigate('/vida-finanzas') },
+    { title: 'Polizas Activas', value: stats.polizasActivas, icon: <FileCheck size={20} />, color: 'primary', onClick: () => applyFilter(filter === 'active' ? null : 'active'), active: filter === 'active' },
+    { title: 'Vencen en 7 dias', value: stats.vencen7Dias, icon: <Clock size={20} />, color: 'warning', subtitle: 'Requieren atencion', onClick: () => applyFilter(filter === 'expiring' ? null : 'expiring'), active: filter === 'expiring' },
+    { title: 'Polizas Vencidas', value: stats.polizasVencidas, icon: <AlertCircle size={20} />, color: 'error', subtitle: 'Accion inmediata', onClick: () => applyFilter(filter === 'expired' ? null : 'expired'), active: filter === 'expired' },
+    { title: 'Clientes Totales', value: stats.clientesTotales, icon: <Users size={20} />, color: 'info', subtitle: 'Cartera activa' },
+    { title: 'Vida y Finanzas', value: lifePolicies.length, icon: <HeartPulse size={20} />, color: 'secondary', subtitle: 'Total de polizas', onClick: () => navigate('/vida-finanzas') },
   ];
 
   const handleWhatsApp = async (policy: DashboardPolicy) => {
@@ -720,13 +723,24 @@ export const Dashboard: React.FC = () => {
         </Box>
       )}
 
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: 'repeat(2, minmax(0, 1fr))',
+            lg: 'repeat(5, minmax(0, 1fr))',
+          },
+          gap: 2,
+          mb: 3,
+        }}
+      >
         {statCards.map((stat, index) => (
-          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
+          <Box key={index}>
             <StatCard {...stat} />
-          </Grid>
+          </Box>
         ))}
-      </Grid>
+      </Box>
 
       <Box>
           <PolicyTable

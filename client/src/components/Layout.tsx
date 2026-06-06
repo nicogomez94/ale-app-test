@@ -28,12 +28,19 @@ const drawerWidth = 260;
 const collapsedDrawerWidth = 84;
 
 const Logo = () => (
-  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', flex: 1, minWidth: 0 }}>
     <Box
       component="img"
       src="/assets/2.svg"
       alt="PAS Alert"
-      sx={{ height: { xs: 46, sm: 52 }, width: 'auto', maxWidth: '100%', objectFit: 'contain', display: 'block' }}
+      sx={{
+        height: { xs: 58, sm: 64 },
+        width: 'auto',
+        maxWidth: '168px',
+        objectFit: 'contain',
+        display: 'block',
+        transform: 'translateY(4px)',
+      }}
     />
   </Box>
 );
@@ -78,12 +85,13 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Box
         sx={{
-          p: collapsed ? 1.5 : 3,
-          minHeight: 88,
+          px: collapsed ? 1.5 : 2.25,
+          py: collapsed ? 1.5 : 2,
+          minHeight: collapsed ? 88 : 104,
           display: 'flex',
           alignItems: 'center',
           justifyContent: collapsed ? 'center' : 'space-between',
-          gap: 1,
+          gap: 1.5,
         }}
       >
         {!collapsed && <Logo />}
@@ -95,6 +103,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
               aria-label={collapsed ? 'Ampliar menú' : 'Esconder menú'}
               sx={{
                 flexShrink: 0,
+                width: 48,
+                height: 48,
                 border: '1px solid',
                 borderColor: 'divider',
                 bgcolor: 'background.paper',

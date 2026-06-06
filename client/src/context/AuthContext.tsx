@@ -24,8 +24,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (nombre: string, email: string, password: string) => Promise<void>;
-  loginWithGoogle: (idToken: string, nombre: string, email: string, photoURL?: string) => Promise<void>;
+  register: (nombre: string, email: string, password: string, referralCode?: string) => Promise<void>;
+  loginWithGoogle: (idToken: string, nombre: string, email: string, photoURL?: string, referralCode?: string) => Promise<void>;
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
 }
@@ -69,14 +69,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(userData);
   };
 
-  const register = async (nombre: string, email: string, password: string) => {
-    const { token, user: userData } = await api.auth.register(nombre, email, password);
+  const register = async (nombre: string, email: string, password: string, referralCode?: string) => {
+    const { token, user: userData } = await api.auth.register(nombre, email, password, referralCode);
     localStorage.setItem('pas_token', token);
     setUser(userData);
   };
 
-  const loginWithGoogle = async (idToken: string, nombre: string, email: string, photoURL?: string) => {
-    const { token, user: userData } = await api.auth.googleLogin(idToken, nombre, email, photoURL);
+  const loginWithGoogle = async (idToken: string, nombre: string, email: string, photoURL?: string, referralCode?: string) => {
+    const { token, user: userData } = await api.auth.googleLogin(idToken, nombre, email, photoURL, referralCode);
     localStorage.setItem('pas_token', token);
     setUser(userData);
   };

@@ -30,10 +30,52 @@ const authUserSelect = {
   resetTokenExpiry: true,
 } as const;
 
+function normalizeReferralCode(value: unknown) {
+  return typeof value === "string" ? value.trim().toUpperCase() : "";
+}
+
+async function getReferrer(referralCode: unknown, referredEmail: string) {
+  const code = normalizeReferralCode(referralCode);
+  if (!code) return null;
+
+  const referrer = await prisma.user.findUnique({
+    where: { referralCode: code },
+    select: { id: true, email: true },
+  });
+
+  if (!referrer) throw new Error("INVALID_REFERRAL_CODE");
+  if (referrer.email.toLowerCase() === referredEmail.toLowerCase()) {
+    throw new Error("SELF_REFERRAL_CODE");
+  }
+
+  return referrer;
+}
+
+async function registerReferral(tx: any, referrerId: string, referredEmail: string, now: Date) {
+  await tx.referral.create({
+    data: {
+      referrerId,
+      referredEmail,
+      status: "active",
+      mes: now.getMonth() + 1,
+      anio: now.getFullYear(),
+    },
+  });
+
+  await tx.user.update({
+    where: { id: referrerId },
+    data: {
+      referidosMes: { increment: 1 },
+      referidosTotales: { increment: 1 },
+    },
+    select: { id: true },
+  });
+}
+
 // Register
 authRouter.post("/register", async (req: Request, res: Response) => {
   try {
-    const { email, password, nombre } = req.body;
+    const { email, password, nombre, referralCode: referredByCode } = req.body;
 
     if (!email || !password || !nombre) {
       res.status(400).json({ error: "Email, contraseña y nombre son requeridos" });
@@ -55,27 +97,36 @@ authRouter.post("/register", async (req: Request, res: Response) => {
     const trialFin = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000); // 10 days trial
 
     const referralCode = `PAS-${nombre.split(" ")[0].toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+    const referrer = await getReferrer(referredByCode, email);
 
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        nombre,
-        plan: "TRIAL",
-        trialInicio: now,
-        trialFin,
-        planVencimiento: trialFin,
-        referralCode,
-      },
-      select: {
-        id: true,
-        email: true,
-        nombre: true,
-        plan: true,
-        isAdmin: true,
-        referralCode: true,
-        planVencimiento: true,
-      },
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          nombre,
+          plan: "TRIAL",
+          trialInicio: now,
+          trialFin,
+          planVencimiento: trialFin,
+          referralCode,
+        },
+        select: {
+          id: true,
+          email: true,
+          nombre: true,
+          plan: true,
+          isAdmin: true,
+          referralCode: true,
+          planVencimiento: true,
+        },
+      });
+
+      if (referrer) {
+        await registerReferral(tx, referrer.id, email, now);
+      }
+
+      return created;
     });
 
     const token = generateToken(user.id);
@@ -92,7 +143,15 @@ authRouter.post("/register", async (req: Request, res: Response) => {
         planVencimiento: user.planVencimiento,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === "INVALID_REFERRAL_CODE") {
+      res.status(400).json({ error: "Código de referido inválido" });
+      return;
+    }
+    if (error.message === "SELF_REFERRAL_CODE") {
+      res.status(400).json({ error: "No podés usar tu propio código de referido" });
+      return;
+    }
     console.error("Register error:", error);
     res.status(500).json({ error: "Error interno del servidor" });
   }
@@ -315,7 +374,7 @@ authRouter.post("/reset-password", async (req: Request, res: Response) => {
 // Google OAuth — verify Firebase ID token and create/login user
 authRouter.post("/google", async (req: Request, res: Response) => {
   try {
-    const { idToken, nombre, email, photoURL } = req.body;
+    const { idToken, nombre, email, photoURL, referralCode: referredByCode } = req.body;
 
     if (!idToken || !email) {
       res.status(400).json({ error: "Token e email son requeridos" });
@@ -374,33 +433,42 @@ authRouter.post("/google", async (req: Request, res: Response) => {
       const trialFin = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
       const displayName = nombre || email.split("@")[0];
       const referralCode = `PAS-${displayName.split(" ")[0].toUpperCase().replace(/[^A-Z0-9]/g, "")}-${Date.now().toString(36).toUpperCase()}`;
+      const referrer = await getReferrer(referredByCode, email);
 
-      user = await prisma.user.create({
-        data: {
-          email,
-          password: randomPassword,
-          nombre: displayName,
-          avatar: photoURL ?? null,
-          plan: "TRIAL",
-          trialInicio: now,
-          trialFin,
-          planVencimiento: trialFin,
-          referralCode,
-        },
-        select: {
-          id: true,
-          email: true,
-          nombre: true,
-          plan: true,
-          isAdmin: true,
-          estado: true,
-          avatar: true,
-          referralCode: true,
-          planVencimiento: true,
-          telefono: true,
-          direccion: true,
-          matriculaPas: true,
-        },
+      user = await prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: {
+            email,
+            password: randomPassword,
+            nombre: displayName,
+            avatar: photoURL ?? null,
+            plan: "TRIAL",
+            trialInicio: now,
+            trialFin,
+            planVencimiento: trialFin,
+            referralCode,
+          },
+          select: {
+            id: true,
+            email: true,
+            nombre: true,
+            plan: true,
+            isAdmin: true,
+            estado: true,
+            avatar: true,
+            referralCode: true,
+            planVencimiento: true,
+            telefono: true,
+            direccion: true,
+            matriculaPas: true,
+          },
+        });
+
+        if (referrer) {
+          await registerReferral(tx, referrer.id, email, now);
+        }
+
+        return created;
       });
     } else {
       // Update last login and avatar if available
@@ -433,7 +501,15 @@ authRouter.post("/google", async (req: Request, res: Response) => {
         matriculaPas: user.matriculaPas,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === "INVALID_REFERRAL_CODE") {
+      res.status(400).json({ error: "Código de referido inválido" });
+      return;
+    }
+    if (error.message === "SELF_REFERRAL_CODE") {
+      res.status(400).json({ error: "No podés usar tu propio código de referido" });
+      return;
+    }
     console.error("Google auth error:", error);
     res.status(500).json({ error: "Error interno del servidor" });
   }

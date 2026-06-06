@@ -4,12 +4,12 @@ import {
   TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
   TextField, InputAdornment, Dialog, DialogTitle, DialogContent,
   DialogActions, Grid, Chip, CircularProgress, Select, MenuItem,
-  FormControl, InputLabel, Drawer, Divider, Badge, Tooltip,
-  LinearProgress, Stack
+  FormControl, InputLabel, Drawer, Divider, Tooltip,
+  LinearProgress
 } from '@mui/material';
 import {
   Plus, Search, Edit2, Trash2, Download, AlertTriangle, CheckCircle,
-  XCircle, Clock, FileText, MessageCircle, X, ChevronRight, Notebook
+  XCircle, Clock, FileText, MessageCircle, X, ChevronRight, Notebook, Mail
 } from 'lucide-react';
 import { api } from '../api';
 import { DEBUG, debugData } from '../data/debugData';
@@ -28,6 +28,8 @@ interface Siniestro {
   tipoSeguro: string;
   clienteNombre: string;
   clienteDni?: string;
+  clienteTelefono?: string | null;
+  clienteEmail?: string | null;
   fechaSiniestro: string;
   horaSiniestro?: string;
   lugarSiniestro?: string;
@@ -86,6 +88,7 @@ const EMPTY_FORM = {
   lugarSiniestro: '', descripcion: '', patente: '', marcaModelo: '', tipoDanio: '',
   estado: 'DENUNCIADO' as SiniestroEstado, responsable: '',
   importeReclamado: '', deducible: '', montoAprobado: '',
+  ultimoContactoAseguradora: '', ultimoContactoCliente: '',
 };
 
 export const SiniestrosPage: React.FC = () => {
@@ -157,6 +160,8 @@ export const SiniestrosPage: React.FC = () => {
       importeReclamado: s.importeReclamado !== undefined ? String(s.importeReclamado) : '',
       deducible: s.deducible !== undefined ? String(s.deducible) : '',
       montoAprobado: s.montoAprobado !== undefined ? String(s.montoAprobado) : '',
+      ultimoContactoAseguradora: s.ultimoContactoAseguradora ? s.ultimoContactoAseguradora.split('T')[0] : '',
+      ultimoContactoCliente: s.ultimoContactoCliente ? s.ultimoContactoCliente.split('T')[0] : '',
     });
     setFormOpen(true);
   };
@@ -197,6 +202,21 @@ export const SiniestrosPage: React.FC = () => {
     } catch (err: any) { alert(err.message); }
   };
 
+  const buildContactMessage = (s: Siniestro) =>
+    `Hola ${s.clienteNombre}, te contactamos por el siniestro N° ${s.numeroSiniestro} de tu póliza ${s.numeroPoliza} con ${s.aseguradora}. Queríamos darte seguimiento al estado del reclamo: ${estadoInfo(s.estado).label}. Saludos, PAS Alert.`;
+
+  const handleWhatsApp = (s: Siniestro) => {
+    const phone = s.clienteTelefono?.replace(/\D/g, '');
+    if (!phone) return;
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(buildContactMessage(s))}`, '_blank');
+  };
+
+  const handleEmailClick = (s: Siniestro) => {
+    if (!s.clienteEmail) return;
+    const subject = `Seguimiento de siniestro ${s.numeroSiniestro}`;
+    window.open(`mailto:${s.clienteEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(buildContactMessage(s))}`);
+  };
+
   const openDetail = (s: Siniestro) => {
     setSelectedSiniestro(s);
     setDetailOpen(true);
@@ -209,7 +229,6 @@ export const SiniestrosPage: React.FC = () => {
       await api.siniestros.addNota(selectedSiniestro.id, nuevaNota.trim());
       setNuevaNota('');
       // Refresh detail
-      const updated = await api.siniestros.list({ search: selectedSiniestro.id });
       const found = (await api.siniestros.list({})).find((s: Siniestro) => s.id === selectedSiniestro.id);
       if (found) setSelectedSiniestro(found);
       loadData();
@@ -369,7 +388,21 @@ export const SiniestrosPage: React.FC = () => {
                     <Chip label={pri.label} size="small" color={pri.color} />
                   </TableCell>
                   <TableCell onClick={() => openDetail(s)}>{fmt(s.importeReclamado)}</TableCell>
-                  <TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                    <Tooltip title={s.clienteTelefono ? 'WhatsApp' : 'Sin teléfono'}>
+                      <span>
+                        <IconButton size="small" color="success" disabled={!s.clienteTelefono} onClick={() => handleWhatsApp(s)}>
+                          <MessageCircle size={16} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Tooltip title={s.clienteEmail ? 'Mail' : 'Sin email'}>
+                      <span>
+                        <IconButton size="small" color="info" disabled={!s.clienteEmail} onClick={() => handleEmailClick(s)}>
+                          <Mail size={16} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
                     <Tooltip title="Editar">
                       <IconButton size="small" onClick={() => openEdit(s)}><Edit2 size={16} /></IconButton>
                     </Tooltip>
@@ -486,6 +519,31 @@ export const SiniestrosPage: React.FC = () => {
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
               <TextField fullWidth label="Monto Aprobado" size="small" type="number" value={form.montoAprobado} onChange={e => setF('montoAprobado', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
+            </Grid>
+
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Últimos contactos</Typography></Divider></Grid>
+
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="Último contacto aseguradora"
+                type="date"
+                size="small"
+                value={form.ultimoContactoAseguradora}
+                onChange={e => setF('ultimoContactoAseguradora', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="Último contacto cliente"
+                type="date"
+                size="small"
+                value={form.ultimoContactoCliente}
+                onChange={e => setF('ultimoContactoCliente', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
             </Grid>
           </Grid>
         </DialogContent>

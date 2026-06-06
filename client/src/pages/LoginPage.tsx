@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box, Typography, TextField, Button, Card, CardContent,
   Divider, InputAdornment, IconButton, Link, Alert,
   Dialog, DialogTitle, DialogContent, DialogActions, Stepper, Step, StepLabel
 } from '@mui/material';
-import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Gift } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import { DEBUG, debugData } from '../data/debugData';
@@ -32,6 +32,7 @@ export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState(DEBUG ? debugData.login.email : '');
   const [password, setPassword] = useState(DEBUG ? debugData.login.password : '');
   const [nombre, setNombre] = useState(DEBUG ? 'Usuario Debug' : '');
+  const [referralCode, setReferralCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -47,6 +48,13 @@ export const LoginPage: React.FC = () => {
   const [forgotSuccess, setForgotSuccess] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
 
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get('ref');
+    if (!ref) return;
+    setReferralCode(ref.trim().toUpperCase());
+    setIsRegister(true);
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -54,7 +62,7 @@ export const LoginPage: React.FC = () => {
     try {
       if (isRegister) {
         if (!nombre.trim()) { setError('El nombre es requerido'); setLoading(false); return; }
-        await register(nombre, email, password);
+        await register(nombre, email, password, referralCode.trim() || undefined);
       } else {
         await login(email, password);
       }
@@ -133,6 +141,7 @@ export const LoginPage: React.FC = () => {
                 payload.name || payload.email,
                 payload.email,
                 payload.picture,
+                referralCode.trim() || undefined,
               );
               resolve();
             } catch (err: any) {
@@ -230,6 +239,18 @@ export const LoginPage: React.FC = () => {
                   ),
                 }}
               />
+
+              {isRegister && (
+                <TextField
+                  fullWidth
+                  label="Código de referido (opcional)"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start"><Gift size={18} /></InputAdornment>,
+                  }}
+                />
+              )}
 
               {!isRegister && (
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>

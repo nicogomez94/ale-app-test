@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import type { Cotizacion } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
+import { subscriptionGuard } from "../middleware/subscriptionGuard.js";
 import { sendEmail } from "../lib/email.js";
 import * as XLSX from "xlsx";
 
@@ -27,8 +28,16 @@ cotizacionesRouter.post(
 
       const cotizacion = await buildCotizacion(userId, req.body, "LINK_PUBLICO");
       res.status(201).json({ message: "Solicitud enviada correctamente", id: cotizacion.id });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Public cotizacion error:", error);
+      if (error.message === "INVALID_TIPO") {
+        res.status(400).json({ error: "Tipo de cotización inválido" });
+        return;
+      }
+      if (error.message === "MISSING_NOMBRE") {
+        res.status(400).json({ error: "El nombre es requerido" });
+        return;
+      }
       res.status(500).json({ error: "Error interno del servidor" });
     }
   }
@@ -36,6 +45,7 @@ cotizacionesRouter.post(
 
 // ─── Protected routes ─────────────────────────────────────────────────────────
 cotizacionesRouter.use(authMiddleware);
+cotizacionesRouter.use(subscriptionGuard);
 
 // List cotizaciones
 cotizacionesRouter.get("/", async (req: AuthRequest, res: Response) => {
@@ -70,8 +80,12 @@ cotizacionesRouter.get("/", async (req: AuthRequest, res: Response) => {
 // Export to Excel
 cotizacionesRouter.get("/export", async (req: AuthRequest, res: Response) => {
   try {
+    const { tipo } = req.query;
+    const where: any = { userId: req.userId };
+    if (tipo) where.tipo = normalizeCotizacionTipo(tipo);
+
     const cotizaciones = await prisma.cotizacion.findMany({
-      where: { userId: req.userId },
+      where,
       orderBy: { createdAt: "desc" },
     });
 
@@ -85,11 +99,13 @@ cotizacionesRouter.get("/export", async (req: AuthRequest, res: Response) => {
       Localidad: c.localidad ?? "",
       Provincia: c.provincia ?? "",
       Patente: c.patente ?? "",
+      Uso: c.tipoUso ?? "",
       "Marca/Modelo": c.marca && c.modelo ? `${c.marca} ${c.modelo}` : "",
       Año: c.anio ?? "",
       "Tipo Vivienda": c.tipoVivienda ?? "",
       "Sup. m²": c.superficieCubierta ?? "",
       Descripción: c.descripcionRiesgo ?? "",
+      "Forma de Pago": c.formaPago ?? "",
       Fecha: c.createdAt.toISOString().split("T")[0],
     }));
 
@@ -107,8 +123,12 @@ cotizacionesRouter.get("/export", async (req: AuthRequest, res: Response) => {
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
     res.send(buf);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Export cotizaciones error:", error);
+    if (error.message === "INVALID_TIPO") {
+      res.status(400).json({ error: "Tipo de cotización inválido" });
+      return;
+    }
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
@@ -148,8 +168,16 @@ cotizacionesRouter.put("/:id", async (req: AuthRequest, res: Response) => {
     });
 
     res.json(updated);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Update cotizacion error:", error);
+    if (error.message === "INVALID_TIPO") {
+      res.status(400).json({ error: "Tipo de cotización inválido" });
+      return;
+    }
+    if (error.message === "MISSING_NOMBRE") {
+      res.status(400).json({ error: "El nombre es requerido" });
+      return;
+    }
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
@@ -178,38 +206,47 @@ cotizacionesRouter.delete("/:id", async (req: AuthRequest, res: Response) => {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const VALID_TIPOS = ["AUTO", "MOTO", "HOGAR", "OTROS"] as const;
+type ValidCotizacionTipo = typeof VALID_TIPOS[number];
+
+function normalizeCotizacionTipo(value: unknown): ValidCotizacionTipo {
+  const tipo = typeof value === "string" ? value.toUpperCase() : value;
+  if (!VALID_TIPOS.includes(tipo as ValidCotizacionTipo)) throw new Error("INVALID_TIPO");
+  return tipo as ValidCotizacionTipo;
+}
 
 function buildCotizacionData(body: any) {
-  const tipo = typeof body.tipo === "string" ? body.tipo.toUpperCase() : body.tipo;
+  const tipo = normalizeCotizacionTipo(body.tipo);
   const isAutoMoto = tipo === "AUTO" || tipo === "MOTO";
   const isHogar = tipo === "HOGAR";
   const isOtros = tipo === "OTROS";
 
+  if (!body.nombre?.trim()) throw new Error("MISSING_NOMBRE");
+
   return {
     tipo,
-    nombre: body.nombre,
-    apellido: body.apellido ?? null,
-    cuitCuil: body.cuitCuil ?? null,
-    fechaNacimiento: body.fechaNacimiento ?? null,
-    email: body.email ?? null,
-    celular: body.celular ?? null,
-    calle: body.calle ?? null,
-    cp: body.cp ?? null,
-    localidad: body.localidad ?? null,
-    provincia: body.provincia ?? null,
-    marca: isAutoMoto ? body.marca ?? null : null,
-    modelo: isAutoMoto ? body.modelo ?? null : null,
+    nombre: body.nombre.trim(),
+    apellido: body.apellido?.trim() || null,
+    cuitCuil: body.cuitCuil?.trim() || null,
+    fechaNacimiento: body.fechaNacimiento || null,
+    email: body.email?.trim() || null,
+    celular: body.celular?.trim() || null,
+    calle: body.calle?.trim() || null,
+    cp: body.cp?.trim() || null,
+    localidad: body.localidad?.trim() || null,
+    provincia: body.provincia || null,
+    marca: isAutoMoto ? body.marca?.trim() || null : null,
+    modelo: isAutoMoto ? body.modelo?.trim() || null : null,
     anio: isAutoMoto && body.anio ? parseInt(body.anio) : null,
-    patente: isAutoMoto ? body.patente ?? null : null,
-    tipoUso: isAutoMoto ? body.tipoUso ?? null : null,
+    patente: isAutoMoto ? body.patente?.trim() || null : null,
+    tipoUso: isAutoMoto ? body.tipoUso || null : null,
     tieneGnc: isAutoMoto && body.tieneGnc !== undefined ? Boolean(body.tieneGnc) : null,
     tieneGps: isAutoMoto && body.tieneGps !== undefined ? Boolean(body.tieneGps) : null,
-    formaPago: body.formaPago ?? null,
-    tipoVivienda: isHogar ? body.tipoVivienda ?? null : null,
+    formaPago: body.formaPago || null,
+    tipoVivienda: isHogar ? body.tipoVivienda || null : null,
     superficieCubierta: isHogar && body.superficieCubierta
       ? parseFloat(body.superficieCubierta)
       : null,
-    descripcionRiesgo: isOtros ? body.descripcionRiesgo ?? null : null,
+    descripcionRiesgo: isOtros ? body.descripcionRiesgo?.trim() || null : null,
   };
 }
 
@@ -218,9 +255,7 @@ async function buildCotizacion(
   body: any,
   origen: "MANUAL" | "LINK_PUBLICO"
 ) {
-  const tipo = body.tipo?.toUpperCase();
-  if (!VALID_TIPOS.includes(tipo)) throw new Error("INVALID_TIPO");
-  if (!body.nombre?.trim()) throw new Error("MISSING_NOMBRE");
+  const tipo = normalizeCotizacionTipo(body.tipo);
 
   const cotizacion = await prisma.cotizacion.create({
     data: {

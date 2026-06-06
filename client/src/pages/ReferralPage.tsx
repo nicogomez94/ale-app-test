@@ -26,7 +26,8 @@ export const ReferralPage: React.FC = () => {
   const handleShare = (method: string) => {
     api.referrals.trackShare(method).catch(() => {});
     const appUrl = window.location.origin;
-    const msg = `¡Unite a PAS Alert! Usá mi código ${data?.referralCode || ''} y obtené beneficios. ${appUrl}`;
+    const inviteUrl = `${appUrl}/login?ref=${encodeURIComponent(data?.referralCode || '')}`;
+    const msg = `¡Unite a PAS Alert! Usá mi código ${data?.referralCode || ''} y obtené beneficios. ${inviteUrl}`;
     if (method === 'whatsapp') {
       window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
     } else {
@@ -40,9 +41,9 @@ export const ReferralPage: React.FC = () => {
   const referidosMes = data?.referidosMes || 0;
   const referidosTotales = data?.referidosTotales || 0;
   const progreso = data?.progreso || 0;
-  const descuento = data?.descuento || '0%';
-  const proximoObjetivo = referidosMes < 1 ? 1 : referidosMes < 5 ? 5 : 10;
-  const faltan = proximoObjetivo - referidosMes;
+  const descuento = Number(data?.descuento ?? 0);
+  const proximoObjetivo = data?.proximoObjetivo ?? (referidosMes < 1 ? 1 : referidosMes < 5 ? 5 : 10);
+  const faltan = Math.max(0, data?.faltan ?? proximoObjetivo - referidosMes);
   const proximoDescuento = proximoObjetivo === 1 ? '10%' : proximoObjetivo === 5 ? '50%' : '100%';
 
   const benefits = [
@@ -138,10 +139,10 @@ export const ReferralPage: React.FC = () => {
                 <Typography variant="h6">{referidosTotales} Referidos Totales</Typography>
               </Box>
 
-              {descuento !== '0%' && (
+              {descuento > 0 && (
                 <Box sx={{ mt: 3, p: 2, bgcolor: 'rgba(0,200,83,0.2)', borderRadius: 2 }}>
                   <Typography variant="body2" sx={{ fontWeight: 700, color: 'secondary.main' }}>
-                    Descuento actual: {descuento}
+                    Descuento actual: {descuento}%
                   </Typography>
                 </Box>
               )}

@@ -145,10 +145,10 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ email, password }),
       }),
-    register: (nombre: string, email: string, password: string) =>
+    register: (nombre: string, email: string, password: string, referralCode?: string) =>
       request<{ token: string; user: any }>("/auth/register", {
         method: "POST",
-        body: JSON.stringify({ nombre, email, password }),
+        body: JSON.stringify({ nombre, email, password, referralCode }),
       }),
     me: () => request<any>("/auth/me"),
     forgotPassword: (email: string) =>
@@ -161,10 +161,10 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ email, code, newPassword }),
       }),
-    googleLogin: (idToken: string, nombre: string, email: string, photoURL?: string) =>
+    googleLogin: (idToken: string, nombre: string, email: string, photoURL?: string, referralCode?: string) =>
       request<{ token: string; user: any }>("/auth/google", {
         method: "POST",
-        body: JSON.stringify({ idToken, nombre, email, photoURL }),
+        body: JSON.stringify({ idToken, nombre, email, photoURL, referralCode }),
       }),
   },
 
@@ -347,7 +347,7 @@ export const api = {
     delete: (id: string) =>
       request<any>(`/cotizaciones/${id}`, { method: "DELETE" }),
     export: (params?: { tipo?: string }) => {
-      const qs = params?.tipo ? `?tipo=${params.tipo}` : "";
+      const qs = params?.tipo ? `?tipo=${encodeURIComponent(params.tipo)}` : "";
       return request<Blob>(`/cotizaciones/export${qs}`);
     },
   },

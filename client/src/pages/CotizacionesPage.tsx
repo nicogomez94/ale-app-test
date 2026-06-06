@@ -27,16 +27,21 @@ interface Cotizacion {
   nombre: string;
   apellido?: string;
   cuitCuil?: string;
+  fechaNacimiento?: string;
   email?: string;
   celular?: string;
+  calle?: string;
+  cp?: string;
   localidad?: string;
   provincia?: string;
   patente?: string;
   marca?: string;
   modelo?: string;
   anio?: number;
+  tipoUso?: string;
   tieneGnc?: boolean;
   tieneGps?: boolean;
+  formaPago?: string;
   tipoVivienda?: string;
   superficieCubierta?: number;
   descripcionRiesgo?: string;
@@ -144,20 +149,21 @@ export const CotizacionesPage: React.FC = () => {
       nombre: c.nombre,
       apellido: c.apellido ?? '',
       cuitCuil: c.cuitCuil ?? '',
-      fechaNacimiento: '',
+      fechaNacimiento: c.fechaNacimiento ?? '',
       email: c.email ?? '',
       celular: c.celular ?? '',
-      calle: '', cp: '',
+      calle: c.calle ?? '',
+      cp: c.cp ?? '',
       localidad: c.localidad ?? '',
       provincia: c.provincia ?? '',
       marca: c.marca ?? '',
       modelo: c.modelo ?? '',
       anio: c.anio ? String(c.anio) : '',
       patente: c.patente ?? '',
-      tipoUso: 'Particular',
+      tipoUso: c.tipoUso ?? 'Particular',
       tieneGnc: c.tieneGnc ?? false,
       tieneGps: c.tieneGps ?? false,
-      formaPago: '',
+      formaPago: c.formaPago ?? '',
       tipoVivienda: c.tipoVivienda ?? 'Casa',
       superficieCubierta: c.superficieCubierta ? String(c.superficieCubierta) : '',
       descripcionRiesgo: c.descripcionRiesgo ?? '',

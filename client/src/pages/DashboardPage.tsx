@@ -87,6 +87,20 @@ type EditFormValues = {
   fechaPago: string;
 };
 
+type LifePolicyEditValues = {
+  cliente: string;
+  cuit: string;
+  aseguradora: string;
+  tipo: 'VIDA' | 'RETIRO';
+  sumaAsegurada: string;
+  prima: string;
+  aporteMensual: string;
+  fondoAcumulado: string;
+  email: string;
+  telefono: string;
+  cp: string;
+};
+
 const StatCard = ({ title, value, icon, color, subtitle, onClick, active }: any) => (
   <Card
     sx={{
@@ -153,6 +167,15 @@ const parseAmountInput = (value: string): string => {
 const getErrorMessage = (error: unknown, fallback: string) => (
   error instanceof Error && error.message ? error.message : fallback
 );
+
+const parseOptionalNumber = (value: string) => {
+  const cleaned = value.trim();
+  if (!cleaned) return undefined;
+
+  const normalized = cleaned.replace(/\./g, '').replace(',', '.');
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
 
 const getStatusVisual = (policy: DashboardPolicy) => {
   if (policy.pagada) {
@@ -360,7 +383,17 @@ const LifeFinanceTable = ({
   onToggleShowAll,
   onWhatsApp,
   onEmail,
-}: any) => (
+  onEdit,
+  onDelete,
+}: {
+  policies: any[];
+  showAll: boolean;
+  onToggleShowAll: () => void;
+  onWhatsApp: (policy: any) => void;
+  onEmail: (policy: any) => void;
+  onEdit: (policy: any) => void;
+  onDelete: (policy: any) => void;
+}) => (
   <Card sx={{ mb: 4, minWidth: 0, maxWidth: '100%' }}>
     <CardContent sx={{ px: { xs: 2, sm: 3 }, '&:last-child': { pb: { xs: 2, sm: 3 } } }}>
       <Box sx={{ mb: 3, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 1.5, minWidth: 0 }}>
@@ -374,7 +407,7 @@ const LifeFinanceTable = ({
         )}
       </Box>
       <TableContainer component={Paper} elevation={0} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto', border: '1px solid', borderColor: 'divider' }}>
-        <Table sx={{ minWidth: 860 }}>
+        <Table sx={{ minWidth: 980 }}>
           <TableHead sx={{ bgcolor: 'error.main' }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 700 }}>Cliente</TableCell>
@@ -398,12 +431,20 @@ const LifeFinanceTable = ({
                 </TableCell>
                 <TableCell>{policy.email || '-'}</TableCell>
                 <TableCell sx={{ textAlign: 'right' }}>
-                  <IconButton size="small" color="success" onClick={() => onWhatsApp(policy)}>
-                    <MessageCircle size={18} />
-                  </IconButton>
-                  <IconButton size="small" color="primary" onClick={() => onEmail(policy)}>
-                    <Mail size={18} />
-                  </IconButton>
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.25, flexWrap: 'wrap' }}>
+                    <IconButton size="small" color="success" onClick={() => onWhatsApp(policy)}>
+                      <MessageCircle size={18} />
+                    </IconButton>
+                    <IconButton size="small" color="info" onClick={() => onEmail(policy)}>
+                      <Mail size={18} />
+                    </IconButton>
+                    <IconButton size="small" color="primary" onClick={() => onEdit(policy)}>
+                      <Edit2 size={18} />
+                    </IconButton>
+                    <IconButton size="small" color="error" onClick={() => onDelete(policy)}>
+                      <Trash2 size={18} />
+                    </IconButton>
+                  </Box>
                 </TableCell>
               </TableRow>
             ))}
@@ -496,6 +537,9 @@ export const Dashboard: React.FC = () => {
   const [editValues, setEditValues] = useState<EditFormValues | null>(null);
   const [manualVencimiento, setManualVencimiento] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editingLifePolicy, setEditingLifePolicy] = useState<any | null>(null);
+  const [lifeEditValues, setLifeEditValues] = useState<LifePolicyEditValues | null>(null);
+  const [savingLifeEdit, setSavingLifeEdit] = useState(false);
   const [snack, setSnack] = useState<{ open: boolean; severity: 'success' | 'error'; message: string }>({
     open: false,
     severity: 'success',
@@ -621,6 +665,66 @@ export const Dashboard: React.FC = () => {
     const subject = `Seguimiento de poliza de ${policyType}`;
     const body = `Hola ${policy.cliente},\n\nTe contactamos para dar seguimiento a tu poliza de ${policyType} con ${policy.aseguradora}.\n\nSi queres revisar cobertura o actualizar datos, responde este correo.\n\nSaludos,\n${pasName}\nPAS Alert`;
     window.open(`mailto:${policy.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+  };
+
+  const getLifeEditValues = (policy: any): LifePolicyEditValues => ({
+    cliente: policy.cliente || '',
+    cuit: policy.cuit || '',
+    aseguradora: policy.aseguradora || '',
+    tipo: policy.tipo === 'RETIRO' ? 'RETIRO' : 'VIDA',
+    sumaAsegurada: policy.sumaAsegurada != null ? String(policy.sumaAsegurada) : '',
+    prima: policy.prima != null ? String(policy.prima) : '',
+    aporteMensual: policy.aporteMensual != null ? String(policy.aporteMensual) : '',
+    fondoAcumulado: policy.fondoAcumulado != null ? String(policy.fondoAcumulado) : '',
+    email: policy.email || '',
+    telefono: policy.telefono || '',
+    cp: policy.cp || '',
+  });
+
+  const handleLifeEdit = (policy: any) => {
+    setEditingLifePolicy(policy);
+    setLifeEditValues(getLifeEditValues(policy));
+  };
+
+  const handleLifeDelete = async (policy: any) => {
+    if (!window.confirm(`¿Seguro que queres eliminar la poliza de ${policy.cliente}?`)) return;
+
+    try {
+      await api.lifePolicies.delete(policy.id);
+      await loadDashboardData(false);
+      setSnack({ open: true, severity: 'success', message: 'Póliza de Vida y Finanzas eliminada.' });
+    } catch (error: any) {
+      setSnack({ open: true, severity: 'error', message: error.message || 'No se pudo eliminar la póliza.' });
+    }
+  };
+
+  const handleSaveLifeEdit = async () => {
+    if (!editingLifePolicy || !lifeEditValues) return;
+
+    setSavingLifeEdit(true);
+    try {
+      await api.lifePolicies.update(editingLifePolicy.id, {
+        cliente: lifeEditValues.cliente.trim(),
+        cuit: lifeEditValues.cuit.trim(),
+        aseguradora: lifeEditValues.aseguradora.trim(),
+        tipo: lifeEditValues.tipo,
+        sumaAsegurada: parseOptionalNumber(lifeEditValues.sumaAsegurada),
+        prima: parseOptionalNumber(lifeEditValues.prima),
+        aporteMensual: parseOptionalNumber(lifeEditValues.aporteMensual),
+        fondoAcumulado: parseOptionalNumber(lifeEditValues.fondoAcumulado),
+        email: lifeEditValues.email.trim() || undefined,
+        telefono: lifeEditValues.telefono.trim() || undefined,
+        cp: lifeEditValues.cp.trim() || undefined,
+      });
+      setEditingLifePolicy(null);
+      setLifeEditValues(null);
+      await loadDashboardData(false);
+      setSnack({ open: true, severity: 'success', message: 'Póliza de Vida y Finanzas actualizada correctamente.' });
+    } catch (error: any) {
+      setSnack({ open: true, severity: 'error', message: error.message || 'No se pudo actualizar la póliza.' });
+    } finally {
+      setSavingLifeEdit(false);
+    }
   };
 
   const handleTogglePaid = async (policy: DashboardPolicy) => {
@@ -779,6 +883,8 @@ export const Dashboard: React.FC = () => {
             onToggleShowAll={() => setShowAll((prev) => ({ ...prev, lifeFinance: !prev.lifeFinance }))}
             onWhatsApp={handleLifeWhatsApp}
             onEmail={handleLifeEmail}
+            onEdit={handleLifeEdit}
+            onDelete={handleLifeDelete}
           />
       </Box>
 
@@ -914,6 +1020,60 @@ export const Dashboard: React.FC = () => {
               <Button onClick={() => { setEditingPolicy(null); setEditValues(null); }}>Cancelar</Button>
               <Button variant="contained" onClick={handleSaveEdit} disabled={savingEdit}>
                 {savingEdit ? 'Guardando...' : 'Guardar Cambios'}
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      <Dialog open={!!editingLifePolicy && !!lifeEditValues} onClose={() => { setEditingLifePolicy(null); setLifeEditValues(null); }} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>Editar Póliza de Vida y Finanzas</DialogTitle>
+        {lifeEditValues && (
+          <>
+            <DialogContent>
+              <Grid container spacing={2} sx={{ mt: 0.5 }}>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth label="Cliente" value={lifeEditValues.cliente} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, cliente: event.target.value } : prev)} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth label="CUIT" value={lifeEditValues.cuit} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, cuit: event.target.value } : prev)} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth select label="Tipo" value={lifeEditValues.tipo} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, tipo: event.target.value as 'VIDA' | 'RETIRO' } : prev)}>
+                    <MenuItem value="VIDA">Seguros de Vida</MenuItem>
+                    <MenuItem value="RETIRO">Seguros de Retiro</MenuItem>
+                  </TextField>
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth label="Aseguradora" value={lifeEditValues.aseguradora} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, aseguradora: event.target.value } : prev)} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth label="Suma Asegurada" type="number" value={lifeEditValues.sumaAsegurada} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, sumaAsegurada: event.target.value } : prev)} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth label="Prima" type="number" value={lifeEditValues.prima} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, prima: event.target.value } : prev)} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth label="Aporte Mensual" type="number" value={lifeEditValues.aporteMensual} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, aporteMensual: event.target.value } : prev)} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth label="Fondo Acumulado" type="number" value={lifeEditValues.fondoAcumulado} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, fondoAcumulado: event.target.value } : prev)} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth label="Email" type="email" value={lifeEditValues.email} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, email: event.target.value } : prev)} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth label="Teléfono" value={lifeEditValues.telefono} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, telefono: event.target.value } : prev)} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth label="Código Postal" value={lifeEditValues.cp} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, cp: event.target.value } : prev)} />
+                </Grid>
+              </Grid>
+            </DialogContent>
+            <DialogActions sx={{ p: 3 }}>
+              <Button onClick={() => { setEditingLifePolicy(null); setLifeEditValues(null); }}>Cancelar</Button>
+              <Button variant="contained" onClick={handleSaveLifeEdit} disabled={savingLifeEdit}>
+                {savingLifeEdit ? 'Guardando...' : 'Guardar Cambios'}
               </Button>
             </DialogActions>
           </>

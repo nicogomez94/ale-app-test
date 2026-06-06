@@ -92,7 +92,7 @@ const StatCard = ({ title, value, icon, color, subtitle, onClick, active }: any)
     sx={{
       height: '100%',
       minWidth: 0,
-      minHeight: 118,
+      minHeight: { xs: 108, md: 92, lg: 108 },
       position: 'relative',
       overflow: 'hidden',
       cursor: onClick ? 'pointer' : 'default',
@@ -103,16 +103,16 @@ const StatCard = ({ title, value, icon, color, subtitle, onClick, active }: any)
     }}
     onClick={onClick}
   >
-    <CardContent sx={{ p: 2.25, '&:last-child': { pb: 2.25 } }}>
+    <CardContent sx={{ p: { xs: 2, md: 1.5, lg: 2 }, '&:last-child': { pb: { xs: 2, md: 1.5, lg: 2 } } }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Box sx={{ minWidth: 0 }}>
-          <Typography variant="overline" color="text.secondary" sx={{ display: 'block', fontWeight: 700, letterSpacing: 1, lineHeight: 1.2, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{title}</Typography>
-          <Typography variant="h5" sx={{ mt: 0.75, fontWeight: 800, lineHeight: 1 }}>{value}</Typography>
+          <Typography variant="overline" color="text.secondary" sx={{ display: 'block', fontWeight: 700, letterSpacing: { xs: 1, md: 0.7, lg: 1 }, lineHeight: 1.15, fontSize: { md: '0.68rem', lg: '0.75rem' }, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{title}</Typography>
+          <Typography variant="h5" sx={{ mt: { xs: 0.75, md: 0.5 }, fontWeight: 800, lineHeight: 1, fontSize: { md: '1.55rem', lg: '1.7rem' } }}>{value}</Typography>
         </Box>
         <Box
           sx={{
-            width: 40,
-            height: 40,
+            width: { xs: 40, md: 32, lg: 38 },
+            height: { xs: 40, md: 32, lg: 38 },
             borderRadius: '50%',
             bgcolor: `${color}.main`,
             color: 'common.white',
@@ -126,7 +126,7 @@ const StatCard = ({ title, value, icon, color, subtitle, onClick, active }: any)
           {icon}
         </Box>
       </Box>
-      {subtitle && <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>{subtitle}</Typography>}
+      {subtitle && <Typography variant="caption" color="text.secondary" sx={{ mt: { xs: 1.5, md: 1 }, display: 'block', fontSize: { md: '0.68rem', lg: '0.75rem' } }}>{subtitle}</Typography>}
     </CardContent>
   </Card>
 );
@@ -730,9 +730,9 @@ export const Dashboard: React.FC = () => {
           gridTemplateColumns: {
             xs: '1fr',
             sm: 'repeat(2, minmax(0, 1fr))',
-            lg: 'repeat(5, minmax(0, 1fr))',
+            md: 'repeat(5, minmax(0, 1fr))',
           },
-          gap: 2,
+          gap: { xs: 2, md: 1.5, lg: 2 },
           mb: 3,
           minWidth: 0,
         }}

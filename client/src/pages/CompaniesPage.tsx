@@ -97,25 +97,33 @@ export const CompaniesPage: React.FC = () => {
   };
 
   return (
-    <Box>
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800 }}>Gestión de Empresas</Typography>
+    <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
+      <Box sx={{
+        mb: 4,
+        display: 'flex',
+        flexDirection: { xs: 'column', md: 'row' },
+        justifyContent: 'space-between',
+        alignItems: { xs: 'stretch', md: 'flex-start' },
+        gap: 2,
+        minWidth: 0,
+      }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, overflowWrap: 'anywhere' }}>Gestión de Empresas</Typography>
           <Typography variant="body1" color="text.secondary">Administra ART, Flotas, TRO, Consorcios e Integrales.</Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleExport}>Exportar Excel</Button>
-          <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => handleOpen()} sx={{ borderRadius: 3 }}>Nueva Empresa</Button>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(2, max-content)' }, gap: 1.5, justifyContent: { xs: 'stretch', md: 'flex-end' }, minWidth: 0 }}>
+          <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleExport} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25 }}>Exportar Excel</Button>
+          <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => handleOpen()} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25, borderRadius: 3 }}>Nueva Empresa</Button>
         </Box>
       </Box>
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3, minWidth: 0 }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile>
           {COMPANY_TYPES.map((t, i) => <Tab key={i} icon={t.icon} iconPosition="start" label={t.label} />)}
         </Tabs>
       </Box>
 
-      <Card sx={{ mb: 4 }}>
+      <Card sx={{ mb: 4, minWidth: 0 }}>
         <CardContent>
           <TextField fullWidth placeholder="Buscar por razón social o CUIT..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
             InputProps={{ startAdornment: <InputAdornment position="start"><Search size={20} /></InputAdornment> }}
@@ -126,8 +134,8 @@ export const CompaniesPage: React.FC = () => {
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
       ) : (
-        <TableContainer component={Paper}>
-          <Table>
+        <TableContainer component={Paper} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto' }}>
+          <Table sx={{ minWidth: 980 }}>
             <TableHead sx={{ bgcolor: 'secondary.main' }}>
               <TableRow>
                 <TableCell sx={{ color: 'white', fontWeight: 700 }}>Razón Social</TableCell>

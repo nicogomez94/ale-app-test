@@ -70,18 +70,26 @@ export const CommissionsPage: React.FC = () => {
   const objetivo = summary?.totalPrima > 0 ? Math.min(100, Math.round((summary.comisionProyectada / summary.totalPrima) * 100)) : 0;
 
   return (
-    <Box>
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800 }}>Análisis de Comisiones</Typography>
+    <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
+      <Box sx={{
+        mb: 4,
+        display: 'flex',
+        flexDirection: { xs: 'column', md: 'row' },
+        justifyContent: 'space-between',
+        alignItems: { xs: 'stretch', md: 'flex-start' },
+        gap: 2,
+        minWidth: 0,
+      }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, overflowWrap: 'anywhere' }}>Análisis de Comisiones</Typography>
           <Typography variant="body1" color="text.secondary">Visualiza el rendimiento de tu cartera.</Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(2, max-content)' }, gap: 1.5, justifyContent: { xs: 'stretch', md: 'flex-end' }, minWidth: 0 }}>
           <Button variant="contained" color="secondary" onClick={handleCierreMensual} disabled={closing}
-            startIcon={<Lock size={20} />}>
+            startIcon={<Lock size={20} />} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25 }}>
             {closing ? 'Cerrando...' : 'Cierre Mensual'}
           </Button>
-          <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleExport}>
+          <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleExport} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25 }}>
             Exportar Excel
           </Button>
         </Box>

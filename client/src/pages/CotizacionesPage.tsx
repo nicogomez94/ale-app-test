@@ -221,23 +221,31 @@ export const CotizacionesPage: React.FC = () => {
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>;
 
   return (
-    <Box>
+    <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
       {/* Header */}
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800 }}>Cotizaciones</Typography>
+      <Box sx={{
+        mb: 4,
+        display: 'flex',
+        flexDirection: { xs: 'column', md: 'row' },
+        justifyContent: 'space-between',
+        alignItems: { xs: 'stretch', md: 'flex-start' },
+        gap: 2,
+        minWidth: 0,
+      }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, overflowWrap: 'anywhere' }}>Cotizaciones</Typography>
           <Typography variant="body1" color="text.secondary">
             Gestioná solicitudes de cotización manuales y desde tu link público.
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="outlined" startIcon={<Link2 size={20} />} onClick={() => setLinkOpen(true)}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, max-content)' }, gap: 1.5, justifyContent: { xs: 'stretch', md: 'flex-end' }, minWidth: 0 }}>
+          <Button variant="outlined" startIcon={<Link2 size={20} />} onClick={() => setLinkOpen(true)} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25 }}>
             Compartir Link
           </Button>
-          <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleExport}>
+          <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleExport} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25 }}>
             Exportar Excel
           </Button>
-          <Button variant="contained" startIcon={<Plus size={20} />} onClick={openCreate} sx={{ borderRadius: 3 }}>
+          <Button variant="contained" startIcon={<Plus size={20} />} onClick={openCreate} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25, borderRadius: 3, gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
             Nueva Cotización
           </Button>
         </Box>

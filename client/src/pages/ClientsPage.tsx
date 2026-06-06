@@ -81,15 +81,23 @@ export const ClientsPage: React.FC = () => {
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>;
 
   return (
-    <Box>
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800 }}>Gestión de Clientes</Typography>
+    <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
+      <Box sx={{
+        mb: 4,
+        display: 'flex',
+        flexDirection: { xs: 'column', md: 'row' },
+        justifyContent: 'space-between',
+        alignItems: { xs: 'stretch', md: 'flex-start' },
+        gap: 2,
+        minWidth: 0,
+      }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, overflowWrap: 'anywhere' }}>Gestión de Clientes</Typography>
           <Typography variant="body1" color="text.secondary">Administra tu cartera de clientes individuales.</Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleExport}>Exportar Excel</Button>
-          <Button variant="contained" startIcon={<Plus size={20} />} onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ borderRadius: 3 }}>Nuevo...</Button>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(2, max-content)' }, gap: 1.5, justifyContent: { xs: 'stretch', md: 'flex-end' }, minWidth: 0 }}>
+          <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleExport} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25 }}>Exportar Excel</Button>
+          <Button variant="contained" startIcon={<Plus size={20} />} onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25, borderRadius: 3 }}>Nuevo...</Button>
           <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
             <MenuItem onClick={() => { setAnchorEl(null); handleOpen(); }} sx={{ gap: 1.5 }}><User size={18} />Nuevo Cliente (Individuo)</MenuItem>
             <MenuItem onClick={() => { setAnchorEl(null); navigate('/empresas', { state: { openNew: true } }); }} sx={{ gap: 1.5 }}><Building2 size={18} />Nueva Empresa</MenuItem>
@@ -97,7 +105,7 @@ export const ClientsPage: React.FC = () => {
         </Box>
       </Box>
 
-      <Card sx={{ mb: 4 }}>
+      <Card sx={{ mb: 4, minWidth: 0 }}>
         <CardContent>
           <TextField fullWidth placeholder="Buscar por nombre o DNI..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
             InputProps={{ startAdornment: <InputAdornment position="start"><Search size={20} /></InputAdornment> }}
@@ -105,8 +113,8 @@ export const ClientsPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      <TableContainer component={Paper}>
-        <Table>
+      <TableContainer component={Paper} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto' }}>
+        <Table sx={{ minWidth: 760 }}>
           <TableHead sx={{ bgcolor: 'primary.main' }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 700 }}>Nombre</TableCell>
@@ -169,4 +177,3 @@ export const ClientsPage: React.FC = () => {
     </Box>
   );
 };
-

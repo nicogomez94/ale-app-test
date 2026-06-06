@@ -405,7 +405,7 @@ export const PaymentPage: React.FC = () => {
                   )}
 
                   <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0.5, mb: 2 }}>
-                    <Typography variant="h3" sx={{ fontWeight: 800, color: plan.accentColor }}>
+                    <Typography variant="h3" sx={{ fontWeight: 800, color: plan.accentColor, fontSize: '2rem' }}>
                       ${PRICE_FORMATTER.format(plan.monthlyPrice)}
                     </Typography>
                     <Typography variant="h6" color="text.secondary">/mes</Typography>

@@ -78,7 +78,7 @@ export const LifeAndFinancePage: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Vida_Finanzas_${LIFE_TYPES[tab].label}_PAS_Alert.xlsx`;
+      a.download = `Vida_Retiro_${LIFE_TYPES[tab].label}_PAS_Alert.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err: any) { alert(err.message); }
@@ -96,7 +96,7 @@ export const LifeAndFinancePage: React.FC = () => {
         minWidth: 0,
       }}>
         <Box sx={{ minWidth: 0 }}>
-          <Typography variant="h4" sx={{ fontWeight: 800, lineHeight: 1.08, overflowWrap: 'anywhere' }}>Vida y Finanzas</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 800, lineHeight: 1.08, overflowWrap: 'anywhere' }}>Vida y Retiro</Typography>
           <Typography variant="body1" color="text.secondary">Gestiona pólizas de Vida y Seguros de Retiro.</Typography>
         </Box>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(2, max-content)' }, gap: 1.5, justifyContent: { xs: 'stretch', md: 'flex-end' }, minWidth: 0 }}>

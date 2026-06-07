@@ -69,7 +69,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
     { text: 'Dashboard', icon: <LayoutDashboard size={20} color="#4f46e5" />, path: '/dashboard' },
     { text: 'Clientes', icon: <UserCircle size={20} color="#0ea5e9" />, path: '/clientes' },
     { text: 'Empresas', icon: <Building2 size={20} color="#8b5cf6" />, path: '/empresas' },
-    { text: 'Vida y Finanzas', icon: <HeartPulse size={20} color="#ef4444" />, path: '/vida-finanzas' },
+    { text: 'Vida y Retiro', icon: <HeartPulse size={20} color="#ef4444" />, path: '/vida-y-retiro' },
     { text: 'Pólizas', icon: <FileText size={20} color="#f59e0b" />, path: '/polizas' },
     { text: 'Siniestros', icon: <ClipboardList size={20} color="#dc2626" />, path: '/siniestros' },
     { text: 'Cotizaciones', icon: <MessageSquare size={20} color="#0891b2" />, path: '/cotizaciones' },

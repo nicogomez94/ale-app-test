@@ -398,7 +398,7 @@ const LifeFinanceTable = ({
     <CardContent sx={{ px: { xs: 2, sm: 3 }, '&:last-child': { pb: { xs: 2, sm: 3 } } }}>
       <Box sx={{ mb: 3, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 1.5, minWidth: 0 }}>
         <Typography variant="h6" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>
-          Polizas de Vida y Finanzas (Total: {policies.length})
+          Pólizas de Vida y Retiro (Total: {policies.length})
         </Typography>
         {policies.length > VISIBLE_POLICIES_LIMIT && (
           <Button size="small" onClick={onToggleShowAll}>
@@ -568,7 +568,7 @@ export const Dashboard: React.FC = () => {
     if (lifePoliciesResult.status === 'fulfilled') {
       setLifePolicies(lifePoliciesResult.value);
     } else {
-      console.warn('No se pudieron cargar las polizas de Vida y Finanzas:', lifePoliciesResult.reason);
+      console.warn('No se pudieron cargar las pólizas de Vida y Retiro:', lifePoliciesResult.reason);
       setLifePolicies([]);
     }
 
@@ -619,7 +619,7 @@ export const Dashboard: React.FC = () => {
     { title: 'Vencen en 7 dias', value: stats.vencen7Dias, icon: <Clock size={20} />, color: 'warning', subtitle: 'Requieren atencion', onClick: () => applyFilter(filter === 'expiring' ? null : 'expiring'), active: filter === 'expiring' },
     { title: 'Polizas Vencidas', value: stats.polizasVencidas, icon: <AlertCircle size={20} />, color: 'error', subtitle: 'Accion inmediata', onClick: () => applyFilter(filter === 'expired' ? null : 'expired'), active: filter === 'expired' },
     { title: 'Clientes Totales', value: stats.clientesTotales, icon: <Users size={20} />, color: 'info', subtitle: 'Cartera activa' },
-    { title: 'Vida y Finanzas', value: lifePolicies.length, icon: <HeartPulse size={20} />, color: 'secondary', subtitle: 'Total de polizas', onClick: () => navigate('/vida-finanzas') },
+    { title: 'Vida y Retiro', value: lifePolicies.length, icon: <HeartPulse size={20} />, color: 'secondary', subtitle: 'Total de pólizas', onClick: () => navigate('/vida-y-retiro') },
   ];
 
   const handleWhatsApp = async (policy: DashboardPolicy) => {
@@ -692,7 +692,7 @@ export const Dashboard: React.FC = () => {
     try {
       await api.lifePolicies.delete(policy.id);
       await loadDashboardData(false);
-      setSnack({ open: true, severity: 'success', message: 'Póliza de Vida y Finanzas eliminada.' });
+      setSnack({ open: true, severity: 'success', message: 'Póliza de Vida y Retiro eliminada.' });
     } catch (error: any) {
       setSnack({ open: true, severity: 'error', message: error.message || 'No se pudo eliminar la póliza.' });
     }
@@ -719,7 +719,7 @@ export const Dashboard: React.FC = () => {
       setEditingLifePolicy(null);
       setLifeEditValues(null);
       await loadDashboardData(false);
-      setSnack({ open: true, severity: 'success', message: 'Póliza de Vida y Finanzas actualizada correctamente.' });
+      setSnack({ open: true, severity: 'success', message: 'Póliza de Vida y Retiro actualizada correctamente.' });
     } catch (error: any) {
       setSnack({ open: true, severity: 'error', message: error.message || 'No se pudo actualizar la póliza.' });
     } finally {
@@ -1027,7 +1027,7 @@ export const Dashboard: React.FC = () => {
       </Dialog>
 
       <Dialog open={!!editingLifePolicy && !!lifeEditValues} onClose={() => { setEditingLifePolicy(null); setLifeEditValues(null); }} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 800 }}>Editar Póliza de Vida y Finanzas</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 800 }}>Editar Póliza de Vida y Retiro</DialogTitle>
         {lifeEditValues && (
           <>
             <DialogContent>

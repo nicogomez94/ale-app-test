@@ -131,7 +131,8 @@ function AppSystem() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/clientes" element={<ClientsPage />} />
             <Route path="/empresas" element={<CompaniesPage />} />
-            <Route path="/vida-finanzas" element={<LifeAndFinancePage />} />
+            <Route path="/vida-y-retiro" element={<LifeAndFinancePage />} />
+            <Route path="/vida-finanzas" element={<Navigate to="/vida-y-retiro" replace />} />
             <Route path="/polizas" element={<PolicyForm />} />
             <Route path="/siniestros" element={<SiniestrosPage />} />
             <Route path="/cotizaciones" element={<CotizacionesPage />} />

@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Typography, Card, CardContent, Button, Table, TableBody,
-  TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
+  TableCell, TableContainer, TableHead, TableRow, Paper,
   TextField, InputAdornment, Dialog, DialogTitle, DialogContent,
   DialogActions, Grid, Menu, MenuItem, CircularProgress
 } from '@mui/material';
-import { Plus, Search, Edit2, Trash2, Download, MessageCircle, Building2, User, Mail } from 'lucide-react';
+import { Plus, Search, Download, Building2, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { DEBUG, debugData } from '../data/debugData';
+import { ListingActions } from '../components/ListingActions';
 
 export const ClientsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -122,7 +123,7 @@ export const ClientsPage: React.FC = () => {
               <TableCell sx={{ color: 'white', fontWeight: 700 }}>Teléfono</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 700 }}>Email</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 700 }}>C.P.</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 700, textAlign: 'right' }}>Acciones</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 700, textAlign: 'right', minWidth: 220 }}>Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -133,11 +134,13 @@ export const ClientsPage: React.FC = () => {
                 <TableCell>{client.telefono}</TableCell>
                 <TableCell>{client.email}</TableCell>
                 <TableCell>{client.cp}</TableCell>
-                <TableCell sx={{ textAlign: 'right' }}>
-                  <IconButton color="success" onClick={() => handleWhatsApp(client.telefono)}><MessageCircle size={18} /></IconButton>
-                  <IconButton color="info" onClick={() => handleEmailClick(client.email)}><Mail size={18} /></IconButton>
-                  <IconButton color="primary" onClick={() => handleOpen(client)}><Edit2 size={18} /></IconButton>
-                  <IconButton color="error" onClick={() => handleDelete(client.id)}><Trash2 size={18} /></IconButton>
+                <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
+                  <ListingActions
+                    onWhatsApp={() => handleWhatsApp(client.telefono)}
+                    onEmail={() => handleEmailClick(client.email)}
+                    onEdit={() => handleOpen(client)}
+                    onDelete={() => handleDelete(client.id)}
+                  />
                 </TableCell>
               </TableRow>
             ))}

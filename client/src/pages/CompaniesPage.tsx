@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Typography, Card, CardContent, Button, Table, TableBody,
-  TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
+  TableCell, TableContainer, TableHead, TableRow, Paper,
   TextField, InputAdornment, Dialog, DialogTitle, DialogContent,
   DialogActions, Grid, Tabs, Tab, Chip, CircularProgress
 } from '@mui/material';
-import { Plus, Search, Edit2, Trash2, Building2, Download, MessageCircle, Mail, Users, Truck, Shield, Briefcase, Home, Store } from 'lucide-react';
+import { Plus, Search, Building2, Download, Users, Truck, Shield, Briefcase, Home, Store } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { api } from '../api';
 import { DEBUG, debugData } from '../data/debugData';
+import { ListingActions } from '../components/ListingActions';
 
 const COMPANY_TYPES = [
   { label: 'ART', icon: <Shield size={18} />, value: 'ART' },
@@ -147,7 +148,7 @@ export const CompaniesPage: React.FC = () => {
                 <TableCell sx={{ color: 'white', fontWeight: 700 }}>Aseguradora</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 700 }}>Email</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 700 }}>C.P.</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 700, textAlign: 'right' }}>Acciones</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 700, textAlign: 'right', minWidth: 220 }}>Acciones</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -165,11 +166,13 @@ export const CompaniesPage: React.FC = () => {
                   <TableCell>{company.aseguradora}</TableCell>
                   <TableCell>{company.email}</TableCell>
                   <TableCell>{company.cp}</TableCell>
-                  <TableCell sx={{ textAlign: 'right' }}>
-                    <IconButton color="success" onClick={() => handleWhatsApp(company.telefono)}><MessageCircle size={18} /></IconButton>
-                    <IconButton color="info" onClick={() => handleEmailClick(company.email)}><Mail size={18} /></IconButton>
-                    <IconButton color="primary" onClick={() => handleOpen(company)}><Edit2 size={18} /></IconButton>
-                    <IconButton color="error" onClick={() => handleDelete(company.id)}><Trash2 size={18} /></IconButton>
+                  <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
+                    <ListingActions
+                      onWhatsApp={() => handleWhatsApp(company.telefono)}
+                      onEmail={() => handleEmailClick(company.email)}
+                      onEdit={() => handleOpen(company)}
+                      onDelete={() => handleDelete(company.id)}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

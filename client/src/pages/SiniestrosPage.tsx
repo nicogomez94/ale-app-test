@@ -4,15 +4,16 @@ import {
   TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
   TextField, InputAdornment, Dialog, DialogTitle, DialogContent,
   DialogActions, Grid, Chip, CircularProgress, Select, MenuItem,
-  FormControl, InputLabel, Drawer, Divider, Tooltip,
+  FormControl, InputLabel, Drawer, Divider,
   LinearProgress
 } from '@mui/material';
 import {
-  Plus, Search, Edit2, Trash2, Download, AlertTriangle, CheckCircle,
-  XCircle, Clock, FileText, MessageCircle, X, ChevronRight, Notebook, Mail
+  Plus, Search, Edit2, Download, AlertTriangle, CheckCircle,
+  XCircle, Clock, FileText, X, ChevronRight, Notebook
 } from 'lucide-react';
 import { api } from '../api';
 import { DEBUG, debugData } from '../data/debugData';
+import { ListingActions } from '../components/ListingActions';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type SiniestroEstado =
@@ -349,7 +350,7 @@ export const SiniestrosPage: React.FC = () => {
           <TableHead>
             <TableRow sx={{ bgcolor: 'primary.main' }}>
               {['N° Siniestro', 'Cliente', 'Aseguradora', 'Tipo', 'Fecha', 'Estado', 'Prioridad', 'Importe Reclamado', 'Acciones'].map(h => (
-                <TableCell key={h} sx={{ color: 'white', fontWeight: 700 }}>{h}</TableCell>
+                <TableCell key={h} sx={{ color: 'white', fontWeight: 700, textAlign: h === 'Acciones' ? 'right' : 'left', minWidth: h === 'Acciones' ? 220 : undefined }}>{h}</TableCell>
               ))}
             </TableRow>
           </TableHead>
@@ -388,27 +389,17 @@ export const SiniestrosPage: React.FC = () => {
                     <Chip label={pri.label} size="small" color={pri.color} />
                   </TableCell>
                   <TableCell onClick={() => openDetail(s)}>{fmt(s.importeReclamado)}</TableCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                    <Tooltip title={s.clienteTelefono ? 'WhatsApp' : 'Sin teléfono'}>
-                      <span>
-                        <IconButton size="small" color="success" disabled={!s.clienteTelefono} onClick={() => handleWhatsApp(s)}>
-                          <MessageCircle size={16} />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                    <Tooltip title={s.clienteEmail ? 'Mail' : 'Sin email'}>
-                      <span>
-                        <IconButton size="small" color="info" disabled={!s.clienteEmail} onClick={() => handleEmailClick(s)}>
-                          <Mail size={16} />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                    <Tooltip title="Editar">
-                      <IconButton size="small" onClick={() => openEdit(s)}><Edit2 size={16} /></IconButton>
-                    </Tooltip>
-                    <Tooltip title="Eliminar">
-                      <IconButton size="small" color="error" onClick={() => handleDelete(s.id)}><Trash2 size={16} /></IconButton>
-                    </Tooltip>
+                  <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
+                    <ListingActions
+                      onWhatsApp={() => handleWhatsApp(s)}
+                      onEmail={() => handleEmailClick(s)}
+                      onEdit={() => openEdit(s)}
+                      onDelete={() => handleDelete(s.id)}
+                      disableWhatsApp={!s.clienteTelefono}
+                      disableEmail={!s.clienteEmail}
+                      whatsappTitle={s.clienteTelefono ? '' : 'Sin teléfono'}
+                      emailTitle={s.clienteEmail ? '' : 'Sin email'}
+                    />
                   </TableCell>
                 </TableRow>
               );

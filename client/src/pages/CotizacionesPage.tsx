@@ -1,20 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Card, CardContent, Button, Table, TableBody,
-  TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
+  TableCell, TableContainer, TableHead, TableRow, Paper,
   TextField, InputAdornment, Dialog, DialogTitle, DialogContent,
   DialogActions, Chip, CircularProgress, Select, MenuItem,
-  FormControl, InputLabel, Tooltip, Divider, Alert, Snackbar,
+  FormControl, InputLabel, Divider, Alert, Snackbar,
   ToggleButtonGroup, ToggleButton, FormControlLabel, Checkbox
 } from '@mui/material';
 import Grid from '@mui/material/GridLegacy';
 import {
-  Plus, Search, Edit2, Trash2, Download, Car, Home, Package,
-  Link2, QrCode, Copy, Check, MessageCircle, Mail
+  Plus, Search, Download, Car, Home, Package,
+  Link2, QrCode, Copy, Check
 } from 'lucide-react';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 import { api } from '../api';
 import { DEBUG, debugData } from '../data/debugData';
+import { ListingActions } from '../components/ListingActions';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type CotizacionTipo = 'AUTO' | 'MOTO' | 'HOGAR' | 'OTROS';
@@ -294,7 +295,7 @@ export const CotizacionesPage: React.FC = () => {
           <TableHead>
             <TableRow sx={{ bgcolor: 'primary.main' }}>
               {['Tipo', 'Nombre', 'Datos del Riesgo', 'Contacto', 'Origen', 'Fecha', 'Acciones'].map(h => (
-                <TableCell key={h} sx={{ color: 'white', fontWeight: 700 }}>{h}</TableCell>
+                <TableCell key={h} sx={{ color: 'white', fontWeight: 700, textAlign: h === 'Acciones' ? 'right' : 'left', minWidth: h === 'Acciones' ? 220 : undefined }}>{h}</TableCell>
               ))}
             </TableRow>
           </TableHead>
@@ -344,27 +345,17 @@ export const CotizacionesPage: React.FC = () => {
                     />
                   </TableCell>
                   <TableCell>{new Date(c.createdAt).toLocaleDateString('es-AR')}</TableCell>
-                  <TableCell>
-                    <Tooltip title={c.celular ? 'WhatsApp' : 'Sin celular'}>
-                      <span>
-                        <IconButton size="small" color="success" disabled={!c.celular} onClick={() => handleWhatsApp(c.celular)}>
-                          <MessageCircle size={16} />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                    <Tooltip title={c.email ? 'Email' : 'Sin email'}>
-                      <span>
-                        <IconButton size="small" color="info" disabled={!c.email} onClick={() => handleEmailClick(c.email)}>
-                          <Mail size={16} />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                    <Tooltip title="Editar">
-                      <IconButton size="small" onClick={() => openEdit(c)}><Edit2 size={16} /></IconButton>
-                    </Tooltip>
-                    <Tooltip title="Eliminar">
-                      <IconButton size="small" color="error" onClick={() => handleDelete(c.id)}><Trash2 size={16} /></IconButton>
-                    </Tooltip>
+                  <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
+                    <ListingActions
+                      onWhatsApp={() => handleWhatsApp(c.celular)}
+                      onEmail={() => handleEmailClick(c.email)}
+                      onEdit={() => openEdit(c)}
+                      onDelete={() => handleDelete(c.id)}
+                      disableWhatsApp={!c.celular}
+                      disableEmail={!c.email}
+                      whatsappTitle={c.celular ? '' : 'Sin celular'}
+                      emailTitle={c.email ? '' : 'Sin email'}
+                    />
                   </TableCell>
                 </TableRow>
               );

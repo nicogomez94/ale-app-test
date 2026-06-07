@@ -31,7 +31,6 @@ import {
   AlertCircle,
   CheckSquare,
   Clock,
-  Edit2,
   FileCheck,
   Hash,
   HeartPulse,
@@ -41,7 +40,6 @@ import {
   Phone,
   Plus,
   Square,
-  Trash2,
   Users,
   X,
 } from 'lucide-react';
@@ -60,6 +58,7 @@ import {
   PROVINCIAS_ARGENTINA,
   VIGENCIA_OPTIONS,
 } from '../data/policyCatalogs';
+import { ListingActions } from '../components/ListingActions';
 
 const VISIBLE_POLICIES_LIMIT = 5;
 
@@ -344,20 +343,12 @@ const PolicyTable = ({
                       )}
                     </TableCell>
                     <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
-                      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(96px, 1fr))', gap: 0.75 }}>
-                        <Button size="small" variant="outlined" color="success" startIcon={<MessageCircle size={14} />} onClick={() => onWhatsApp(policy)} sx={{ justifyContent: 'flex-start', fontWeight: 700 }}>
-                          WhatsApp
-                        </Button>
-                        <Button size="small" variant="outlined" color="primary" startIcon={<Edit2 size={14} />} onClick={() => onEdit(policy)} sx={{ justifyContent: 'flex-start', fontWeight: 700 }}>
-                          Modificar
-                        </Button>
-                        <Button size="small" variant="outlined" color="info" startIcon={<Mail size={14} />} onClick={() => onEmail(policy)} sx={{ justifyContent: 'flex-start', fontWeight: 700 }}>
-                          Mail
-                        </Button>
-                        <Button size="small" variant="outlined" color="error" startIcon={<Trash2 size={14} />} onClick={() => onDelete(policy)} sx={{ justifyContent: 'flex-start', fontWeight: 700 }}>
-                          Eliminar
-                        </Button>
-                      </Box>
+                      <ListingActions
+                        onWhatsApp={() => onWhatsApp(policy)}
+                        onEmail={() => onEmail(policy)}
+                        onEdit={() => onEdit(policy)}
+                        onDelete={() => onDelete(policy)}
+                      />
                     </TableCell>
                   </TableRow>
                 );
@@ -430,21 +421,13 @@ const LifeFinanceTable = ({
                     : `Aporte mensual: ${formatMoney(policy.aporteMensual)} | Fondo: ${formatMoney(policy.fondoAcumulado)}`}
                 </TableCell>
                 <TableCell>{policy.email || '-'}</TableCell>
-                <TableCell sx={{ textAlign: 'right' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.25, flexWrap: 'wrap' }}>
-                    <IconButton size="small" color="success" onClick={() => onWhatsApp(policy)}>
-                      <MessageCircle size={18} />
-                    </IconButton>
-                    <IconButton size="small" color="info" onClick={() => onEmail(policy)}>
-                      <Mail size={18} />
-                    </IconButton>
-                    <IconButton size="small" color="primary" onClick={() => onEdit(policy)}>
-                      <Edit2 size={18} />
-                    </IconButton>
-                    <IconButton size="small" color="error" onClick={() => onDelete(policy)}>
-                      <Trash2 size={18} />
-                    </IconButton>
-                  </Box>
+                <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
+                  <ListingActions
+                    onWhatsApp={() => onWhatsApp(policy)}
+                    onEmail={() => onEmail(policy)}
+                    onEdit={() => onEdit(policy)}
+                    onDelete={() => onDelete(policy)}
+                  />
                 </TableCell>
               </TableRow>
             ))}

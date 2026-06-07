@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Typography, Card, CardContent, Button, Table, TableBody,
-  TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
+  TableCell, TableContainer, TableHead, TableRow, Paper,
   TextField, InputAdornment, Dialog, DialogTitle, DialogContent,
   DialogActions, Grid, Tabs, Tab, CircularProgress
 } from '@mui/material';
-import { Plus, Search, Edit2, Trash2, HeartPulse, Download, MessageCircle, Mail, Coins } from 'lucide-react';
+import { Plus, Search, HeartPulse, Download, Coins } from 'lucide-react';
 import { api } from '../api';
 import { DEBUG, debugData } from '../data/debugData';
+import { ListingActions } from '../components/ListingActions';
 
 const LIFE_TYPES = [
   { label: 'Seguros de Vida', icon: <HeartPulse size={18} />, value: 'VIDA' },
@@ -134,7 +135,7 @@ export const LifeAndFinancePage: React.FC = () => {
                 </TableCell>
                 {currentType === 'RETIRO' && <TableCell sx={{ color: 'white', fontWeight: 700 }}>Fondo Acumulado</TableCell>}
                 <TableCell sx={{ color: 'white', fontWeight: 700 }}>Email</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 700, textAlign: 'right' }}>Acciones</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 700, textAlign: 'right', minWidth: 220 }}>Acciones</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -150,11 +151,13 @@ export const LifeAndFinancePage: React.FC = () => {
                     <TableCell sx={{ fontWeight: 700, color: 'success.main' }}>${policy.fondoAcumulado?.toLocaleString() || 0}</TableCell>
                   )}
                   <TableCell>{policy.email}</TableCell>
-                  <TableCell sx={{ textAlign: 'right' }}>
-                    <IconButton color="success" onClick={() => handleWhatsApp(policy.telefono || '')}><MessageCircle size={18} /></IconButton>
-                    <IconButton color="info" onClick={() => handleEmailClick(policy.email || '')}><Mail size={18} /></IconButton>
-                    <IconButton color="primary" onClick={() => handleOpen(policy)}><Edit2 size={18} /></IconButton>
-                    <IconButton color="error" onClick={() => handleDelete(policy.id)}><Trash2 size={18} /></IconButton>
+                  <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
+                    <ListingActions
+                      onWhatsApp={() => handleWhatsApp(policy.telefono || '')}
+                      onEmail={() => handleEmailClick(policy.email || '')}
+                      onEdit={() => handleOpen(policy)}
+                      onDelete={() => handleDelete(policy.id)}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

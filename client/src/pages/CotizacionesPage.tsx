@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 import { api } from '../api';
+import { useAuth } from '../context/AuthContext';
 import { DEBUG, debugData } from '../data/debugData';
 import { ListingActions } from '../components/ListingActions';
 
@@ -96,7 +97,61 @@ const buildCotizacionPayload = (form: typeof EMPTY_FORM) => {
   };
 };
 
+const removeArgentinaMobilePrefix = (nationalNumber: string) => {
+  for (const areaCodeLength of [2, 3, 4]) {
+    if (nationalNumber.length === 12 && nationalNumber.slice(areaCodeLength, areaCodeLength + 2) === '15') {
+      return nationalNumber.slice(0, areaCodeLength) + nationalNumber.slice(areaCodeLength + 2);
+    }
+  }
+  return nationalNumber;
+};
+
+const normalizeWhatsAppPhone = (value?: string) => {
+  let digits = value?.replace(/\D/g, '') ?? '';
+  if (!digits) return '';
+
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  if (digits.startsWith('0')) digits = digits.slice(1);
+
+  if (digits.startsWith('549')) return digits;
+
+  if (digits.startsWith('54')) {
+    const national = digits.slice(2);
+    if (national.startsWith('9')) return digits;
+    const normalizedNational = removeArgentinaMobilePrefix(national);
+    if (normalizedNational.length === 10) return `549${normalizedNational}`;
+    return digits;
+  }
+
+  if (digits.startsWith('15') && digits.length === 10) return `54911${digits.slice(2)}`;
+  const normalizedNational = removeArgentinaMobilePrefix(digits);
+  if (normalizedNational.length === 10) return `549${normalizedNational}`;
+
+  return digits;
+};
+
+const buildCotizacionWhatsAppMessage = (cotizacion: Cotizacion, pasName: string) => {
+  const fullName = [cotizacion.nombre, cotizacion.apellido].filter(Boolean).join(' ') || 'buenas';
+  const tipoLabel = TIPO_CONFIG[cotizacion.tipo].label.toLowerCase();
+  const vehicleDetail = [cotizacion.patente, [cotizacion.marca, cotizacion.modelo, cotizacion.anio].filter(Boolean).join(' ')]
+    .filter(Boolean)
+    .join(' - ');
+  const homeDetail = [cotizacion.tipoVivienda, cotizacion.superficieCubierta ? `${cotizacion.superficieCubierta} m2` : '']
+    .filter(Boolean)
+    .join(' - ');
+
+  const detail = cotizacion.tipo === 'AUTO' || cotizacion.tipo === 'MOTO'
+    ? vehicleDetail
+    : cotizacion.tipo === 'HOGAR'
+      ? homeDetail
+      : cotizacion.descripcionRiesgo;
+
+  const detailText = detail ? ` (${detail})` : '';
+  return `Hola ${fullName}, te contactamos por tu solicitud de cotización de ${tipoLabel}${detailText}. ¿Podés confirmarme si seguís interesado/a para avanzar? Saludos, ${pasName} - PAS Alert.`;
+};
+
 export const CotizacionesPage: React.FC = () => {
+  const { user } = useAuth();
   const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -210,10 +265,12 @@ export const CotizacionesPage: React.FC = () => {
     });
   };
 
-  const handleWhatsApp = (celular?: string) => {
-    const phone = celular?.replace(/\D/g, '');
+  const handleWhatsApp = (cotizacion: Cotizacion) => {
+    const phone = normalizeWhatsAppPhone(cotizacion.celular);
     if (!phone) return;
-    window.open(`https://wa.me/${phone}`, '_blank');
+    const pasName = user?.nombre || 'Tu Productor';
+    const message = buildCotizacionWhatsAppMessage(cotizacion, pasName);
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const handleEmailClick = (email?: string) => {
@@ -347,7 +404,7 @@ export const CotizacionesPage: React.FC = () => {
                   <TableCell>{new Date(c.createdAt).toLocaleDateString('es-AR')}</TableCell>
                   <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
                     <ListingActions
-                      onWhatsApp={() => handleWhatsApp(c.celular)}
+                      onWhatsApp={() => handleWhatsApp(c)}
                       onEmail={() => handleEmailClick(c.email)}
                       onEdit={() => openEdit(c)}
                       onDelete={() => handleDelete(c.id)}

@@ -712,11 +712,14 @@ export const Dashboard: React.FC = () => {
 
   const handleTogglePaid = async (policy: DashboardPolicy) => {
     try {
-      await api.policies.updatePayment(policy.id, {
+      const result = await api.policies.updatePayment(policy.id, {
         pagada: !policy.pagada,
         fechaPago: !policy.pagada ? new Date().toISOString().split('T')[0] : '',
       });
       await loadDashboardData(false);
+      if (result.renewalCreated) {
+        setSnack({ open: true, severity: 'success', message: `Renovacion generada con ${result.renewalPolicies.length} cuota(s).` });
+      }
     } catch (error: any) {
       setSnack({ open: true, severity: 'error', message: error.message || 'No se pudo actualizar el estado de pago.' });
     }
@@ -724,11 +727,14 @@ export const Dashboard: React.FC = () => {
 
   const handleUpdatePaymentDate = async (policy: DashboardPolicy, date: string) => {
     try {
-      await api.policies.updatePayment(policy.id, {
+      const result = await api.policies.updatePayment(policy.id, {
         pagada: true,
         fechaPago: date,
       });
       await loadDashboardData(false);
+      if (result.renewalCreated) {
+        setSnack({ open: true, severity: 'success', message: `Renovacion generada con ${result.renewalPolicies.length} cuota(s).` });
+      }
     } catch (error: any) {
       setSnack({ open: true, severity: 'error', message: error.message || 'No se pudo guardar la fecha de pago.' });
     }

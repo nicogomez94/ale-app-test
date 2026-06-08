@@ -21,6 +21,7 @@ import { AdminPage } from './pages/AdminPage';
 import { SiniestrosPage } from './pages/SiniestrosPage';
 import { CotizacionesPage } from './pages/CotizacionesPage';
 import { CotizacionPublicaPage } from './pages/CotizacionPublicaPage';
+import { DirectoryPage } from './pages/DirectoryPage';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -136,6 +137,7 @@ function AppSystem() {
             <Route path="/polizas" element={<PolicyForm />} />
             <Route path="/siniestros" element={<SiniestrosPage />} />
             <Route path="/cotizaciones" element={<CotizacionesPage />} />
+            <Route path="/directorio" element={<DirectoryPage />} />
             <Route path="/comisiones" element={<CommissionsPage />} />
             <Route path="/referidos" element={<ReferralPage />} />
             <Route path="/pagos" element={<PaymentPage />} />

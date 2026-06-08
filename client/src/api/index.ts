@@ -81,6 +81,12 @@ export interface PolicyPayload {
   tipo: PolicyType;
 }
 
+export interface PolicyPaymentResponse {
+  policy: DashboardPolicy;
+  renewalCreated: boolean;
+  renewalPolicies: DashboardPolicy[];
+}
+
 function getToken(): string | null {
   return localStorage.getItem("pas_token");
 }
@@ -221,13 +227,13 @@ export const api = {
       return request<DashboardPolicy[]>(`/policies${qs}`);
     },
     create: (data: PolicyPayload) =>
-      request<DashboardPolicy>("/policies", { method: "POST", body: JSON.stringify(data) }),
+      request<DashboardPolicy & { generatedCount: number; generatedPolicies: DashboardPolicy[] }>("/policies", { method: "POST", body: JSON.stringify(data) }),
     update: (id: string, data: PolicyPayload) =>
       request<DashboardPolicy>(`/policies/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: string) =>
       request<any>(`/policies/${id}`, { method: "DELETE" }),
     updatePayment: (id: string, data: { pagada: boolean; fechaPago?: string }) =>
-      request<DashboardPolicy>(`/policies/${id}/payment`, { method: "PATCH", body: JSON.stringify(data) }),
+      request<PolicyPaymentResponse>(`/policies/${id}/payment`, { method: "PATCH", body: JSON.stringify(data) }),
     trackInteraction: (id: string, channel: InteractionChannel) =>
       request<DashboardPolicy>(`/policies/${id}/interactions`, { method: "POST", body: JSON.stringify({ channel }) }),
     updateStatuses: () =>
@@ -262,6 +268,51 @@ export const api = {
         body: JSON.stringify({ mes, anio }),
       }),
     export: () => request<Blob>("/commissions/export"),
+    invoices: {
+      list: (params?: { search?: string; periodo?: string; estado?: string; insuranceCompanyId?: string }) => {
+        const qs = params ? `?${new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v))).toString()}` : "";
+        return request<any[]>(`/commissions/invoices${qs}`);
+      },
+      create: (data: any) =>
+        request<any>("/commissions/invoices", { method: "POST", body: JSON.stringify(data) }),
+      update: (id: string, data: any) =>
+        request<any>(`/commissions/invoices/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      delete: (id: string) =>
+        request<any>(`/commissions/invoices/${id}`, { method: "DELETE" }),
+      addPayment: (invoiceId: string, data: any) =>
+        request<any>(`/commissions/invoices/${invoiceId}/payments`, { method: "POST", body: JSON.stringify(data) }),
+      deletePayment: (invoiceId: string, paymentId: string) =>
+        request<any>(`/commissions/invoices/${invoiceId}/payments/${paymentId}`, { method: "DELETE" }),
+      export: () => request<Blob>("/commissions/invoices/export"),
+    },
+  },
+
+  // Directory
+  directory: {
+    insurers: {
+      list: (search?: string) =>
+        request<any[]>(`/directory/insurers${search ? `?search=${encodeURIComponent(search)}` : ""}`),
+      create: (data: any) =>
+        request<any>("/directory/insurers", { method: "POST", body: JSON.stringify(data) }),
+      update: (id: string, data: any) =>
+        request<any>(`/directory/insurers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      delete: (id: string) =>
+        request<any>(`/directory/insurers/${id}`, { method: "DELETE" }),
+      revealPassword: (id: string) =>
+        request<{ password: string }>(`/directory/insurers/${id}/portal-password`),
+      export: () => request<Blob>("/directory/insurers/export"),
+    },
+    brokers: {
+      list: (search?: string) =>
+        request<any[]>(`/directory/brokers${search ? `?search=${encodeURIComponent(search)}` : ""}`),
+      create: (data: any) =>
+        request<any>("/directory/brokers", { method: "POST", body: JSON.stringify(data) }),
+      update: (id: string, data: any) =>
+        request<any>(`/directory/brokers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      delete: (id: string) =>
+        request<any>(`/directory/brokers/${id}`, { method: "DELETE" }),
+      export: () => request<Blob>("/directory/brokers/export"),
+    },
   },
 
   // Referrals

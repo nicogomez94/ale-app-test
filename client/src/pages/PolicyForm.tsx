@@ -98,6 +98,7 @@ export const PolicyForm: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [manualVencimiento, setManualVencimiento] = useState(false);
+  const [directoryInsurers, setDirectoryInsurers] = useState<string[]>([]);
 
   const defaultFechaInicio = new Date().toISOString().split('T')[0];
 
@@ -158,6 +159,16 @@ export const PolicyForm: React.FC = () => {
   const porcentajeValue = typeof porcentaje === 'number' && Number.isFinite(porcentaje) ? porcentaje : 0;
   const comisionCalculada = primaValue * (porcentajeValue / 100);
   const policyType = classifyGeneralPolicyTypeFromRubro(rubro || '');
+  const aseguradoraOptions = useMemo(
+    () => Array.from(new Set([...directoryInsurers, ...ASEGURADORAS])),
+    [directoryInsurers]
+  );
+
+  useEffect(() => {
+    api.directory.insurers.list()
+      .then((data) => setDirectoryInsurers(data.map((insurer: any) => insurer.razonSocial).filter(Boolean)))
+      .catch(() => {});
+  }, []);
 
   const onSubmit = async (data: FormData) => {
     setSaving(true);
@@ -311,7 +322,7 @@ export const PolicyForm: React.FC = () => {
                       render={({ field }) => (
                         <Autocomplete
                           freeSolo
-                          options={ASEGURADORAS}
+                          options={aseguradoraOptions}
                           value={field.value}
                           onChange={(_, value) => field.onChange(value || '')}
                           onInputChange={(_, value) => field.onChange(value || '')}

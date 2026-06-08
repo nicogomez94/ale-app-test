@@ -1,5 +1,6 @@
 import { CompanyType, CurrencyType, InteractionChannel, PolicyType, PolicyVigencia, Prisma } from "@prisma/client";
 import { Router, Response } from "express";
+import { randomUUID } from "crypto";
 import prisma from "../lib/prisma.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
 import { checkPlanLimit } from "../middleware/planLimits.js";
@@ -116,6 +117,16 @@ function asDate(value: unknown): Date | undefined {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return undefined;
   return date;
+}
+
+function addMonths(date: Date, months: number): Date {
+  const result = new Date(date);
+  const day = result.getDate();
+  result.setDate(1);
+  result.setMonth(result.getMonth() + months);
+  const maxDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+  result.setDate(Math.min(day, maxDay));
+  return result;
 }
 
 function normalizeVigencia(value: unknown, fechaInicio: Date, fechaVencimiento: Date): PolicyVigencia {
@@ -370,6 +381,71 @@ async function buildPolicyWriteData(
   };
 }
 
+function buildQuotaSeriesData(baseData: any, quotaTotal: number, groupId: string) {
+  const total = Math.max(1, quotaTotal);
+  const start = new Date(baseData.fechaInicio);
+  const finalEnd = new Date(baseData.fechaVencimiento);
+
+  return Array.from({ length: total }, (_, index) => {
+    const cuotaActual = index + 1;
+    const fechaInicio = index === 0 ? start : addMonths(start, index);
+    const fechaVencimiento = cuotaActual === total ? finalEnd : addMonths(start, cuotaActual);
+
+    return {
+      ...baseData,
+      fechaInicio,
+      fechaVencimiento,
+      estado: computeStatus(fechaVencimiento),
+      cuotaActual,
+      cuotaTotal: total,
+      groupId,
+      pagada: false,
+      fechaPago: null,
+      renewalGeneratedAt: null,
+      renewalGroupId: null,
+      recordatorioProximoEnviadoAt: null,
+      recordatorioVencidaEnviadoAt: null,
+      ultimaGestionTipo: null,
+      ultimaGestionFecha: null,
+      ultimaGestionWhatsappCount: 0,
+      ultimaGestionMailCount: 0,
+    };
+  });
+}
+
+function buildRenewalBaseData(source: any, groupId: string) {
+  const quotaTotal = getQuotaTotalFromVigencia(source.vigencia);
+  const fechaInicio = new Date(source.fechaVencimiento);
+  const fechaVencimiento = addMonths(fechaInicio, quotaTotal);
+
+  return {
+    clienteId: source.clienteId,
+    companyId: source.companyId,
+    clienteNombre: source.clienteNombre,
+    clienteDni: source.clienteDni,
+    clienteTelefono: source.clienteTelefono,
+    clienteEmail: source.clienteEmail,
+    aseguradora: source.aseguradora,
+    rubro: source.rubro,
+    numeroPoliza: source.numeroPoliza,
+    fechaInicio,
+    fechaVencimiento,
+    medioPago: source.medioPago,
+    vigencia: source.vigencia,
+    cuotaActual: 1,
+    cuotaTotal: quotaTotal,
+    groupId,
+    pagada: false,
+    fechaPago: null,
+    prima: source.prima,
+    porcentajeComision: source.porcentajeComision,
+    moneda: source.moneda,
+    comisionCalculada: source.comisionCalculada,
+    estado: computeStatus(fechaVencimiento),
+    tipo: source.tipo,
+  };
+}
+
 // List policies
 policiesRouter.get("/", async (req: AuthRequest, res: Response) => {
   try {
@@ -410,18 +486,39 @@ policiesRouter.post("/", async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const policy = await prisma.$transaction(async (tx) => {
+    const policies = await prisma.$transaction(async (tx) => {
       const data = await buildPolicyWriteData(tx, req.userId!, input);
-      return tx.policy.create({
-        data: {
-          userId: req.userId!,
+      const quotaTotal = getQuotaTotalFromVigencia(data.vigencia);
+      const groupId = data.groupId || randomUUID();
+      const quotaRows = buildQuotaSeriesData(
+        {
           ...data,
+          cuotaTotal: quotaTotal,
+          groupId,
         },
-        include: policyInclude,
-      });
+        quotaTotal,
+        groupId
+      );
+
+      const created = [];
+      for (const row of quotaRows) {
+        created.push(await tx.policy.create({
+          data: {
+            userId: req.userId!,
+            ...row,
+          },
+          include: policyInclude,
+        }));
+      }
+
+      return created;
     });
 
-    res.status(201).json(policy);
+    res.status(201).json({
+      ...policies[0],
+      generatedCount: policies.length,
+      generatedPolicies: policies,
+    });
   } catch (error) {
     console.error("Create policy error:", error);
     const message = error instanceof Error ? error.message : "Error interno del servidor";
@@ -479,7 +576,7 @@ policiesRouter.patch("/:id/payment", async (req: AuthRequest, res: Response) => 
     const { id } = req.params;
     const existing = await prisma.policy.findFirst({
       where: { id, userId: req.userId },
-      select: { id: true, pagada: true, fechaPago: true },
+      include: policyInclude,
     });
 
     if (!existing) {
@@ -490,16 +587,60 @@ policiesRouter.patch("/:id/payment", async (req: AuthRequest, res: Response) => 
     const pagada = typeof req.body?.pagada === "boolean" ? req.body.pagada : !existing.pagada;
     const fechaPago = pagada ? asDate(req.body?.fechaPago) || existing.fechaPago || new Date() : null;
 
-    const policy = await prisma.policy.update({
-      where: { id },
-      data: {
-        pagada,
-        fechaPago,
-      },
-      include: policyInclude,
+    let renewalCreated = false;
+    let renewalPolicies: any[] = [];
+
+    const policy = await prisma.$transaction(async (tx) => {
+      const updatedPolicy = await tx.policy.update({
+        where: { id },
+        data: {
+          pagada,
+          fechaPago,
+        },
+        include: policyInclude,
+      });
+
+      const isLastQuota = existing.cuotaActual === existing.cuotaTotal;
+      if (!pagada || !isLastQuota) {
+        return updatedPolicy;
+      }
+
+      if (existing.renewalGroupId) {
+        renewalPolicies = await tx.policy.findMany({
+          where: { userId: req.userId!, groupId: existing.renewalGroupId },
+          orderBy: { cuotaActual: "asc" },
+          include: policyInclude,
+        });
+        return updatedPolicy;
+      }
+
+      const renewalGroupId = randomUUID();
+      const baseData = buildRenewalBaseData(existing, renewalGroupId);
+      const rows = buildQuotaSeriesData(baseData, baseData.cuotaTotal, renewalGroupId);
+
+      for (const row of rows) {
+        renewalPolicies.push(await tx.policy.create({
+          data: {
+            userId: req.userId!,
+            ...row,
+          },
+          include: policyInclude,
+        }));
+      }
+
+      await tx.policy.update({
+        where: { id },
+        data: {
+          renewalGeneratedAt: new Date(),
+          renewalGroupId,
+        },
+      });
+
+      renewalCreated = renewalPolicies.length > 0;
+      return updatedPolicy;
     });
 
-    res.json(policy);
+    res.json({ policy, renewalCreated, renewalPolicies });
   } catch (error) {
     console.error("Update payment error:", error);
     res.status(500).json({ error: "Error interno del servidor" });

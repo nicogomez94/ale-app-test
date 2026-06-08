@@ -45,10 +45,26 @@ export const getTheme = (mode: 'light' | 'dark'): ThemeOptions => {
           },
         },
       },
+      MuiTableContainer: {
+        styleOverrides: {
+          root: {
+            borderRadius: '8px',
+          },
+        },
+      },
       MuiCard: {
         styleOverrides: {
           root: {
             boxShadow: mode === 'light' ? '0 4px 12px rgba(0,0,0,0.05)' : '0 4px 12px rgba(0,0,0,0.5)',
+          },
+        },
+      },
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            '&.MuiTableContainer-root': {
+              borderRadius: '8px',
+            },
           },
         },
       },

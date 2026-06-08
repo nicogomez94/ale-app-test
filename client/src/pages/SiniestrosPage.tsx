@@ -345,7 +345,7 @@ export const SiniestrosPage: React.FC = () => {
       </Card>
 
       {/* Table */}
-      <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+      <TableContainer component={Paper} sx={{ borderRadius: '8px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
         <Table>
           <TableHead>
             <TableRow sx={{ bgcolor: 'primary.main' }}>

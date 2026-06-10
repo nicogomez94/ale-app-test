@@ -357,7 +357,7 @@ export const api = {
     stats: () => request<any>("/admin/stats"),
     users: (search?: string) =>
       request<any[]>(`/admin/users${search ? `?search=${encodeURIComponent(search)}` : ""}`),
-    updateUser: (id: string, data: { plan?: string; estado?: string; isTestUser?: boolean }) =>
+    updateUser: (id: string, data: { plan?: string; estado?: string; isTestUser?: boolean; trialDays?: number; trialMode?: "set" | "extend" }) =>
       request<any>(`/admin/users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     deleteUser: (id: string) =>
       request<any>(`/admin/users/${id}`, { method: "DELETE" }),

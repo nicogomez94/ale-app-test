@@ -5,6 +5,9 @@ import { runJobsNow } from "../lib/subscriptionReminders.js";
 
 export const adminRouter = Router();
 
+const DEFAULT_TRIAL_DAYS = 30;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 // Admin guard middleware
 async function adminGuard(req: AuthRequest, res: Response, next: () => void) {
   if (!req.userId) {
@@ -106,16 +109,58 @@ adminRouter.get("/users", async (req: AuthRequest, res: Response) => {
 adminRouter.put("/users/:id", async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { plan, estado, isTestUser } = req.body;
+    const { plan, estado, isTestUser, trialDays, trialMode } = req.body as {
+      plan?: string;
+      estado?: string;
+      isTestUser?: boolean;
+      trialDays?: unknown;
+      trialMode?: "set" | "extend";
+    };
 
     const data: Record<string, unknown> = {};
     if (plan) data.plan = plan;
     if (estado) data.estado = estado;
     if (typeof isTestUser === "boolean") data.isTestUser = isTestUser;
 
+    if (trialDays !== undefined) {
+      const days = Number(trialDays);
+      if (!Number.isInteger(days) || days < 1 || days > 365) {
+        res.status(400).json({ error: "Los días de prueba deben ser un número entero entre 1 y 365" });
+        return;
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id },
+        select: { plan: true, trialFin: true },
+      });
+
+      if (!user) {
+        res.status(404).json({ error: "Usuario no encontrado" });
+        return;
+      }
+
+      const targetPlan = plan || user.plan;
+      if (targetPlan !== "TRIAL") {
+        res.status(400).json({ error: "Solo se puede modificar el período de prueba en usuarios con plan Trial" });
+        return;
+      }
+
+      const now = new Date();
+      const baseDate = trialMode === "extend" && user.trialFin && user.trialFin > now ? user.trialFin : now;
+      const trialFin = new Date(baseDate.getTime() + days * MS_PER_DAY);
+      data.plan = "TRIAL";
+      data.trialFin = trialFin;
+      data.planVencimiento = trialFin;
+      data.estado = "ACTIVO";
+    }
+
     // If changing to a paid plan, set planVencimiento to 30 days from now
     if (plan && plan !== "TRIAL") {
-      data.planVencimiento = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      data.planVencimiento = new Date(Date.now() + DEFAULT_TRIAL_DAYS * MS_PER_DAY);
+    } else if (plan === "TRIAL" && trialDays === undefined) {
+      const trialFin = new Date(Date.now() + DEFAULT_TRIAL_DAYS * MS_PER_DAY);
+      data.trialFin = trialFin;
+      data.planVencimiento = trialFin;
     }
 
     const user = await prisma.user.update({
@@ -127,7 +172,9 @@ adminRouter.put("/users/:id", async (req: AuthRequest, res: Response) => {
         nombre: true,
         plan: true,
         estado: true,
+        isTestUser: true,
         planVencimiento: true,
+        trialFin: true,
       },
     });
 

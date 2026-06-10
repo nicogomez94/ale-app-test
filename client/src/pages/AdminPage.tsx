@@ -6,7 +6,7 @@ import {
   DialogContentText, DialogActions, Button, Snackbar, Alert, CircularProgress,
   Divider, Tooltip,
 } from '@mui/material';
-import { Search, Users, Shield, FileText, Building2, Trash2, FlaskConical, Play } from 'lucide-react';
+import { Search, Users, Shield, FileText, Building2, Trash2, FlaskConical, Play, CalendarPlus } from 'lucide-react';
 import { api } from '../api';
 
 interface AdminStats {
@@ -52,6 +52,10 @@ export const AdminPage = () => {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [deleteDialog, setDeleteDialog] = useState<AdminUser | null>(null);
+  const [trialDialog, setTrialDialog] = useState<AdminUser | null>(null);
+  const [trialDays, setTrialDays] = useState(30);
+  const [trialMode, setTrialMode] = useState<'extend' | 'set'>('extend');
+  const [trialLoading, setTrialLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
   // Testing Lab state
@@ -119,11 +123,42 @@ export const AdminPage = () => {
     } catch (err: any) {
       setSnackbar({ open: true, message: err.message, severity: 'error' });
     }
- };
+  };
+
+  const handleOpenTrialDialog = (user: AdminUser) => {
+    setTrialDialog(user);
+    setTrialDays(30);
+    setTrialMode('extend');
+  };
+
+  const handleUpdateTrial = async () => {
+    if (!trialDialog) return;
+    if (!Number.isInteger(trialDays) || trialDays < 1 || trialDays > 365) {
+      setSnackbar({ open: true, message: 'Ingresá entre 1 y 365 días', severity: 'error' });
+      return;
+    }
+
+    setTrialLoading(true);
+    try {
+      await api.admin.updateUser(trialDialog.id, { trialDays, trialMode });
+      setSnackbar({ open: true, message: 'Período de prueba actualizado', severity: 'success' });
+      setTrialDialog(null);
+      loadData();
+    } catch (err: any) {
+      setSnackbar({ open: true, message: err.message, severity: 'error' });
+    } finally {
+      setTrialLoading(false);
+    }
+  };
 
   const formatDate = (d: string | null) => {
     if (!d) return '—';
     return new Date(d).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const getDaysRemaining = (d: string | null) => {
+    if (!d) return null;
+    return Math.ceil((new Date(d).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   };
 
   const handleRunJobs = async () => {
@@ -312,79 +347,108 @@ export const AdminPage = () => {
         <Table>
           <TableHead>
             <TableRow sx={{ bgcolor: 'primary.main' }}>
-              {['Nombre', 'Email', 'Plan', 'Estado', 'Pólizas', 'Clientes', 'Último Login', 'Registro', 'Acciones'].map((h) => (
+              {['Nombre', 'Email', 'Plan', 'Prueba', 'Estado', 'Pólizas', 'Clientes', 'Último Login', 'Registro', 'Acciones'].map((h) => (
                 <TableCell key={h} sx={{ color: 'white', fontWeight: 700 }}>{h}</TableCell>
               ))}
             </TableRow>
           </TableHead>
           <TableBody>
-            {users.map((u) => (
-              <TableRow key={u.id} hover>
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {u.nombre}
-                    {u.isAdmin && <Chip label="Admin" size="small" color="error" sx={{ height: 20, fontSize: '0.7rem' }} />}
-                    {u.isTestUser && <Chip label="Test" size="small" color="warning" sx={{ height: 20, fontSize: '0.7rem' }} />}
-                  </Box>
-                </TableCell>
-                <TableCell>{u.email}</TableCell>
-                <TableCell>
-                  <Select
-                    size="small"
-                    value={u.plan}
-                    onChange={(e) => handleChangePlan(u.id, e.target.value)}
-                    sx={{ minWidth: 140 }}
-                  >
-                    <MenuItem value="TRIAL">Trial</MenuItem>
-                    <MenuItem value="EMPRENDEDOR">Emprendedor</MenuItem>
-                    <MenuItem value="PROFESIONAL">Profesional</MenuItem>
-                    <MenuItem value="AGENCIA">Agencia</MenuItem>
-                  </Select>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={u.estado}
-                    color={estadoColors[u.estado] || 'default'}
-                    size="small"
-                    onClick={() => handleToggleEstado(u)}
-                    sx={{ cursor: 'pointer', fontWeight: 600 }}
-                  />
-                </TableCell>
-                <TableCell>{u._count.polizas}</TableCell>
-                <TableCell>{u._count.clientes}</TableCell>
-                <TableCell>{formatDate(u.lastLogin)}</TableCell>
-                <TableCell>{formatDate(u.createdAt)}</TableCell>
-                <TableCell>
-                  <Box sx={{ display: 'flex', gap: 0.5 }}>
-                    <Tooltip title={u.isTestUser ? 'Quitar como usuario de prueba' : 'Marcar como usuario de prueba'}>
-                      <IconButton
-                        size="small"
-                        color={u.isTestUser ? 'warning' : 'default'}
-                        onClick={() => handleToggleTestUser(u)}
-                        disabled={u.isAdmin}
-                      >
-                        <FlaskConical size={16} />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title={u.isAdmin ? 'No se puede eliminar un admin' : 'Eliminar usuario'}>
-                      <span>
+            {users.map((u) => {
+              const trialDaysRemaining = getDaysRemaining(u.trialFin);
+              const isTrial = u.plan === 'TRIAL';
+
+              return (
+                <TableRow key={u.id} hover>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {u.nombre}
+                      {u.isAdmin && <Chip label="Admin" size="small" color="error" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                      {u.isTestUser && <Chip label="Test" size="small" color="warning" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                    </Box>
+                  </TableCell>
+                  <TableCell>{u.email}</TableCell>
+                  <TableCell>
+                    <Select
+                      size="small"
+                      value={u.plan}
+                      onChange={(e) => handleChangePlan(u.id, e.target.value)}
+                      sx={{ minWidth: 140 }}
+                    >
+                      <MenuItem value="TRIAL">Trial</MenuItem>
+                      <MenuItem value="EMPRENDEDOR">Emprendedor</MenuItem>
+                      <MenuItem value="PROFESIONAL">Profesional</MenuItem>
+                      <MenuItem value="AGENCIA">Agencia</MenuItem>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    {isTrial ? (
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                          {formatDate(u.trialFin)}
+                        </Typography>
+                        <Typography variant="caption" color={trialDaysRemaining !== null && trialDaysRemaining <= 0 ? 'error' : 'text.secondary'}>
+                          {trialDaysRemaining !== null && trialDaysRemaining > 0 ? `${trialDaysRemaining} días` : 'Vencida'}
+                        </Typography>
+                      </Box>
+                    ) : '—'}
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={u.estado}
+                      color={estadoColors[u.estado] || 'default'}
+                      size="small"
+                      onClick={() => handleToggleEstado(u)}
+                      sx={{ cursor: 'pointer', fontWeight: 600 }}
+                    />
+                  </TableCell>
+                  <TableCell>{u._count.polizas}</TableCell>
+                  <TableCell>{u._count.clientes}</TableCell>
+                  <TableCell>{formatDate(u.lastLogin)}</TableCell>
+                  <TableCell>{formatDate(u.createdAt)}</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Tooltip title={isTrial ? 'Modificar período de prueba' : 'Disponible solo para usuarios Trial'}>
+                        <span>
+                          <IconButton
+                            size="small"
+                            color={isTrial ? 'primary' : 'default'}
+                            onClick={() => handleOpenTrialDialog(u)}
+                            disabled={!isTrial || u.isAdmin}
+                          >
+                            <CalendarPlus size={16} />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip title={u.isTestUser ? 'Quitar como usuario de prueba' : 'Marcar como usuario de prueba'}>
                         <IconButton
-                          color="error"
                           size="small"
-                          onClick={() => setDeleteDialog(u)}
+                          color={u.isTestUser ? 'warning' : 'default'}
+                          onClick={() => handleToggleTestUser(u)}
                           disabled={u.isAdmin}
                         >
-                          <Trash2 size={18} />
+                          <FlaskConical size={16} />
                         </IconButton>
-                      </span>
-                    </Tooltip>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            ))}
+                      </Tooltip>
+                      <Tooltip title={u.isAdmin ? 'No se puede eliminar un admin' : 'Eliminar usuario'}>
+                        <span>
+                          <IconButton
+                            color="error"
+                            size="small"
+                            onClick={() => setDeleteDialog(u)}
+                            disabled={u.isAdmin}
+                          >
+                            <Trash2 size={18} />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {users.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 5, color: 'text.secondary', fontWeight: 600 }}>
+                <TableCell colSpan={10} align="center" sx={{ py: 5, color: 'text.secondary', fontWeight: 600 }}>
                   No hay datos
                 </TableCell>
               </TableRow>
@@ -405,6 +469,44 @@ export const AdminPage = () => {
         <DialogActions>
           <Button onClick={() => setDeleteDialog(null)}>Cancelar</Button>
           <Button onClick={handleDelete} color="error" variant="contained">Eliminar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Trial Dialog */}
+      <Dialog open={!!trialDialog} onClose={() => !trialLoading && setTrialDialog(null)} fullWidth maxWidth="xs">
+        <DialogTitle>Modificar Prueba</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            {trialDialog?.nombre} vence actualmente el {formatDate(trialDialog?.trialFin ?? null)}.
+          </DialogContentText>
+          <TextField
+            fullWidth
+            label="Días de prueba"
+            type="number"
+            value={trialDays}
+            onChange={(e) => setTrialDays(Number(e.target.value))}
+            inputProps={{ min: 1, max: 365, step: 1 }}
+            sx={{ mb: 2 }}
+          />
+          <Select
+            fullWidth
+            value={trialMode}
+            onChange={(e) => setTrialMode(e.target.value as 'extend' | 'set')}
+          >
+            <MenuItem value="extend">Extender desde vencimiento actual</MenuItem>
+            <MenuItem value="set">Recalcular desde hoy</MenuItem>
+          </Select>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTrialDialog(null)} disabled={trialLoading}>Cancelar</Button>
+          <Button
+            onClick={handleUpdateTrial}
+            variant="contained"
+            disabled={trialLoading}
+            startIcon={trialLoading ? <CircularProgress size={16} color="inherit" /> : <CalendarPlus size={16} />}
+          >
+            Guardar
+          </Button>
         </DialogActions>
       </Dialog>
 

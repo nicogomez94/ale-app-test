@@ -194,7 +194,7 @@ export const LoginPage: React.FC = () => {
               {isRegister ? 'Crear Cuenta' : 'Bienvenido'}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-              {isRegister ? 'Registrate para comenzar tu prueba gratuita de 10 días.' : 'Ingresa tus credenciales para acceder a tu panel.'}
+              {isRegister ? 'Registrate para comenzar tu prueba gratuita de 30 días.' : 'Ingresa tus credenciales para acceder a tu panel.'}
             </Typography>
 
             {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}

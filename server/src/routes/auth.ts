@@ -7,6 +7,8 @@ import { sendEmail } from "../lib/email.js";
 
 export const authRouter = Router();
 
+const DEFAULT_TRIAL_DAYS = 30;
+
 const authUserSelect = {
   id: true,
   email: true,
@@ -94,7 +96,7 @@ authRouter.post("/register", async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     const now = new Date();
-    const trialFin = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000); // 10 days trial
+    const trialFin = new Date(now.getTime() + DEFAULT_TRIAL_DAYS * 24 * 60 * 60 * 1000);
 
     const referralCode = `PAS-${nombre.split(" ")[0].toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
     const referrer = await getReferrer(referredByCode, email);
@@ -430,7 +432,7 @@ authRouter.post("/google", async (req: Request, res: Response) => {
     if (!user) {
       // Create new user with a random secure password (they'll use Google to login)
       const randomPassword = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12);
-      const trialFin = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
+      const trialFin = new Date(now.getTime() + DEFAULT_TRIAL_DAYS * 24 * 60 * 60 * 1000);
       const displayName = nombre || email.split("@")[0];
       const referralCode = `PAS-${displayName.split(" ")[0].toUpperCase().replace(/[^A-Z0-9]/g, "")}-${Date.now().toString(36).toUpperCase()}`;
       const referrer = await getReferrer(referredByCode, email);

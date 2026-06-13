@@ -97,7 +97,10 @@ type LifePolicyEditValues = {
   fondoAcumulado: string;
   email: string;
   telefono: string;
+  direccion: string;
   cp: string;
+  localidad: string;
+  provincia: string;
 };
 
 const StatCard = ({ title, value, icon, color, subtitle, onClick, active }: any) => (
@@ -599,7 +602,7 @@ export const Dashboard: React.FC = () => {
 
   const statCards = [
     { title: 'Polizas Activas', value: stats.polizasActivas, icon: <FileCheck size={20} />, color: 'primary', onClick: () => applyFilter(filter === 'active' ? null : 'active'), active: filter === 'active' },
-    { title: 'Vencen en 7 dias', value: stats.vencen7Dias, icon: <Clock size={20} />, color: 'warning', subtitle: 'Requieren atencion', onClick: () => applyFilter(filter === 'expiring' ? null : 'expiring'), active: filter === 'expiring' },
+    { title: 'Vencen en 30 dias', value: stats.vencen7Dias, icon: <Clock size={20} />, color: 'warning', subtitle: 'Requieren atencion', onClick: () => applyFilter(filter === 'expiring' ? null : 'expiring'), active: filter === 'expiring' },
     { title: 'Polizas Vencidas', value: stats.polizasVencidas, icon: <AlertCircle size={20} />, color: 'error', subtitle: 'Accion inmediata', onClick: () => applyFilter(filter === 'expired' ? null : 'expired'), active: filter === 'expired' },
     { title: 'Clientes Totales', value: stats.clientesTotales, icon: <Users size={20} />, color: 'info', subtitle: 'Cartera activa' },
     { title: 'Vida y Retiro', value: lifePolicies.length, icon: <HeartPulse size={20} />, color: 'secondary', subtitle: 'Total de pólizas', onClick: () => navigate('/vida-y-retiro') },
@@ -661,7 +664,10 @@ export const Dashboard: React.FC = () => {
     fondoAcumulado: policy.fondoAcumulado != null ? String(policy.fondoAcumulado) : '',
     email: policy.email || '',
     telefono: policy.telefono || '',
+    direccion: policy.direccion || '',
     cp: policy.cp || '',
+    localidad: policy.localidad || '',
+    provincia: policy.provincia || '',
   });
 
   const handleLifeEdit = (policy: any) => {
@@ -697,7 +703,10 @@ export const Dashboard: React.FC = () => {
         fondoAcumulado: parseOptionalNumber(lifeEditValues.fondoAcumulado),
         email: lifeEditValues.email.trim() || undefined,
         telefono: lifeEditValues.telefono.trim() || undefined,
+        direccion: lifeEditValues.direccion.trim() || undefined,
         cp: lifeEditValues.cp.trim() || undefined,
+        localidad: lifeEditValues.localidad.trim() || undefined,
+        provincia: lifeEditValues.provincia.trim() || undefined,
       });
       setEditingLifePolicy(null);
       setLifeEditValues(null);
@@ -717,7 +726,9 @@ export const Dashboard: React.FC = () => {
         fechaPago: !policy.pagada ? new Date().toISOString().split('T')[0] : '',
       });
       await loadDashboardData(false);
-      if (result.renewalCreated) {
+      if (result.nextQuotaCreated) {
+        setSnack({ open: true, severity: 'success', message: `Próxima cuota generada (${result.nextQuotaPolicies?.[0]?.cuota || 'siguiente'}).` });
+      } else if (result.renewalCreated) {
         setSnack({ open: true, severity: 'success', message: `Renovacion generada con ${result.renewalPolicies.length} cuota(s).` });
       }
     } catch (error: any) {
@@ -732,7 +743,9 @@ export const Dashboard: React.FC = () => {
         fechaPago: date,
       });
       await loadDashboardData(false);
-      if (result.renewalCreated) {
+      if (result.nextQuotaCreated) {
+        setSnack({ open: true, severity: 'success', message: `Próxima cuota generada (${result.nextQuotaPolicies?.[0]?.cuota || 'siguiente'}).` });
+      } else if (result.renewalCreated) {
         setSnack({ open: true, severity: 'success', message: `Renovacion generada con ${result.renewalPolicies.length} cuota(s).` });
       }
     } catch (error: any) {
@@ -810,7 +823,7 @@ export const Dashboard: React.FC = () => {
               </Button>
             )}
           >
-            {filter === 'expiring' && 'Mostrando solo polizas que vencen en los proximos 7 dias.'}
+            {filter === 'expiring' && 'Mostrando solo polizas que vencen en los proximos 30 dias.'}
             {filter === 'expired' && 'Mostrando solo polizas vencidas.'}
             {filter === 'active' && 'Mostrando solo polizas activas.'}
           </Alert>
@@ -1055,7 +1068,16 @@ export const Dashboard: React.FC = () => {
                   <TextField fullWidth label="Teléfono" value={lifeEditValues.telefono} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, telefono: event.target.value } : prev)} />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth label="Dirección" value={lifeEditValues.direccion} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, direccion: event.target.value } : prev)} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField fullWidth label="Código Postal" value={lifeEditValues.cp} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, cp: event.target.value } : prev)} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth label="Localidad" value={lifeEditValues.localidad} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, localidad: event.target.value } : prev)} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth label="Provincia" value={lifeEditValues.provincia} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, provincia: event.target.value } : prev)} />
                 </Grid>
               </Grid>
             </DialogContent>

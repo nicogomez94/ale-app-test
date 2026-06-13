@@ -51,10 +51,6 @@ dashboardRouter.get("/stats", async (req: AuthRequest, res: Response) => {
       prisma.company.count({ where: { userId } }),
     ]);
 
-    // Policies expiring in 7 days
-    const now = new Date();
-    const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-
     const expiringCount = await prisma.policy.count({
       where: {
         userId,
@@ -110,7 +106,7 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
 
       let estadoLabel = "Activa";
       if (daysLeft < 0) estadoLabel = "Vencida";
-      else if (daysLeft <= 7) estadoLabel = "Vence pronto";
+      else if (daysLeft <= 30) estadoLabel = "Vence pronto";
 
       return {
         id: p.id,

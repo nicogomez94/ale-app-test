@@ -3,7 +3,7 @@ import {
   Box, Typography, Card, CardContent, Button, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Paper,
   TextField, InputAdornment, Dialog, DialogTitle, DialogContent,
-  DialogActions, Grid, Menu, MenuItem, CircularProgress
+  DialogActions, Grid, Menu, MenuItem, CircularProgress, Chip
 } from '@mui/material';
 import { Plus, Search, Download, Building2, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -34,7 +34,7 @@ export const ClientsPage: React.FC = () => {
   const handleOpen = (client?: any) => {
     setEditingClient(client || null);
     formRef.current = client
-      ? { nombre: client.nombre, dni: client.dni, telefono: client.telefono, email: client.email, direccion: client.direccion || '', cp: client.cp || '' }
+      ? { nombre: client.nombre, dni: client.dni, telefono: client.telefono, email: client.email, direccion: client.direccion || '', altura: client.altura || '', cp: client.cp || '', localidad: client.localidad || '', provincia: client.provincia || '' }
       : DEBUG ? { ...debugData.client } : {};
     setOpen(true);
   };
@@ -115,38 +115,62 @@ export const ClientsPage: React.FC = () => {
       </Card>
 
       <TableContainer component={Paper} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto' }}>
-        <Table sx={{ minWidth: 760 }}>
+        <Table sx={{ minWidth: 1080 }}>
           <TableHead sx={{ bgcolor: 'primary.main' }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 700 }}>Nombre</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 700 }}>DNI</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 700 }}>DNI / CUIT</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 700 }}>Teléfono</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 700 }}>Email</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 700 }}>C.P.</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 700 }}>Localidad</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 700 }}>Provincia</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 700 }}>Pólizas activas</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 700, textAlign: 'right', minWidth: 220 }}>Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {clients.map((client) => (
-              <TableRow key={client.id} hover>
-                <TableCell sx={{ fontWeight: 600 }}>{client.nombre}</TableCell>
-                <TableCell>{client.dni}</TableCell>
-                <TableCell>{client.telefono}</TableCell>
-                <TableCell>{client.email}</TableCell>
-                <TableCell>{client.cp}</TableCell>
-                <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
-                  <ListingActions
-                    onWhatsApp={() => handleWhatsApp(client.telefono)}
-                    onEmail={() => handleEmailClick(client.email)}
-                    onEdit={() => handleOpen(client)}
-                    onDelete={() => handleDelete(client.id)}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
+            {clients.map((client) => {
+              const activePolicies = [
+                ...(client.polizasActivas || []).map((policy: any) => `${policy.numeroPoliza} · ${policy.aseguradora}`),
+                ...(client.vidaRetiroActivas || []).map((policy: any) => `${policy.tipo === 'VIDA' ? 'Vida' : 'Retiro'} · ${policy.aseguradora}`),
+              ];
+              return (
+                <TableRow key={client.id} hover>
+                  <TableCell sx={{ fontWeight: 600 }}>
+                    {client.nombre}
+                    {client.direccion && (
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {[client.direccion, client.altura, client.cp].filter(Boolean).join(' ')}
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>{client.dni}</TableCell>
+                  <TableCell>{client.telefono}</TableCell>
+                  <TableCell>{client.email}</TableCell>
+                  <TableCell>{client.localidad || '-'}</TableCell>
+                  <TableCell>{client.provincia || '-'}</TableCell>
+                  <TableCell sx={{ minWidth: 240 }}>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {activePolicies.length > 0 ? activePolicies.slice(0, 3).map((label, index) => (
+                        <Chip key={`${label}-${index}`} label={label} size="small" variant="outlined" />
+                      )) : <Typography variant="body2" color="text.secondary">Sin pólizas activas</Typography>}
+                      {activePolicies.length > 3 && <Chip label={`+${activePolicies.length - 3}`} size="small" />}
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
+                    <ListingActions
+                      onWhatsApp={() => handleWhatsApp(client.telefono)}
+                      onEmail={() => handleEmailClick(client.email)}
+                      onEdit={() => handleOpen(client)}
+                      onDelete={() => handleDelete(client.id)}
+                    />
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {clients.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} sx={{ textAlign: 'center', py: 5, color: 'text.secondary', fontWeight: 600 }}>
+                <TableCell colSpan={8} sx={{ textAlign: 'center', py: 5, color: 'text.secondary', fontWeight: 600 }}>
                   No hay datos
                 </TableCell>
               </TableRow>
@@ -163,11 +187,14 @@ export const ClientsPage: React.FC = () => {
             return (
               <Grid container spacing={2} sx={{ mt: 1 }}>
                 <Grid size={{ xs: 12 }}><TextField key={open + 'nombre'} fullWidth label="Nombre Completo" defaultValue={d.nombre} onChange={(e) => formRef.current.nombre = e.target.value} /></Grid>
-                <Grid size={{ xs: 6 }}><TextField key={open + 'dni'} fullWidth label="DNI" defaultValue={d.dni} onChange={(e) => formRef.current.dni = e.target.value} /></Grid>
+                <Grid size={{ xs: 6 }}><TextField key={open + 'dni'} fullWidth label="DNI / CUIT" defaultValue={d.dni} onChange={(e) => formRef.current.dni = e.target.value} /></Grid>
                 <Grid size={{ xs: 6 }}><TextField key={open + 'tel'} fullWidth label="Teléfono" defaultValue={d.telefono} onChange={(e) => formRef.current.telefono = e.target.value} /></Grid>
                 <Grid size={{ xs: 12 }}><TextField key={open + 'email'} fullWidth label="Email" defaultValue={d.email} onChange={(e) => formRef.current.email = e.target.value} /></Grid>
                 <Grid size={{ xs: 8 }}><TextField key={open + 'dir'} fullWidth label="Dirección" defaultValue={d.direccion} onChange={(e) => formRef.current.direccion = e.target.value} /></Grid>
+                <Grid size={{ xs: 4 }}><TextField key={open + 'altura'} fullWidth label="N°" defaultValue={d.altura} onChange={(e) => formRef.current.altura = e.target.value} /></Grid>
                 <Grid size={{ xs: 4 }}><TextField key={open + 'cp'} fullWidth label="Código Postal" defaultValue={d.cp} onChange={(e) => formRef.current.cp = e.target.value} /></Grid>
+                <Grid size={{ xs: 4 }}><TextField key={open + 'loc'} fullWidth label="Localidad" defaultValue={d.localidad} onChange={(e) => formRef.current.localidad = e.target.value} /></Grid>
+                <Grid size={{ xs: 4 }}><TextField key={open + 'prov'} fullWidth label="Provincia" defaultValue={d.provincia} onChange={(e) => formRef.current.provincia = e.target.value} /></Grid>
               </Grid>
             );
           })()}

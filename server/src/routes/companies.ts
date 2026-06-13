@@ -27,9 +27,28 @@ companiesRouter.get("/", async (req: AuthRequest, res: Response) => {
     const companies = await prisma.company.findMany({
       where,
       orderBy: { createdAt: "desc" },
+      include: {
+        polizas: {
+          where: { estado: { in: ["ACTIVA", "VENCE_PRONTO"] } },
+          orderBy: { fechaVencimiento: "asc" },
+          select: {
+            id: true,
+            aseguradora: true,
+            rubro: true,
+            numeroPoliza: true,
+            fechaVencimiento: true,
+            estado: true,
+            cuotaActual: true,
+            cuotaTotal: true,
+          },
+        },
+      },
     });
 
-    res.json(companies);
+    res.json(companies.map((company) => ({
+      ...company,
+      polizasActivas: company.polizas,
+    })));
   } catch (error) {
     console.error("List companies error:", error);
     res.status(500).json({ error: "Error interno del servidor" });
@@ -39,7 +58,7 @@ companiesRouter.get("/", async (req: AuthRequest, res: Response) => {
 // Create company
 companiesRouter.post("/", async (req: AuthRequest, res: Response) => {
   try {
-    const { razonSocial, cuit, ramo, empleados, vehiculos, aseguradora, email, telefono, direccion, cp, tipo } = req.body;
+    const { razonSocial, cuit, ramo, empleados, vehiculos, aseguradora, email, telefono, direccion, altura, cp, provincia, localidad, tipo } = req.body;
 
     if (!razonSocial || !cuit || !aseguradora || !email || !telefono || !tipo) {
       res.status(400).json({ error: "Razón social, CUIT, aseguradora, email, teléfono y tipo son requeridos" });
@@ -64,7 +83,10 @@ companiesRouter.post("/", async (req: AuthRequest, res: Response) => {
         email,
         telefono,
         direccion,
+        altura,
         cp,
+        provincia,
+        localidad,
         tipo,
       },
     });
@@ -80,7 +102,7 @@ companiesRouter.post("/", async (req: AuthRequest, res: Response) => {
 companiesRouter.put("/:id", async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { razonSocial, cuit, ramo, empleados, vehiculos, aseguradora, email, telefono, direccion, cp, tipo } = req.body;
+    const { razonSocial, cuit, ramo, empleados, vehiculos, aseguradora, email, telefono, direccion, altura, cp, provincia, localidad, tipo } = req.body;
 
     const existing = await prisma.company.findFirst({
       where: { id, userId: req.userId },
@@ -103,7 +125,10 @@ companiesRouter.put("/:id", async (req: AuthRequest, res: Response) => {
         email,
         telefono,
         direccion,
+        altura,
         cp,
+        provincia,
+        localidad,
         tipo,
       },
     });
@@ -157,7 +182,10 @@ companiesRouter.get("/export", async (req: AuthRequest, res: Response) => {
         email: true,
         telefono: true,
         direccion: true,
+        altura: true,
         cp: true,
+        localidad: true,
+        provincia: true,
         tipo: true,
       },
     });

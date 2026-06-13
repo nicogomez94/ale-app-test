@@ -136,7 +136,7 @@ export const CompaniesPage: React.FC = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
       ) : (
         <TableContainer component={Paper} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto' }}>
-          <Table sx={{ minWidth: 980 }}>
+          <Table sx={{ minWidth: 1240 }}>
             <TableHead sx={{ bgcolor: 'secondary.main' }}>
               <TableRow>
                 <TableCell sx={{ color: 'white', fontWeight: 700 }}>Razón Social</TableCell>
@@ -147,7 +147,9 @@ export const CompaniesPage: React.FC = () => {
                 </TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 700 }}>Aseguradora</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 700 }}>Email</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 700 }}>C.P.</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 700 }}>Localidad</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 700 }}>Provincia</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 700 }}>Pólizas activas</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 700, textAlign: 'right', minWidth: 220 }}>Acciones</TableCell>
               </TableRow>
             </TableHead>
@@ -165,7 +167,16 @@ export const CompaniesPage: React.FC = () => {
                   </TableCell>
                   <TableCell>{company.aseguradora}</TableCell>
                   <TableCell>{company.email}</TableCell>
-                  <TableCell>{company.cp}</TableCell>
+                  <TableCell>{company.localidad || '-'}</TableCell>
+                  <TableCell>{company.provincia || '-'}</TableCell>
+                  <TableCell sx={{ minWidth: 220 }}>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {(company.polizasActivas || []).length > 0 ? company.polizasActivas.slice(0, 3).map((policy: any) => (
+                        <Chip key={policy.id} label={`${policy.numeroPoliza} · ${policy.aseguradora}`} size="small" variant="outlined" />
+                      )) : <Typography variant="body2" color="text.secondary">Sin pólizas activas</Typography>}
+                      {(company.polizasActivas || []).length > 3 && <Chip label={`+${company.polizasActivas.length - 3}`} size="small" />}
+                    </Box>
+                  </TableCell>
                   <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
                     <ListingActions
                       onWhatsApp={() => handleWhatsApp(company.telefono)}
@@ -178,7 +189,7 @@ export const CompaniesPage: React.FC = () => {
               ))}
               {companies.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} sx={{ textAlign: 'center', py: 5, color: 'text.secondary', fontWeight: 600 }}>
+                  <TableCell colSpan={10} sx={{ textAlign: 'center', py: 5, color: 'text.secondary', fontWeight: 600 }}>
                     No hay datos
                   </TableCell>
                 </TableRow>
@@ -209,8 +220,11 @@ export const CompaniesPage: React.FC = () => {
                 <Grid size={{ xs: 12, md: 4 }}><TextField key={open + 'ramo'} fullWidth label="Rubro / Actividad" defaultValue={d.ramo} onChange={(e) => formRef.current.ramo = e.target.value} /></Grid>
                 <Grid size={{ xs: 12, md: 6 }}><TextField key={open + 'email'} fullWidth label="Email" defaultValue={d.email} onChange={(e) => formRef.current.email = e.target.value} /></Grid>
                 <Grid size={{ xs: 12, md: 6 }}><TextField key={open + 'tel'} fullWidth label="Teléfono" defaultValue={d.telefono} onChange={(e) => formRef.current.telefono = e.target.value} /></Grid>
-                <Grid size={{ xs: 12, md: 9 }}><TextField key={open + 'dir'} fullWidth label="Dirección" defaultValue={d.direccion} onChange={(e) => formRef.current.direccion = e.target.value} /></Grid>
-                <Grid size={{ xs: 12, md: 3 }}><TextField key={open + 'cp'} fullWidth label="Código Postal" defaultValue={d.cp} onChange={(e) => formRef.current.cp = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 8 }}><TextField key={open + 'dir'} fullWidth label="Dirección" defaultValue={d.direccion} onChange={(e) => formRef.current.direccion = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 4 }}><TextField key={open + 'altura'} fullWidth label="N°" defaultValue={d.altura} onChange={(e) => formRef.current.altura = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 4 }}><TextField key={open + 'cp'} fullWidth label="Código Postal" defaultValue={d.cp} onChange={(e) => formRef.current.cp = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 4 }}><TextField key={open + 'loc'} fullWidth label="Localidad" defaultValue={d.localidad} onChange={(e) => formRef.current.localidad = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 4 }}><TextField key={open + 'prov'} fullWidth label="Provincia" defaultValue={d.provincia} onChange={(e) => formRef.current.provincia = e.target.value} /></Grid>
               </Grid>
             );
           })()}

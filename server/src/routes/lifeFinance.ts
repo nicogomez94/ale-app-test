@@ -36,7 +36,7 @@ lifeFinanceRouter.get("/", async (req: AuthRequest, res: Response) => {
 // Create life policy
 lifeFinanceRouter.post("/", async (req: AuthRequest, res: Response) => {
   try {
-    const { cliente, cuit, aseguradora, tipo, sumaAsegurada, prima, aporteMensual, fondoAcumulado, email, telefono, cp } = req.body;
+    const { cliente, cuit, aseguradora, tipo, sumaAsegurada, prima, aporteMensual, fondoAcumulado, email, telefono, direccion, cp, localidad, provincia } = req.body;
 
     if (!cliente || !cuit || !aseguradora || !tipo) {
       res.status(400).json({ error: "Cliente, CUIT, aseguradora y tipo son requeridos" });
@@ -56,7 +56,10 @@ lifeFinanceRouter.post("/", async (req: AuthRequest, res: Response) => {
         fondoAcumulado: fondoAcumulado ? parseFloat(fondoAcumulado) : null,
         email,
         telefono,
+        direccion,
         cp,
+        localidad,
+        provincia,
       },
     });
 
@@ -81,7 +84,7 @@ lifeFinanceRouter.put("/:id", async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const { cliente, cuit, aseguradora, tipo, sumaAsegurada, prima, aporteMensual, fondoAcumulado, email, telefono, cp } = req.body;
+    const { cliente, cuit, aseguradora, tipo, sumaAsegurada, prima, aporteMensual, fondoAcumulado, email, telefono, direccion, cp, localidad, provincia } = req.body;
 
     const policy = await prisma.lifePolicy.update({
       where: { id },
@@ -96,7 +99,10 @@ lifeFinanceRouter.put("/:id", async (req: AuthRequest, res: Response) => {
         fondoAcumulado: fondoAcumulado != null ? parseFloat(fondoAcumulado) : undefined,
         email,
         telefono,
+        direccion,
         cp,
+        localidad,
+        provincia,
       },
     });
 
@@ -150,7 +156,10 @@ lifeFinanceRouter.get("/export", async (req: AuthRequest, res: Response) => {
         fondoAcumulado: true,
         email: true,
         telefono: true,
+        direccion: true,
         cp: true,
+        localidad: true,
+        provincia: true,
       },
     });
 

@@ -23,9 +23,69 @@ clientsRouter.get("/", async (req: AuthRequest, res: Response) => {
     const clients = await prisma.client.findMany({
       where,
       orderBy: { createdAt: "desc" },
+      include: {
+        polizas: {
+          where: { estado: { in: ["ACTIVA", "VENCE_PRONTO"] } },
+          orderBy: { fechaVencimiento: "asc" },
+          select: {
+            id: true,
+            aseguradora: true,
+            rubro: true,
+            numeroPoliza: true,
+            fechaVencimiento: true,
+            estado: true,
+            cuotaActual: true,
+            cuotaTotal: true,
+          },
+        },
+      },
     });
 
-    res.json(clients);
+    const dnis = clients.map((client) => client.dni).filter(Boolean);
+    const lifeOr: any[] = [];
+    if (dnis.length) lifeOr.push({ cuit: { in: dnis } });
+    clients.forEach((client) => {
+      if (client.nombre) {
+        lifeOr.push({ cliente: { equals: client.nombre, mode: "insensitive" } });
+      }
+    });
+
+    const lifePolicies = lifeOr.length
+      ? await prisma.lifePolicy.findMany({
+          where: { userId: req.userId, OR: lifeOr },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            cliente: true,
+            cuit: true,
+            aseguradora: true,
+            tipo: true,
+            sumaAsegurada: true,
+            prima: true,
+            aporteMensual: true,
+            fondoAcumulado: true,
+          },
+        })
+      : [];
+
+    const lifeByCuit = new Map<string, typeof lifePolicies>();
+    const lifeByName = new Map<string, typeof lifePolicies>();
+    lifePolicies.forEach((policy) => {
+      if (policy.cuit) lifeByCuit.set(policy.cuit, [...(lifeByCuit.get(policy.cuit) || []), policy]);
+      if (policy.cliente) {
+        const key = policy.cliente.trim().toLowerCase();
+        lifeByName.set(key, [...(lifeByName.get(key) || []), policy]);
+      }
+    });
+
+    res.json(clients.map((client) => ({
+      ...client,
+      polizasActivas: client.polizas,
+      vidaRetiroActivas: [
+        ...(lifeByCuit.get(client.dni) || []),
+        ...(lifeByName.get(client.nombre.trim().toLowerCase()) || []),
+      ].filter((policy, index, all) => all.findIndex((item) => item.id === policy.id) === index),
+    })));
   } catch (error) {
     console.error("List clients error:", error);
     res.status(500).json({ error: "Error interno del servidor" });
@@ -35,7 +95,7 @@ clientsRouter.get("/", async (req: AuthRequest, res: Response) => {
 // Create client
 clientsRouter.post("/", async (req: AuthRequest, res: Response) => {
   try {
-    const { nombre, dni, telefono, email, direccion, cp } = req.body;
+    const { nombre, dni, telefono, email, direccion, altura, cp, provincia, localidad } = req.body;
 
     if (!nombre || !dni || !telefono || !email) {
       res.status(400).json({ error: "Nombre, DNI, teléfono y email son requeridos" });
@@ -56,7 +116,10 @@ clientsRouter.post("/", async (req: AuthRequest, res: Response) => {
         telefono,
         email,
         direccion,
+        altura,
         cp,
+        provincia,
+        localidad,
       },
     });
 
@@ -71,7 +134,7 @@ clientsRouter.post("/", async (req: AuthRequest, res: Response) => {
 clientsRouter.put("/:id", async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { nombre, dni, telefono, email, direccion, cp } = req.body;
+    const { nombre, dni, telefono, email, direccion, altura, cp, provincia, localidad } = req.body;
 
     const existing = await prisma.client.findFirst({
       where: { id, userId: req.userId },
@@ -84,7 +147,7 @@ clientsRouter.put("/:id", async (req: AuthRequest, res: Response) => {
 
     const client = await prisma.client.update({
       where: { id },
-      data: { nombre, dni, telefono, email, direccion, cp },
+      data: { nombre, dni, telefono, email, direccion, altura, cp, provincia, localidad },
     });
 
     res.json(client);
@@ -128,7 +191,10 @@ clientsRouter.get("/export", async (req: AuthRequest, res: Response) => {
         telefono: true,
         email: true,
         direccion: true,
+        altura: true,
         cp: true,
+        localidad: true,
+        provincia: true,
       },
     });
 

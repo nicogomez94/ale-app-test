@@ -5,7 +5,7 @@ import {
   TextField, InputAdornment, Dialog, DialogTitle, DialogContent,
   DialogActions, Chip, CircularProgress, Select, MenuItem,
   FormControl, InputLabel, Divider, Alert, Snackbar,
-  ToggleButtonGroup, ToggleButton, FormControlLabel, Checkbox
+  ToggleButtonGroup, ToggleButton
 } from '@mui/material';
 import Grid from '@mui/material/GridLegacy';
 import {
@@ -89,12 +89,26 @@ const buildCotizacionPayload = (form: typeof EMPTY_FORM) => {
     anio: isAutoMoto ? form.anio : null,
     patente: isAutoMoto ? form.patente : null,
     tipoUso: isAutoMoto ? form.tipoUso : null,
-    tieneGnc: isAutoMoto ? form.tieneGnc : null,
+    tieneGnc: form.tipo === 'AUTO' ? form.tieneGnc : null,
     tieneGps: isAutoMoto ? form.tieneGps : null,
     tipoVivienda: isHogar ? form.tipoVivienda : null,
     superficieCubierta: isHogar ? form.superficieCubierta : null,
     descripcionRiesgo: isOtros ? form.descripcionRiesgo : null,
   };
+};
+
+const formatDateMask = (value: string) => {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+};
+
+const displayDateValue = (value?: string) => {
+  if (!value) return '';
+  const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+  return formatDateMask(value);
 };
 
 const removeArgentinaMobilePrefix = (nationalNumber: string) => {
@@ -205,7 +219,7 @@ export const CotizacionesPage: React.FC = () => {
       nombre: c.nombre,
       apellido: c.apellido ?? '',
       cuitCuil: c.cuitCuil ?? '',
-      fechaNacimiento: c.fechaNacimiento ?? '',
+      fechaNacimiento: displayDateValue(c.fechaNacimiento),
       email: c.email ?? '',
       celular: c.celular ?? '',
       calle: c.calle ?? '',
@@ -456,7 +470,7 @@ export const CotizacionesPage: React.FC = () => {
               <TextField fullWidth label="CUIT/CUIL" size="small" value={form.cuitCuil} onChange={e => setF('cuitCuil', e.target.value)} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="Fecha de Nacimiento" type="date" size="small" value={form.fechaNacimiento} onChange={e => setF('fechaNacimiento', e.target.value)} InputLabelProps={{ shrink: true }} />
+              <TextField fullWidth label="Fecha de Nacimiento" placeholder="dd/mm/aaaa" size="small" value={form.fechaNacimiento} onChange={e => setF('fechaNacimiento', formatDateMask(e.target.value))} inputProps={{ inputMode: 'numeric', maxLength: 10 }} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="Email" size="small" type="email" value={form.email} onChange={e => setF('email', e.target.value)} />
@@ -510,17 +524,19 @@ export const CotizacionesPage: React.FC = () => {
                     </Select>
                   </FormControl>
                 </Grid>
+                {form.tipo === 'AUTO' && (
+                  <Grid item xs={12} sm={4}>
+                    <TextField select fullWidth size="small" label="GNC" value={form.tieneGnc ? 'SI' : 'NO'} onChange={e => setF('tieneGnc', e.target.value === 'SI')}>
+                      <MenuItem value="SI">Sí</MenuItem>
+                      <MenuItem value="NO">No</MenuItem>
+                    </TextField>
+                  </Grid>
+                )}
                 <Grid item xs={12} sm={4}>
-                  <FormControlLabel
-                    control={<Checkbox checked={form.tieneGnc} onChange={e => setF('tieneGnc', e.target.checked)} />}
-                    label="Tiene GNC"
-                  />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <FormControlLabel
-                    control={<Checkbox checked={form.tieneGps} onChange={e => setF('tieneGps', e.target.checked)} />}
-                    label="Tiene GPS/Rastreador"
-                  />
+                  <TextField select fullWidth size="small" label="GPS / Rastreador" value={form.tieneGps ? 'SI' : 'NO'} onChange={e => setF('tieneGps', e.target.value === 'SI')}>
+                    <MenuItem value="SI">Sí</MenuItem>
+                    <MenuItem value="NO">No</MenuItem>
+                  </TextField>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <FormControl fullWidth size="small">

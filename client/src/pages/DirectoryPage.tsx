@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Autocomplete,
@@ -14,6 +14,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   FormControlLabel,
   Grid,
   IconButton,
@@ -36,17 +37,19 @@ import {
 import {
   ChevronDown,
   ChevronUp,
-  Download,
   Edit,
   ExternalLink,
   Eye,
   EyeOff,
-  KeyRound,
+  Globe,
   Mail,
+  MapPin,
   Phone,
   Plus,
   Search,
+  ShieldCheck,
   Trash2,
+  Users as UsersIcon,
 } from 'lucide-react';
 import { api } from '../api';
 
@@ -76,9 +79,6 @@ const emptyBroker = {
   email: '',
   insurerIds: [] as string[],
 };
-
-const formatMoney = (value: number, currency: string) =>
-  `${currency} ${Number(value || 0).toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
 
 export const DirectoryPage: React.FC = () => {
   const [tab, setTab] = useState(0);
@@ -118,13 +118,6 @@ export const DirectoryPage: React.FC = () => {
   };
 
   useEffect(() => { loadData(); }, [tab, searchTerm]);
-
-  const stats = useMemo(() => ({
-    insurers: insurers.length,
-    brokers: brokers.length,
-    ars: insurers.reduce((sum, insurer) => sum + Number(insurer.totalFacturadoARS || 0), 0),
-    usd: insurers.reduce((sum, insurer) => sum + Number(insurer.totalFacturadoUSD || 0), 0),
-  }), [insurers, brokers]);
 
   const openInsurerDialog = (insurer?: any) => {
     setEditingInsurer(insurer || null);
@@ -238,54 +231,24 @@ export const DirectoryPage: React.FC = () => {
     }
   };
 
-  const exportCurrent = async () => {
-    try {
-      const blob = tab === 0 ? await api.directory.insurers.export() : await api.directory.brokers.export();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = tab === 0 ? 'Aseguradoras_PAS_Alert.xlsx' : 'Brokers_PAS_Alert.xlsx';
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (error: any) {
-      setSnack({ open: true, message: error.message || 'No se pudo exportar.', severity: 'error' });
-    }
-  };
-
   return (
     <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
       <Box sx={{ mb: 4, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', gap: 2 }}>
         <Box sx={{ minWidth: 0 }}>
-          <Typography variant="h4" sx={{ fontWeight: 800, overflowWrap: 'anywhere' }}>Directorio</Typography>
-          <Typography variant="body1" color="text.secondary">Aseguradoras, brokers, credenciales y facturacion asociada.</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 800, color: 'primary.main', overflowWrap: 'anywhere' }}>Compañias y Brokers</Typography>
+          <Typography variant="body1" color="text.secondary">Registro de compañías, brokers y comisiones.</Typography>
         </Box>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(2, max-content)' }, gap: 1.5 }}>
-          <Button variant="outlined" startIcon={<Download size={20} />} onClick={exportCurrent}>Exportar Excel</Button>
-          <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => tab === 0 ? openInsurerDialog() : openBrokerDialog()}>
-            {tab === 0 ? 'Nueva Aseguradora' : 'Nuevo Broker'}
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button variant="contained" color={tab === 0 ? 'primary' : 'secondary'} startIcon={<Plus size={20} />} onClick={() => tab === 0 ? openInsurerDialog() : openBrokerDialog()} sx={{ borderRadius: 3, fontWeight: 700 }}>
+            {tab === 0 ? 'Nueva Aseguradora' : 'Nuevo Broker / Org.'}
           </Button>
         </Box>
       </Box>
 
-      <Grid container spacing={2.5} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, md: 3 }}>
-          <Card><CardContent><Typography variant="overline" color="text.secondary">Aseguradoras</Typography><Typography variant="h4" sx={{ fontWeight: 800 }}>{stats.insurers}</Typography></CardContent></Card>
-        </Grid>
-        <Grid size={{ xs: 12, md: 3 }}>
-          <Card><CardContent><Typography variant="overline" color="text.secondary">Brokers</Typography><Typography variant="h4" sx={{ fontWeight: 800 }}>{stats.brokers}</Typography></CardContent></Card>
-        </Grid>
-        <Grid size={{ xs: 12, md: 3 }}>
-          <Card><CardContent><Typography variant="overline" color="text.secondary">Facturado ARS</Typography><Typography variant="h5" sx={{ fontWeight: 800 }}>{formatMoney(stats.ars, 'ARS')}</Typography></CardContent></Card>
-        </Grid>
-        <Grid size={{ xs: 12, md: 3 }}>
-          <Card><CardContent><Typography variant="overline" color="text.secondary">Facturado USD</Typography><Typography variant="h5" sx={{ fontWeight: 800 }}>{formatMoney(stats.usd, 'USD')}</Typography></CardContent></Card>
-        </Grid>
-      </Grid>
-
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 4 }}>
         <Tabs value={tab} onChange={(_, value) => { setTab(value); setSearchTerm(''); }} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile>
-          <Tab label="Aseguradoras" />
-          <Tab label="Brokers" />
+          <Tab label="Aseguradoras" sx={{ fontWeight: 700 }} />
+          <Tab label="Brokers / Organizadores" sx={{ fontWeight: 700 }} />
         </Tabs>
       </Box>
 
@@ -304,16 +267,16 @@ export const DirectoryPage: React.FC = () => {
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
       ) : tab === 0 ? (
-        <TableContainer component={Paper} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto' }}>
+        <TableContainer component={Paper} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
           <Table sx={{ minWidth: 1080 }}>
-            <TableHead sx={{ bgcolor: 'secondary.main' }}>
+            <TableHead sx={{ bgcolor: 'primary.main' }}>
               <TableRow>
-                <TableCell sx={{ color: 'white', fontWeight: 700 }} />
-                <TableCell sx={{ color: 'white', fontWeight: 700 }}>Aseguradora</TableCell>
+                <TableCell sx={{ width: 50 }} />
+                <TableCell sx={{ color: 'white', fontWeight: 700 }}>Razón Social</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 700 }}>CUIT</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 700 }}>Brokers</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 700 }}>Facturado</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 700 }}>Portal</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 700 }}>Condición IVA</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 700 }}>Contacto</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 700 }}>Web</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 700, textAlign: 'right' }}>Acciones</TableCell>
               </TableRow>
             </TableHead>
@@ -326,22 +289,49 @@ export const DirectoryPage: React.FC = () => {
                         {expandedInsurer === insurer.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                       </IconButton>
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>{insurer.razonSocial}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 40, height: 40, bgcolor: 'primary.light', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'primary.main' }}>
+                          <ShieldCheck size={24} />
+                        </Box>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>{insurer.razonSocial}</Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <MapPin size={12} /> {insurer.domicilioComercial || '-'}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </TableCell>
                     <TableCell>{insurer.cuit}</TableCell>
                     <TableCell>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-                        {(insurer.brokers || []).length > 0 ? insurer.brokers.map((broker: any) => (
-                          <Chip key={broker.id} size="small" label={broker.nombre} sx={{ bgcolor: broker.color, color: 'white', fontWeight: 700 }} />
-                        )) : <Typography variant="body2" color="text.secondary">-</Typography>}
+                      <Chip
+                        label={insurer.ivaCondition || '-'}
+                        size="small"
+                        variant="outlined"
+                        sx={{ fontWeight: 600, borderColor: 'primary.main', color: 'primary.main' }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 500 }}>
+                          <Mail size={12} /> {insurer.email || '-'}
+                        </Typography>
+                        <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 500 }}>
+                          <Phone size={12} /> {insurer.telefono || '-'}
+                        </Typography>
                       </Box>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{formatMoney(insurer.totalFacturadoARS, 'ARS')}</Typography>
-                      <Typography variant="caption" color="text.secondary">{formatMoney(insurer.totalFacturadoUSD, 'USD')} / {insurer.cantidadFacturas} facturas</Typography>
-                    </TableCell>
-                    <TableCell>
-                      {insurer.portalUsername || insurer.hasPortalPassword ? (
-                        <Chip size="small" icon={<KeyRound size={14} />} label={insurer.hasPortalPassword ? 'Con credencial' : 'Usuario guardado'} />
+                      {insurer.websiteUrl ? (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<Globe size={14} />}
+                          onClick={() => window.open(insurer.websiteUrl?.startsWith('http') ? insurer.websiteUrl : `https://${insurer.websiteUrl}`, '_blank')}
+                          sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+                        >
+                          Acceder Web
+                        </Button>
                       ) : '-'}
                     </TableCell>
                     <TableCell sx={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -352,19 +342,27 @@ export const DirectoryPage: React.FC = () => {
                   <TableRow>
                     <TableCell colSpan={7} sx={{ p: 0, border: 0 }}>
                       <Collapse in={expandedInsurer === insurer.id} timeout="auto" unmountOnExit>
-                        <Box sx={{ px: 3, py: 2.5, bgcolor: 'action.hover' }}>
-                          <Grid container spacing={2}>
+                        <Box sx={{ m: 2, p: 3, bgcolor: 'background.default', borderRadius: 2 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'primary.main', mb: 2 }}>
+                            Información Detallada - {insurer.razonSocial}
+                          </Typography>
+                          <Grid container spacing={3}>
                             <Grid size={{ xs: 12, md: 4 }}>
-                              <Typography variant="caption" color="text.secondary">Contacto</Typography>
-                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 0.75 }}>
-                                <Typography variant="body2">{insurer.email || '-'}</Typography>
-                                <Typography variant="body2">{insurer.telefono || '-'}</Typography>
-                                <Typography variant="body2">{insurer.domicilioComercial || '-'}</Typography>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase' }}>Datos Fiscales</Typography>
+                              <Box sx={{ mt: 1 }}>
+                                <Typography variant="body2"><strong>CUIT:</strong> {insurer.cuit}</Typography>
+                                <Typography variant="body2"><strong>Condición IVA:</strong> {insurer.ivaCondition || '-'}</Typography>
+                                <Typography variant="body2"><strong>Domicilio:</strong> {insurer.domicilioComercial || '-'}</Typography>
                               </Box>
                             </Grid>
                             <Grid size={{ xs: 12, md: 4 }}>
-                              <Typography variant="caption" color="text.secondary">Portal</Typography>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75, flexWrap: 'wrap' }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase' }}>Contacto</Typography>
+                              <Box sx={{ mt: 1 }}>
+                                <Typography variant="body2"><strong>Email:</strong> {insurer.email || '-'}</Typography>
+                                <Typography variant="body2"><strong>Teléfono:</strong> {insurer.telefono || '-'}</Typography>
+                                <Typography variant="body2"><strong>Web:</strong> {insurer.websiteUrl || '-'}</Typography>
+                              </Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                                 {insurer.websiteUrl && (
                                   <Button size="small" startIcon={<ExternalLink size={16} />} onClick={() => window.open(insurer.websiteUrl, '_blank')}>Abrir web</Button>
                                 )}
@@ -378,10 +376,13 @@ export const DirectoryPage: React.FC = () => {
                               {revealedPasswords[insurer.id] && <Typography variant="body2" sx={{ fontWeight: 700 }}>Clave: {revealedPasswords[insurer.id]}</Typography>}
                             </Grid>
                             <Grid size={{ xs: 12, md: 4 }}>
-                              <Typography variant="caption" color="text.secondary">Datos fiscales</Typography>
-                              <Typography variant="body2" sx={{ mt: 0.75 }}>IVA: {insurer.ivaCondition || '-'}</Typography>
-                              <Typography variant="body2">Codigo productor: {insurer.producerCode || '-'}</Typography>
-                              <Typography variant="body2">Notas: {insurer.notes || '-'}</Typography>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase' }}>Acceso y Notas</Typography>
+                              <Typography variant="body2" sx={{ mt: 1 }}><strong>Usuario:</strong> {insurer.portalUsername || '-'}</Typography>
+                              <Typography variant="body2">
+                                <strong>Contraseña:</strong> {revealedPasswords[insurer.id] || (insurer.hasPortalPassword ? '••••••••' : '-')}
+                              </Typography>
+                              <Typography variant="body2"><strong>Cód. Cliente:</strong> {insurer.producerCode || '-'}</Typography>
+                              <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}><strong>Notas:</strong> {insurer.notes || '-'}</Typography>
                             </Grid>
                           </Grid>
                         </Box>
@@ -397,49 +398,53 @@ export const DirectoryPage: React.FC = () => {
           </Table>
         </TableContainer>
       ) : (
-        <TableContainer component={Paper} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto' }}>
-          <Table sx={{ minWidth: 860 }}>
-            <TableHead sx={{ bgcolor: 'secondary.main' }}>
-              <TableRow>
-                <TableCell sx={{ color: 'white', fontWeight: 700 }}>Broker</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 700 }}>Contacto</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 700 }}>Aseguradoras vinculadas</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 700, textAlign: 'right' }}>Acciones</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {brokers.map((broker) => (
-                <TableRow key={broker.id} hover>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: broker.color }} />
-                      <Typography sx={{ fontWeight: 700 }}>{broker.nombre}</Typography>
+        <Grid container spacing={3}>
+          {brokers.map((broker) => (
+            <Grid size={{ xs: 12, md: 6 }} key={broker.id}>
+              <Card sx={{ borderRadius: 3, borderLeft: `8px solid ${broker.color}`, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', height: '100%' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                    <Box>
+                      <Typography variant="h6" sx={{ fontWeight: 800, color: broker.color }}>{broker.nombre}</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <UsersIcon size={14} /> {broker.contactoNombre || 'Sin contacto'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Mail size={14} /> {broker.email || 'Sin mail'}
+                      </Typography>
                     </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">{broker.contactoNombre || '-'}</Typography>
-                    <Typography variant="caption" color="text.secondary">{broker.email || '-'}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-                      {(broker.insurers || []).length > 0 ? broker.insurers.map((insurer: any) => (
-                        <Chip key={insurer.id} size="small" label={insurer.razonSocial} variant="outlined" />
-                      )) : <Typography variant="body2" color="text.secondary">-</Typography>}
+                    <Box sx={{ whiteSpace: 'nowrap' }}>
+                      {broker.email && <Tooltip title="Email"><IconButton size="small" onClick={() => window.open(`mailto:${broker.email}`)}><Mail size={18} /></IconButton></Tooltip>}
+                      <Tooltip title="Editar"><IconButton size="small" onClick={() => openBrokerDialog(broker)} color="primary"><Edit size={18} /></IconButton></Tooltip>
+                      <Tooltip title="Eliminar"><IconButton size="small" color="error" onClick={() => deleteBroker(broker)}><Trash2 size={18} /></IconButton></Tooltip>
                     </Box>
-                  </TableCell>
-                  <TableCell sx={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    {broker.email && <Tooltip title="Email"><IconButton onClick={() => window.open(`mailto:${broker.email}`)}><Mail size={18} /></IconButton></Tooltip>}
-                    <Tooltip title="Editar"><IconButton onClick={() => openBrokerDialog(broker)}><Edit size={18} /></IconButton></Tooltip>
-                    <Tooltip title="Eliminar"><IconButton color="error" onClick={() => deleteBroker(broker)}><Trash2 size={18} /></IconButton></Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {brokers.length === 0 && (
-                <TableRow><TableCell colSpan={4} sx={{ textAlign: 'center', py: 5, color: 'text.secondary', fontWeight: 600 }}>No hay brokers</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                  </Box>
+
+                  <Divider sx={{ mb: 2 }} />
+
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Aseguradoras asignadas:</Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {(broker.insurers || []).length > 0 ? broker.insurers.map((insurer: any) => (
+                      <Chip
+                        key={insurer.id}
+                        label={insurer.razonSocial}
+                        size="small"
+                        sx={{ bgcolor: 'white', border: `1px solid ${broker.color}`, color: broker.color, fontWeight: 600 }}
+                      />
+                    )) : <Typography variant="caption" color="text.secondary">No hay aseguradoras asignadas</Typography>}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+          {brokers.length === 0 && (
+            <Grid size={12}>
+              <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 3 }}>
+                <Typography color="text.secondary">No hay brokers u organizadores registrados</Typography>
+              </Paper>
+            </Grid>
+          )}
+        </Grid>
       )}
 
       <Dialog open={insurerDialogOpen} onClose={() => setInsurerDialogOpen(false)} maxWidth="md" fullWidth>

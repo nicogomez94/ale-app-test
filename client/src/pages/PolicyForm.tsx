@@ -12,9 +12,11 @@ import {
   MenuItem,
   Snackbar,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import { Building2, Hash, Mail, MapPin, Phone, Save, Shield, User } from 'lucide-react';
+import { Building2, Hash, HeartPulse, Mail, MapPin, Phone, Save, Shield, User } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -24,7 +26,6 @@ import { DEBUG, debugData } from '../data/debugData';
 import {
   ASEGURADORAS,
   calculateVencimiento,
-  classifyGeneralPolicyTypeFromRubro,
   GENERAL_RUBRO_OPTIONS,
   getQuotaTotalFromVigencia,
   PAYMENT_OPTIONS,
@@ -34,25 +35,51 @@ import {
 } from '../data/policyCatalogs';
 
 const schema = z.object({
-  clienteNombre: z.string().min(3, 'Nombre requerido (min. 3 caracteres)'),
-  clienteDni: z.string().min(7, 'DNI/CUIT invalido'),
-  clienteTelefono: z.string().min(8, 'Telefono requerido'),
-  clienteEmail: z.string().email('Email invalido'),
+  policyMode: z.enum(['CLIENTE', 'EMPRESA', 'VIDA_RETIRO']).default('CLIENTE'),
+  vidaRetiroTipo: z.enum(['VIDA', 'RETIRO']).default('VIDA'),
+  clienteNombre: z.string().optional(),
+  clienteDni: z.string().optional(),
+  clienteTelefono: z.string().optional(),
+  clienteEmail: z.string().optional(),
   clienteDireccion: z.string().optional(),
   clienteAltura: z.string().optional(),
   clienteCp: z.string().optional(),
   clienteProvincia: z.string().optional(),
   clienteLocalidad: z.string().optional(),
-  aseguradora: z.string().min(1, 'Aseguradora requerida'),
-  rubro: z.string().min(1, 'Rubro requerido'),
-  numeroPoliza: z.string().min(1, 'Numero de poliza requerido'),
-  fechaInicio: z.string().min(1, 'Fecha de inicio requerida'),
-  fechaVencimiento: z.string().min(1, 'Fecha de vencimiento requerida'),
-  medioPago: z.enum(['Cupon', 'Tarjeta de credito', 'Debito por CBU']),
-  vigencia: z.enum(['MENSUAL', 'BIMESTRAL', 'TRIMESTRAL', 'SEMESTRAL', 'ANUAL']),
-  prima: z.number({ error: 'Prima requerida' }).min(1, 'Prima debe ser mayor a 0'),
-  porcentajeComision: z.number({ error: 'Comision requerida' }).min(0).max(100),
+  aseguradora: z.string().optional(),
+  rubro: z.string().optional(),
+  numeroPoliza: z.string().optional(),
+  fechaInicio: z.string().optional(),
+  fechaVencimiento: z.string().optional(),
+  medioPago: z.enum(['Cupon', 'Tarjeta de credito', 'Debito por CBU']).optional(),
+  vigencia: z.enum(['MENSUAL', 'BIMESTRAL', 'TRIMESTRAL', 'SEMESTRAL', 'ANUAL']).optional(),
+  prima: z.number().optional(),
+  porcentajeComision: z.number().optional(),
   moneda: z.enum(['ARS', 'USD', 'EUR', 'BRL']).default('ARS'),
+  sumaAsegurada: z.number().optional(),
+  aporteMensual: z.number().optional(),
+  fondoAcumulado: z.number().optional(),
+}).superRefine((data, ctx) => {
+  const addIssue = (path: string, message: string) => {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message });
+  };
+
+  if (!data.clienteNombre || data.clienteNombre.trim().length < 3) addIssue('clienteNombre', 'Nombre requerido (min. 3 caracteres)');
+  if (!data.clienteDni || data.clienteDni.trim().length < 7) addIssue('clienteDni', 'DNI/CUIT invalido');
+  if (!data.aseguradora?.trim()) addIssue('aseguradora', 'Aseguradora requerida');
+
+  if (data.policyMode !== 'VIDA_RETIRO') {
+    if (!data.clienteTelefono || data.clienteTelefono.trim().length < 8) addIssue('clienteTelefono', 'Telefono requerido');
+    if (!data.clienteEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.clienteEmail)) addIssue('clienteEmail', 'Email invalido');
+    if (!data.rubro?.trim()) addIssue('rubro', 'Rubro requerido');
+    if (!data.numeroPoliza?.trim()) addIssue('numeroPoliza', 'Numero de poliza requerido');
+    if (!data.fechaInicio) addIssue('fechaInicio', 'Fecha de inicio requerida');
+    if (!data.fechaVencimiento) addIssue('fechaVencimiento', 'Fecha de vencimiento requerida');
+    if (!data.medioPago) addIssue('medioPago', 'Medio de pago requerido');
+    if (!data.vigencia) addIssue('vigencia', 'Vigencia requerida');
+    if (!data.prima || data.prima <= 0) addIssue('prima', 'Prima debe ser mayor a 0');
+    if (data.porcentajeComision == null || data.porcentajeComision < 0 || data.porcentajeComision > 100) addIssue('porcentajeComision', 'Comision invalida');
+  }
 });
 
 type FormData = z.input<typeof schema>;
@@ -105,11 +132,15 @@ export const PolicyForm: React.FC = () => {
   const defaultValues = useMemo<FormData>(() => {
     if (DEBUG) {
       return {
+        policyMode: 'CLIENTE',
+        vidaRetiroTipo: 'VIDA',
         ...debugData.policy,
       } as FormData;
     }
 
     return {
+      policyMode: 'CLIENTE',
+      vidaRetiroTipo: 'VIDA',
       clienteNombre: '',
       clienteDni: '',
       clienteTelefono: '',
@@ -129,6 +160,9 @@ export const PolicyForm: React.FC = () => {
       prima: 0 as unknown as number,
       porcentajeComision: 15,
       moneda: 'ARS' as const,
+      sumaAsegurada: undefined,
+      aporteMensual: undefined,
+      fondoAcumulado: undefined,
     };
   }, [defaultFechaInicio]);
 
@@ -147,7 +181,8 @@ export const PolicyForm: React.FC = () => {
   const fechaVigencia = watch('vigencia');
   const prima = watch('prima');
   const porcentaje = watch('porcentajeComision');
-  const rubro = watch('rubro');
+  const policyMode = watch('policyMode') || 'CLIENTE';
+  const vidaRetiroTipo = watch('vidaRetiroTipo') || 'VIDA';
 
   useEffect(() => {
     if (!manualVencimiento && fechaInicio && fechaVigencia) {
@@ -158,7 +193,7 @@ export const PolicyForm: React.FC = () => {
   const primaValue = typeof prima === 'number' && Number.isFinite(prima) ? prima : 0;
   const porcentajeValue = typeof porcentaje === 'number' && Number.isFinite(porcentaje) ? porcentaje : 0;
   const comisionCalculada = primaValue * (porcentajeValue / 100);
-  const policyType = classifyGeneralPolicyTypeFromRubro(rubro || '');
+  const policyType = policyMode === 'EMPRESA' ? 'EMPRESA' : 'INDIVIDUAL';
   const aseguradoraOptions = useMemo(
     () => Array.from(new Set([...directoryInsurers, ...ASEGURADORAS])),
     [directoryInsurers]
@@ -175,10 +210,50 @@ export const PolicyForm: React.FC = () => {
     setError('');
 
     try {
+      if (data.policyMode === 'VIDA_RETIRO') {
+        await api.lifePolicies.create({
+          cliente: data.clienteNombre?.trim(),
+          cuit: data.clienteDni?.trim(),
+          aseguradora: data.aseguradora?.trim(),
+          tipo: data.vidaRetiroTipo || 'VIDA',
+          sumaAsegurada: data.vidaRetiroTipo === 'VIDA' ? data.sumaAsegurada : undefined,
+          prima: data.vidaRetiroTipo === 'VIDA' ? data.prima : undefined,
+          aporteMensual: data.vidaRetiroTipo === 'RETIRO' ? data.aporteMensual : undefined,
+          fondoAcumulado: data.vidaRetiroTipo === 'RETIRO' ? data.fondoAcumulado : undefined,
+          email: data.clienteEmail?.trim() || undefined,
+          telefono: data.clienteTelefono?.trim() || undefined,
+          direccion: data.clienteDireccion?.trim() || undefined,
+          cp: data.clienteCp?.trim() || undefined,
+          localidad: data.clienteLocalidad?.trim() || undefined,
+          provincia: data.clienteProvincia || undefined,
+        });
+        setSnackOpen(true);
+        setTimeout(() => navigate('/dashboard'), 1200);
+        return;
+      }
+
       const groupId = createGroupId();
-      const cuotaTotal = getQuotaTotalFromVigencia(data.vigencia as PolicyVigencia);
+      const vigencia = (data.vigencia || 'ANUAL') as PolicyVigencia;
+      const cuotaTotal = getQuotaTotalFromVigencia(vigencia);
       const payload: PolicyPayload = {
-        ...data,
+        clienteNombre: data.clienteNombre || '',
+        clienteDni: data.clienteDni || '',
+        clienteTelefono: data.clienteTelefono || '',
+        clienteEmail: data.clienteEmail || '',
+        clienteDireccion: data.clienteDireccion || '',
+        clienteAltura: data.clienteAltura || '',
+        clienteCp: data.clienteCp || '',
+        clienteProvincia: data.clienteProvincia || '',
+        clienteLocalidad: data.clienteLocalidad || '',
+        aseguradora: data.aseguradora || '',
+        rubro: data.rubro || '',
+        numeroPoliza: data.numeroPoliza || '',
+        fechaInicio: data.fechaInicio || '',
+        fechaVencimiento: data.fechaVencimiento || '',
+        medioPago: data.medioPago || 'Cupon',
+        vigencia,
+        prima: data.prima || 0,
+        porcentajeComision: data.porcentajeComision || 0,
         groupId,
         cuotaActual: 1,
         cuotaTotal,
@@ -211,6 +286,31 @@ export const PolicyForm: React.FC = () => {
             <Card sx={{ mb: 3 }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Shield size={20} /> Tipo de Alta
+                </Typography>
+                <Controller
+                  name="policyMode"
+                  control={control}
+                  render={({ field }) => (
+                    <ToggleButtonGroup
+                      exclusive
+                      fullWidth
+                      value={field.value}
+                      onChange={(_, value) => value && field.onChange(value)}
+                      sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 1, '& .MuiToggleButton-root': { border: '1px solid', borderColor: 'divider', borderRadius: 2 } }}
+                    >
+                      <ToggleButton value="CLIENTE" sx={{ gap: 1 }}><User size={18} />Cliente</ToggleButton>
+                      <ToggleButton value="EMPRESA" sx={{ gap: 1 }}><Building2 size={18} />Empresa</ToggleButton>
+                      <ToggleButton value="VIDA_RETIRO" sx={{ gap: 1 }}><HeartPulse size={18} />Vida y Retiro</ToggleButton>
+                    </ToggleButtonGroup>
+                  )}
+                />
+              </CardContent>
+            </Card>
+
+            <Card sx={{ mb: 3 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <User size={20} /> Datos del Asegurado
                 </Typography>
                 <Divider sx={{ mb: 3 }} />
@@ -220,7 +320,7 @@ export const PolicyForm: React.FC = () => {
                       name="clienteNombre"
                       control={control}
                       render={({ field }) => (
-                        <TextField {...field} fullWidth label={policyType === 'EMPRESA' ? 'Empresa / Razon Social' : 'Nombre Completo'} error={!!errors.clienteNombre} helperText={errors.clienteNombre?.message} />
+                        <TextField {...field} fullWidth label={policyMode === 'EMPRESA' ? 'Empresa / Razon Social' : 'Nombre Completo'} error={!!errors.clienteNombre} helperText={errors.clienteNombre?.message} />
                       )}
                     />
                   </Grid>
@@ -229,7 +329,7 @@ export const PolicyForm: React.FC = () => {
                       name="clienteDni"
                       control={control}
                       render={({ field }) => (
-                        <TextField {...field} fullWidth label={policyType === 'EMPRESA' ? 'CUIT' : 'DNI'} error={!!errors.clienteDni} helperText={errors.clienteDni?.message} />
+                        <TextField {...field} fullWidth label={policyMode === 'EMPRESA' ? 'CUIT' : 'DNI / CUIT'} error={!!errors.clienteDni} helperText={errors.clienteDni?.message} />
                       )}
                     />
                   </Grid>
@@ -308,6 +408,7 @@ export const PolicyForm: React.FC = () => {
               </CardContent>
             </Card>
 
+            {policyMode !== 'VIDA_RETIRO' ? (
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -422,15 +523,123 @@ export const PolicyForm: React.FC = () => {
                 </Grid>
               </CardContent>
             </Card>
+            ) : (
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <HeartPulse size={20} /> Datos de Vida y Retiro
+                </Typography>
+                <Divider sx={{ mb: 3 }} />
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Controller
+                      name="aseguradora"
+                      control={control}
+                      render={({ field }) => (
+                        <Autocomplete
+                          freeSolo
+                          options={aseguradoraOptions}
+                          value={field.value || ''}
+                          onChange={(_, value) => field.onChange(value || '')}
+                          onInputChange={(_, value) => field.onChange(value || '')}
+                          renderInput={(params) => <TextField {...params} label="Aseguradora" error={!!errors.aseguradora} helperText={errors.aseguradora?.message} />}
+                        />
+                      )}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Controller
+                      name="vidaRetiroTipo"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField {...field} select fullWidth label="Tipo">
+                          <MenuItem value="VIDA">Vida</MenuItem>
+                          <MenuItem value="RETIRO">Retiro</MenuItem>
+                        </TextField>
+                      )}
+                    />
+                  </Grid>
+                  {vidaRetiroTipo === 'VIDA' ? (
+                    <>
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <Controller
+                          name="sumaAsegurada"
+                          control={control}
+                          render={({ field }) => (
+                            <TextField
+                              fullWidth
+                              label="Suma Asegurada"
+                              value={typeof field.value === 'number' && field.value > 0 ? formatAmount(field.value) : ''}
+                              onChange={(event) => field.onChange(parseAmount(event.target.value))}
+                              inputMode="decimal"
+                            />
+                          )}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <Controller
+                          name="prima"
+                          control={control}
+                          render={({ field }) => (
+                            <TextField
+                              fullWidth
+                              label="Prima Mensual"
+                              value={typeof field.value === 'number' && field.value > 0 ? formatAmount(field.value) : ''}
+                              onChange={(event) => field.onChange(parseAmount(event.target.value))}
+                              inputMode="decimal"
+                            />
+                          )}
+                        />
+                      </Grid>
+                    </>
+                  ) : (
+                    <>
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <Controller
+                          name="aporteMensual"
+                          control={control}
+                          render={({ field }) => (
+                            <TextField
+                              fullWidth
+                              label="Aporte Mensual"
+                              value={typeof field.value === 'number' && field.value > 0 ? formatAmount(field.value) : ''}
+                              onChange={(event) => field.onChange(parseAmount(event.target.value))}
+                              inputMode="decimal"
+                            />
+                          )}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <Controller
+                          name="fondoAcumulado"
+                          control={control}
+                          render={({ field }) => (
+                            <TextField
+                              fullWidth
+                              label="Fondo Acumulado"
+                              value={typeof field.value === 'number' && field.value > 0 ? formatAmount(field.value) : ''}
+                              onChange={(event) => field.onChange(parseAmount(event.target.value))}
+                              inputMode="decimal"
+                            />
+                          )}
+                        />
+                      </Grid>
+                    </>
+                  )}
+                </Grid>
+              </CardContent>
+            </Card>
+            )}
           </Grid>
 
           <Grid size={{ xs: 12, md: 4 }}>
-            <Card sx={{ bgcolor: 'primary.main', color: 'white', mb: 3 }}>
+            {policyMode !== 'VIDA_RETIRO' && (
+            <Card sx={{ mb: 3 }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Building2 size={20} /> Resumen Economico
+                  <Building2 size={20} /> Datos Economicos
                 </Typography>
-                <Divider sx={{ mb: 2, bgcolor: 'rgba(255,255,255,0.2)' }} />
+                <Divider sx={{ mb: 2 }} />
                 <Box sx={{ mb: 3 }}>
                   <Controller
                     name="prima"
@@ -448,12 +657,6 @@ export const PolicyForm: React.FC = () => {
                         inputMode="decimal"
                         error={!!errors.prima}
                         helperText={errors.prima?.message}
-                        FormHelperTextProps={{ sx: { color: 'rgba(255,255,255,0.85)' } }}
-                        sx={{
-                          '& .MuiOutlinedInput-root': { color: 'white' },
-                          '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                          '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' },
-                        }}
                       />
                     )}
                   />
@@ -468,12 +671,6 @@ export const PolicyForm: React.FC = () => {
                         select
                         fullWidth
                         label="Moneda"
-                        sx={{
-                          '& .MuiOutlinedInput-root': { color: 'white' },
-                          '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                          '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' },
-                          '& .MuiSvgIcon-root': { color: 'white' },
-                        }}
                       >
                         <MenuItem value="ARS">ARS — Peso Argentino</MenuItem>
                         <MenuItem value="USD">USD — Dólar Estadounidense</MenuItem>
@@ -494,25 +691,18 @@ export const PolicyForm: React.FC = () => {
                         label="Porcentaje Comision (%)"
                         type="number"
                         onChange={(event) => field.onChange(parseFloat(event.target.value) || 0)}
-                        sx={{
-                          '& .MuiOutlinedInput-root': { color: 'white' },
-                          '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                          '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' },
-                        }}
+                        error={!!errors.porcentajeComision}
+                        helperText={errors.porcentajeComision?.message}
                       />
                     )}
                   />
                 </Box>
-                <Box sx={{ p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2, mb: 2 }}>
-                  <Typography variant="body2" sx={{ opacity: 0.8 }}>Comision Estimada</Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 700 }}>$ {formatAmount(comisionCalculada)}</Typography>
-                </Box>
-                <Box sx={{ p: 2, bgcolor: 'rgba(255,255,255,0.08)', borderRadius: 2 }}>
-                  <Typography variant="body2" sx={{ opacity: 0.85 }}>Tipo detectado</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>{policyType === 'EMPRESA' ? 'Empresa' : 'Individual'}</Typography>
-                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700 }}>
+                  Comision estimada: $ {formatAmount(comisionCalculada)}
+                </Typography>
               </CardContent>
             </Card>
+            )}
 
             <Button
               type="submit"
@@ -524,7 +714,7 @@ export const PolicyForm: React.FC = () => {
               startIcon={<Save size={20} />}
               sx={{ py: 2, borderRadius: 3, fontWeight: 700 }}
             >
-              {saving ? 'Guardando...' : 'Guardar Poliza'}
+              {saving ? 'Guardando...' : policyMode === 'VIDA_RETIRO' ? 'Guardar Vida y Retiro' : 'Guardar Poliza'}
             </Button>
           </Grid>
         </Grid>

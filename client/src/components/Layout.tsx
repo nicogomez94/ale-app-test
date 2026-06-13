@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Grid, Card, CardContent, Button, AppBar, Toolbar,
   IconButton, Drawer, List, ListItem, ListItemIcon, ListItemText,
-  Divider, Avatar, Menu, MenuItem, Badge, Tooltip
+  Divider, Avatar, Menu, MenuItem, Badge, Tooltip, Collapse
 } from '@mui/material';
 import {
   LayoutDashboard, FileText, Users, CreditCard, Bell, LogOut,
   Menu as MenuIcon, UserCircle, BarChart3, Sun, Moon, Building2, HeartPulse,
-  Calendar, Clock, Shield, AlertTriangle, ClipboardList, MessageSquare,
-  PanelLeftClose, PanelLeftOpen, Landmark
+  Calendar, Clock, Shield, AlertTriangle, MessageSquare,
+  PanelLeftClose, PanelLeftOpen, ShieldCheck, Receipt, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -51,6 +51,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [expiringCount, setExpiringCount] = useState(0);
+  const [insurersOpen, setInsurersOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = !!user?.isAdmin;
@@ -65,20 +66,33 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
     api.dashboard.stats().then(s => setExpiringCount(s.vencen7Dias)).catch(() => {});
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (['/directorio', '/aseguradoras', '/facturacion', '/comisiones'].includes(location.pathname)) {
+      setInsurersOpen(true);
+    }
+  }, [location.pathname]);
+
   const menuItems = [
     { text: 'Dashboard', icon: <LayoutDashboard size={20} color="#4f46e5" />, path: '/dashboard' },
+    { text: 'Nueva Póliza', icon: <FileText size={20} color="#f59e0b" />, path: '/polizas' },
     { text: 'Clientes', icon: <UserCircle size={20} color="#0ea5e9" />, path: '/clientes' },
     { text: 'Empresas', icon: <Building2 size={20} color="#8b5cf6" />, path: '/empresas' },
     { text: 'Vida y Retiro', icon: <HeartPulse size={20} color="#ef4444" />, path: '/vida-y-retiro' },
-    { text: 'Pólizas', icon: <FileText size={20} color="#f59e0b" />, path: '/polizas' },
-    { text: 'Siniestros', icon: <ClipboardList size={20} color="#dc2626" />, path: '/siniestros' },
-    { text: 'Cotizaciones', icon: <MessageSquare size={20} color="#0891b2" />, path: '/cotizaciones' },
-    { text: 'Directorio', icon: <Landmark size={20} color="#475569" />, path: '/directorio' },
-    { text: 'Comisiones', icon: <BarChart3 size={20} color="#10b981" />, path: '/comisiones' },
+    { text: 'Cotizaciones', icon: <MessageSquare size={20} color="#10b981" />, path: '/cotizaciones' },
+    { text: 'Siniestros', icon: <AlertTriangle size={20} color="#f43f5e" />, path: '/siniestros' },
     { text: 'Referidos', icon: <Users size={20} color="#ec4899" />, path: '/referidos' },
     { text: subscriptionSectionLabel, icon: <CreditCard size={20} color="#6366f1" />, path: '/pagos' },
     ...(user?.isAdmin ? [{ text: 'Administración', icon: <Shield size={20} color="#dc2626" />, path: '/admin' }] : []),
   ];
+
+  const insurerSubItems = [
+    { text: 'Compañias y Brokers', icon: <ShieldCheck size={20} color="#10b981" />, path: '/aseguradoras', aliases: ['/directorio'] },
+    { text: 'Facturación', icon: <Receipt size={20} color="#f59e0b" />, path: '/facturacion' },
+    { text: 'Comisiones', icon: <BarChart3 size={20} color="#10b981" />, path: '/comisiones' },
+  ];
+
+  const isPathActive = (path: string, aliases: string[] = []) => location.pathname === path || aliases.includes(location.pathname);
+  const isInsurersActive = insurerSubItems.some((item) => isPathActive(item.path, item.aliases));
 
   const activeDrawerWidth = sidebarCollapsed ? collapsedDrawerWidth : drawerWidth;
 
@@ -119,7 +133,101 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
       </Box>
       <Divider sx={{ opacity: 0.5 }} />
       <List sx={{ px: collapsed ? 1.25 : 2, py: 3, flexGrow: 1 }}>
-        {menuItems.map((item) => (
+        {menuItems.slice(0, 7).map((item) => (
+          <Tooltip key={item.text} title={collapsed ? item.text : ''} placement="right">
+            <ListItem
+              component="div"
+              onClick={() => { navigate(item.path); setMobileOpen(false); }}
+              sx={{
+                borderRadius: 2,
+                mb: 1,
+                cursor: 'pointer',
+                minHeight: 48,
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                px: collapsed ? 1 : 2,
+                bgcolor: location.pathname === item.path ? 'primary.main' : 'transparent',
+                color: location.pathname === item.path ? 'white' : 'text.primary',
+                '& .MuiListItemIcon-root': { color: location.pathname === item.path ? 'white' : 'text.secondary' },
+                '&:hover': { bgcolor: location.pathname === item.path ? 'primary.main' : 'primary.light', color: 'white', '& .MuiListItemIcon-root': { color: 'white' } }
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: collapsed ? 0 : 40, justifyContent: 'center' }}>{item.icon}</ListItemIcon>
+              {!collapsed && <ListItemText primary={item.text} primaryTypographyProps={{ fontWeight: 500 }} />}
+            </ListItem>
+          </Tooltip>
+        ))}
+
+        <Tooltip title={collapsed ? 'Aseguradoras' : ''} placement="right">
+          <ListItem
+            component="div"
+            onClick={() => {
+              if (collapsed) {
+                navigate('/directorio');
+                setMobileOpen(false);
+                return;
+              }
+              setInsurersOpen((prev) => !prev);
+            }}
+            sx={{
+              borderRadius: 999,
+              mb: 1,
+              cursor: 'pointer',
+              minHeight: 56,
+              justifyContent: collapsed ? 'center' : 'flex-start',
+              px: collapsed ? 1 : 2,
+              bgcolor: isInsurersActive ? 'primary.light' : 'transparent',
+              color: isInsurersActive ? '#111827' : 'text.primary',
+              '&:hover': {
+                bgcolor: 'primary.light',
+                color: 'white',
+                '& svg': { stroke: 'white' },
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: collapsed ? 0 : 40, justifyContent: 'center' }}>
+              <ShieldCheck size={22} color={isInsurersActive ? '#111827' : '#64748b'} />
+            </ListItemIcon>
+            {!collapsed && <ListItemText primary="Aseguradoras" primaryTypographyProps={{ fontWeight: 700, fontSize: '1rem' }} />}
+            {!collapsed && (insurersOpen ? <ChevronDown size={20} /> : <ChevronRight size={20} />)}
+          </ListItem>
+        </Tooltip>
+
+        {!collapsed && (
+          <Collapse in={insurersOpen} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding sx={{ pl: 2, mb: 1 }}>
+              {insurerSubItems.map((item) => {
+                const active = isPathActive(item.path, item.aliases);
+                return (
+                  <ListItem
+                    key={item.text}
+                    component="div"
+                    onClick={() => {
+                      navigate(item.path);
+                      setMobileOpen(false);
+                    }}
+                    sx={{
+                      borderRadius: 2,
+                      mb: 1,
+                      cursor: 'pointer',
+                      minHeight: 56,
+                      px: 2,
+                      bgcolor: active ? 'primary.main' : 'transparent',
+                      color: active ? 'white' : 'text.primary',
+                      '&:hover': {
+                        bgcolor: active ? 'primary.main' : 'action.hover',
+                      },
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                    <ListItemText primary={item.text} primaryTypographyProps={{ fontWeight: active ? 700 : 500, fontSize: '1rem' }} />
+                  </ListItem>
+                );
+              })}
+            </List>
+          </Collapse>
+        )}
+
+        {menuItems.slice(7).map((item) => (
           <Tooltip key={item.text} title={collapsed ? item.text : ''} placement="right">
             <ListItem
               component="div"

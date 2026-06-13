@@ -257,7 +257,10 @@ model LifePolicy {
   fondoAcumulado Float?
   email          String?
   telefono       String?
+  direccion      String?
   cp             String?
+  localidad      String?
+  provincia      String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -362,6 +365,8 @@ model Siniestro {
   tipoSeguro                 String
   clienteNombre              String
   clienteDni                 String?
+  clienteTelefono            String?
+  clienteEmail               String?
   fechaSiniestro             DateTime
   horaSiniestro              String?
   lugarSiniestro             String?
@@ -369,6 +374,13 @@ model Siniestro {
   patente                    String?
   marcaModelo                String?
   tipoDanio                  String?
+  terceroNombre              String?
+  terceroMarcaModeloVehiculo String?
+  terceroDanios              String?
+  terceroCelular             String?
+  terceroDireccion           String?
+  terceroDni                 String?
+  terceroAseguradora         String?
   estado                     SiniestroEstado     @default(DENUNCIADO)
   prioridad                  SiniestroProioridad @default(BAJA)
   responsable                String?

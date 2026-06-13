@@ -81,7 +81,7 @@ function computeStatus(fechaVencimiento: Date): PolicyStatus {
   const diff = fechaVencimiento.getTime() - now.getTime();
   const daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
   if (daysLeft < 0) return "VENCIDA";
-  if (daysLeft <= 7) return "VENCE_PRONTO";
+  if (daysLeft <= 30) return "VENCE_PRONTO";
   return "ACTIVA";
 }
 
@@ -381,36 +381,71 @@ async function buildPolicyWriteData(
   };
 }
 
-function buildQuotaSeriesData(baseData: any, quotaTotal: number, groupId: string) {
+function buildFirstCascadeQuotaData(baseData: any, quotaTotal: number, groupId: string) {
   const total = Math.max(1, quotaTotal);
-  const start = new Date(baseData.fechaInicio);
-  const finalEnd = new Date(baseData.fechaVencimiento);
+  const fechaInicio = new Date(baseData.fechaInicio);
+  const fechaVencimiento = total === 1 ? new Date(baseData.fechaVencimiento) : addMonths(fechaInicio, 1);
 
-  return Array.from({ length: total }, (_, index) => {
-    const cuotaActual = index + 1;
-    const fechaInicio = index === 0 ? start : addMonths(start, index);
-    const fechaVencimiento = cuotaActual === total ? finalEnd : addMonths(start, cuotaActual);
+  return {
+    ...baseData,
+    fechaInicio,
+    fechaVencimiento,
+    estado: computeStatus(fechaVencimiento),
+    cuotaActual: 1,
+    cuotaTotal: total,
+    groupId,
+    pagada: false,
+    fechaPago: null,
+    renewalGeneratedAt: null,
+    renewalGroupId: null,
+    recordatorioProximoEnviadoAt: null,
+    recordatorioVencidaEnviadoAt: null,
+    ultimaGestionTipo: null,
+    ultimaGestionFecha: null,
+    ultimaGestionWhatsappCount: 0,
+    ultimaGestionMailCount: 0,
+  };
+}
 
-    return {
-      ...baseData,
-      fechaInicio,
-      fechaVencimiento,
-      estado: computeStatus(fechaVencimiento),
-      cuotaActual,
-      cuotaTotal: total,
-      groupId,
-      pagada: false,
-      fechaPago: null,
-      renewalGeneratedAt: null,
-      renewalGroupId: null,
-      recordatorioProximoEnviadoAt: null,
-      recordatorioVencidaEnviadoAt: null,
-      ultimaGestionTipo: null,
-      ultimaGestionFecha: null,
-      ultimaGestionWhatsappCount: 0,
-      ultimaGestionMailCount: 0,
-    };
-  });
+function buildNextCascadeQuotaData(source: any, groupStartDate: Date) {
+  const nextQuota = Math.min(source.cuotaActual + 1, source.cuotaTotal);
+  const fechaInicio = new Date(source.fechaVencimiento);
+  const fechaVencimiento = addMonths(groupStartDate, nextQuota);
+
+  return {
+    clienteId: source.clienteId,
+    companyId: source.companyId,
+    clienteNombre: source.clienteNombre,
+    clienteDni: source.clienteDni,
+    clienteTelefono: source.clienteTelefono,
+    clienteEmail: source.clienteEmail,
+    aseguradora: source.aseguradora,
+    rubro: source.rubro,
+    numeroPoliza: source.numeroPoliza,
+    fechaInicio,
+    fechaVencimiento,
+    medioPago: source.medioPago,
+    vigencia: source.vigencia,
+    cuotaActual: nextQuota,
+    cuotaTotal: source.cuotaTotal,
+    groupId: source.groupId || source.id,
+    pagada: false,
+    fechaPago: null,
+    prima: source.prima,
+    porcentajeComision: source.porcentajeComision,
+    moneda: source.moneda,
+    comisionCalculada: source.comisionCalculada,
+    estado: computeStatus(fechaVencimiento),
+    tipo: source.tipo,
+    renewalGeneratedAt: null,
+    renewalGroupId: null,
+    recordatorioProximoEnviadoAt: null,
+    recordatorioVencidaEnviadoAt: null,
+    ultimaGestionTipo: null,
+    ultimaGestionFecha: null,
+    ultimaGestionWhatsappCount: 0,
+    ultimaGestionMailCount: 0,
+  };
 }
 
 function buildRenewalBaseData(source: any, groupId: string) {
@@ -490,7 +525,7 @@ policiesRouter.post("/", async (req: AuthRequest, res: Response) => {
       const data = await buildPolicyWriteData(tx, req.userId!, input);
       const quotaTotal = getQuotaTotalFromVigencia(data.vigencia);
       const groupId = data.groupId || randomUUID();
-      const quotaRows = buildQuotaSeriesData(
+      const quotaRow = buildFirstCascadeQuotaData(
         {
           ...data,
           cuotaTotal: quotaTotal,
@@ -500,18 +535,15 @@ policiesRouter.post("/", async (req: AuthRequest, res: Response) => {
         groupId
       );
 
-      const created = [];
-      for (const row of quotaRows) {
-        created.push(await tx.policy.create({
-          data: {
-            userId: req.userId!,
-            ...row,
-          },
-          include: policyInclude,
-        }));
-      }
+      const created = await tx.policy.create({
+        data: {
+          userId: req.userId!,
+          ...quotaRow,
+        },
+        include: policyInclude,
+      });
 
-      return created;
+      return [created];
     });
 
     res.status(201).json({
@@ -589,6 +621,8 @@ policiesRouter.patch("/:id/payment", async (req: AuthRequest, res: Response) => 
 
     let renewalCreated = false;
     let renewalPolicies: any[] = [];
+    let nextQuotaCreated = false;
+    let nextQuotaPolicies: any[] = [];
 
     const policy = await prisma.$transaction(async (tx) => {
       const updatedPolicy = await tx.policy.update({
@@ -601,7 +635,41 @@ policiesRouter.patch("/:id/payment", async (req: AuthRequest, res: Response) => 
       });
 
       const isLastQuota = existing.cuotaActual === existing.cuotaTotal;
-      if (!pagada || !isLastQuota) {
+      if (!pagada) {
+        return updatedPolicy;
+      }
+
+      if (!isLastQuota) {
+        const groupId = existing.groupId || existing.id;
+        const existingNext = await tx.policy.findFirst({
+          where: {
+            userId: req.userId!,
+            groupId,
+            cuotaActual: existing.cuotaActual + 1,
+          },
+          include: policyInclude,
+        });
+
+        if (existingNext) {
+          nextQuotaPolicies = [existingNext];
+          return updatedPolicy;
+        }
+
+        const firstQuota = await tx.policy.findFirst({
+          where: { userId: req.userId!, groupId },
+          orderBy: { cuotaActual: "asc" },
+        });
+        const groupStartDate = firstQuota?.fechaInicio || existing.fechaInicio;
+        const nextData = buildNextCascadeQuotaData({ ...existing, groupId }, groupStartDate);
+        const createdNext = await tx.policy.create({
+          data: {
+            userId: req.userId!,
+            ...nextData,
+          },
+          include: policyInclude,
+        });
+        nextQuotaPolicies = [createdNext];
+        nextQuotaCreated = true;
         return updatedPolicy;
       }
 
@@ -616,17 +684,14 @@ policiesRouter.patch("/:id/payment", async (req: AuthRequest, res: Response) => 
 
       const renewalGroupId = randomUUID();
       const baseData = buildRenewalBaseData(existing, renewalGroupId);
-      const rows = buildQuotaSeriesData(baseData, baseData.cuotaTotal, renewalGroupId);
-
-      for (const row of rows) {
-        renewalPolicies.push(await tx.policy.create({
-          data: {
-            userId: req.userId!,
-            ...row,
-          },
-          include: policyInclude,
-        }));
-      }
+      const firstRenewalQuota = buildFirstCascadeQuotaData(baseData, baseData.cuotaTotal, renewalGroupId);
+      renewalPolicies.push(await tx.policy.create({
+        data: {
+          userId: req.userId!,
+          ...firstRenewalQuota,
+        },
+        include: policyInclude,
+      }));
 
       await tx.policy.update({
         where: { id },
@@ -640,7 +705,7 @@ policiesRouter.patch("/:id/payment", async (req: AuthRequest, res: Response) => 
       return updatedPolicy;
     });
 
-    res.json({ policy, renewalCreated, renewalPolicies });
+    res.json({ policy, renewalCreated, renewalPolicies, nextQuotaCreated, nextQuotaPolicies });
   } catch (error) {
     console.error("Update payment error:", error);
     res.status(500).json({ error: "Error interno del servidor" });

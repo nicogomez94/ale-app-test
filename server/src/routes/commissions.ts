@@ -165,6 +165,13 @@ function serializeInvoice(invoice: any) {
   };
 }
 
+function getPaymentSyncedStatus(invoice: { monto: number; estado: CommissionInvoiceStatus }, montoCobrado: number): CommissionInvoiceStatus {
+  if (Number(invoice.monto || 0) > 0 && montoCobrado >= Number(invoice.monto || 0)) return "COBRADA";
+  if (montoCobrado > 0) return "PARCIAL";
+  if (invoice.estado === "COBRADA" || invoice.estado === "PARCIAL") return "PENDIENTE";
+  return invoice.estado;
+}
+
 async function fetchInvoice(userId: string, id: string) {
   return prisma.commissionInvoice.findFirst({
     where: { id, userId },
@@ -259,7 +266,7 @@ commissionsRouter.post("/invoices", async (req: AuthRequest, res: Response) => {
     const fechaEmision = asDate(req.body?.fechaEmision);
     const monto = asNumber(req.body?.monto);
 
-    if (!periodo || !/^\d{4}-\d{2}$/.test(periodo) || !numeroFactura || !fechaEmision || monto == null || monto <= 0) {
+    if (!periodo || !numeroFactura || !fechaEmision || monto == null || monto <= 0) {
       res.status(400).json({ error: "Periodo, numero, fecha de emision y monto son requeridos" });
       return;
     }
@@ -310,7 +317,7 @@ commissionsRouter.put("/invoices/:id", async (req: AuthRequest, res: Response) =
     const fechaEmision = asDate(req.body?.fechaEmision);
     const monto = asNumber(req.body?.monto);
 
-    if (!periodo || !/^\d{4}-\d{2}$/.test(periodo) || !numeroFactura || !fechaEmision || monto == null || monto <= 0) {
+    if (!periodo || !numeroFactura || !fechaEmision || monto == null || monto <= 0) {
       res.status(400).json({ error: "Periodo, numero, fecha de emision y monto son requeridos" });
       return;
     }
@@ -375,7 +382,12 @@ commissionsRouter.post("/invoices/:invoiceId/payments", async (req: AuthRequest,
   try {
     const invoice = await prisma.commissionInvoice.findFirst({
       where: { id: req.params.invoiceId, userId: req.userId! },
-      select: { id: true },
+      select: {
+        id: true,
+        monto: true,
+        estado: true,
+        payments: { select: { monto: true } },
+      },
     });
 
     if (!invoice) {
@@ -390,14 +402,22 @@ commissionsRouter.post("/invoices/:invoiceId/payments", async (req: AuthRequest,
       return;
     }
 
-    await prisma.commissionInvoicePayment.create({
-      data: {
-        invoiceId: invoice.id,
-        fechaPago,
-        monto,
-        medioPago: asText(req.body?.medioPago),
-        comprobanteUrl: asText(req.body?.comprobanteUrl),
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.commissionInvoicePayment.create({
+        data: {
+          invoiceId: invoice.id,
+          fechaPago,
+          monto,
+          medioPago: asText(req.body?.medioPago),
+          comprobanteUrl: asText(req.body?.comprobanteUrl),
+        },
+      });
+
+      const montoCobrado = invoice.payments.reduce((sum, payment) => sum + Number(payment.monto || 0), 0) + monto;
+      await tx.commissionInvoice.update({
+        where: { id: invoice.id },
+        data: { estado: getPaymentSyncedStatus(invoice, montoCobrado) },
+      });
     });
 
     const updated = await fetchInvoice(req.userId!, invoice.id);
@@ -424,7 +444,26 @@ commissionsRouter.delete("/invoices/:invoiceId/payments/:paymentId", async (req:
       return;
     }
 
-    await prisma.commissionInvoicePayment.delete({ where: { id: payment.id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.commissionInvoicePayment.delete({ where: { id: payment.id } });
+      const invoice = await tx.commissionInvoice.findFirst({
+        where: { id: req.params.invoiceId, userId: req.userId! },
+        select: {
+          id: true,
+          monto: true,
+          estado: true,
+          payments: { select: { monto: true } },
+        },
+      });
+
+      if (invoice) {
+        const montoCobrado = invoice.payments.reduce((sum, item) => sum + Number(item.monto || 0), 0);
+        await tx.commissionInvoice.update({
+          where: { id: invoice.id },
+          data: { estado: getPaymentSyncedStatus(invoice, montoCobrado) },
+        });
+      }
+    });
     const updated = await fetchInvoice(req.userId!, req.params.invoiceId);
     res.json(serializeInvoice(updated));
   } catch (error) {
@@ -451,6 +490,26 @@ commissionsRouter.get("/summary", async (req: AuthRequest, res: Response) => {
     const totalPrima = policies.reduce((sum: number, p: any) => sum + p.prima, 0);
     const totalComision = policies.reduce((sum: number, p: any) => sum + p.comisionCalculada, 0);
     const avgComision = policies.length > 0 ? totalComision / policies.length : 0;
+    const invoices = await prisma.commissionInvoice.findMany({
+      where: { userId: req.userId },
+      select: {
+        monto: true,
+        moneda: true,
+        payments: { select: { monto: true } },
+      },
+    });
+
+    const facturacion = invoices.reduce((acc, invoice) => {
+      const key = invoice.moneda === "USD" ? "USD" : "ARS";
+      const cobrado = invoice.payments.reduce((sum, payment) => sum + Number(payment.monto || 0), 0);
+      acc[key].facturado += Number(invoice.monto || 0);
+      acc[key].cobrado += cobrado;
+      acc[key].saldo += Math.max(0, Number(invoice.monto || 0) - cobrado);
+      return acc;
+    }, {
+      ARS: { facturado: 0, cobrado: 0, saldo: 0 },
+      USD: { facturado: 0, cobrado: 0, saldo: 0 },
+    } as Record<"ARS" | "USD", { facturado: number; cobrado: number; saldo: number }>);
 
     // Commission by rubro
     const byRubro: Record<string, number> = {};
@@ -470,6 +529,7 @@ commissionsRouter.get("/summary", async (req: AuthRequest, res: Response) => {
       promedioPoliza: Math.round(avgComision),
       totalPolizas: policies.length,
       distribucion,
+      facturacion,
     });
   } catch (error) {
     console.error("Commissions summary error:", error);

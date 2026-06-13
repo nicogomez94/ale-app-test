@@ -124,7 +124,7 @@ export const LifeAndFinancePage: React.FC = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
       ) : (
         <TableContainer component={Paper} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto' }}>
-          <Table sx={{ minWidth: currentType === 'RETIRO' ? 920 : 820 }}>
+          <Table sx={{ minWidth: currentType === 'RETIRO' ? 1100 : 1000 }}>
             <TableHead sx={{ bgcolor: 'error.main' }}>
               <TableRow>
                 <TableCell sx={{ color: 'white', fontWeight: 700 }}>Cliente</TableCell>
@@ -135,6 +135,8 @@ export const LifeAndFinancePage: React.FC = () => {
                 </TableCell>
                 {currentType === 'RETIRO' && <TableCell sx={{ color: 'white', fontWeight: 700 }}>Fondo Acumulado</TableCell>}
                 <TableCell sx={{ color: 'white', fontWeight: 700 }}>Email</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 700 }}>Localidad</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 700 }}>Provincia</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 700, textAlign: 'right', minWidth: 220 }}>Acciones</TableCell>
               </TableRow>
             </TableHead>
@@ -151,6 +153,8 @@ export const LifeAndFinancePage: React.FC = () => {
                     <TableCell sx={{ fontWeight: 700, color: 'success.main' }}>${policy.fondoAcumulado?.toLocaleString() || 0}</TableCell>
                   )}
                   <TableCell>{policy.email}</TableCell>
+                  <TableCell>{policy.localidad || '-'}</TableCell>
+                  <TableCell>{policy.provincia || '-'}</TableCell>
                   <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
                     <ListingActions
                       onWhatsApp={() => handleWhatsApp(policy.telefono || '')}
@@ -163,7 +167,7 @@ export const LifeAndFinancePage: React.FC = () => {
               ))}
               {policies.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={currentType === 'RETIRO' ? 7 : 6} sx={{ textAlign: 'center', py: 5, color: 'text.secondary', fontWeight: 600 }}>
+                  <TableCell colSpan={currentType === 'RETIRO' ? 9 : 8} sx={{ textAlign: 'center', py: 5, color: 'text.secondary', fontWeight: 600 }}>
                     No hay datos
                   </TableCell>
                 </TableRow>
@@ -197,7 +201,10 @@ export const LifeAndFinancePage: React.FC = () => {
                 )}
                 <Grid size={{ xs: 12, md: 6 }}><TextField key={open + 'email'} fullWidth label="Email" defaultValue={d.email} onChange={(e) => formRef.current.email = e.target.value} /></Grid>
                 <Grid size={{ xs: 12, md: 6 }}><TextField key={open + 'tel'} fullWidth label="Teléfono" defaultValue={d.telefono} onChange={(e) => formRef.current.telefono = e.target.value} /></Grid>
-                <Grid size={{ xs: 12, md: 3 }}><TextField key={open + 'cp'} fullWidth label="Código Postal" defaultValue={d.cp} onChange={(e) => formRef.current.cp = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 6 }}><TextField key={open + 'dir'} fullWidth label="Dirección" defaultValue={d.direccion} onChange={(e) => formRef.current.direccion = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 2 }}><TextField key={open + 'cp'} fullWidth label="Código Postal" defaultValue={d.cp} onChange={(e) => formRef.current.cp = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 2 }}><TextField key={open + 'loc'} fullWidth label="Localidad" defaultValue={d.localidad} onChange={(e) => formRef.current.localidad = e.target.value} /></Grid>
+                <Grid size={{ xs: 12, md: 2 }}><TextField key={open + 'prov'} fullWidth label="Provincia" defaultValue={d.provincia} onChange={(e) => formRef.current.provincia = e.target.value} /></Grid>
               </Grid>
             );
           })()}

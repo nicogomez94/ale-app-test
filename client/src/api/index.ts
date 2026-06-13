@@ -85,6 +85,8 @@ export interface PolicyPaymentResponse {
   policy: DashboardPolicy;
   renewalCreated: boolean;
   renewalPolicies: DashboardPolicy[];
+  nextQuotaCreated?: boolean;
+  nextQuotaPolicies?: DashboardPolicy[];
 }
 
 function getToken(): string | null {

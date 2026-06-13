@@ -38,6 +38,13 @@ interface Siniestro {
   patente?: string;
   marcaModelo?: string;
   tipoDanio?: string;
+  terceroNombre?: string;
+  terceroMarcaModeloVehiculo?: string;
+  terceroDanios?: string;
+  terceroCelular?: string;
+  terceroDireccion?: string;
+  terceroDni?: string;
+  terceroAseguradora?: string;
   estado: SiniestroEstado;
   prioridad: SiniestroProioridad;
   responsable?: string;
@@ -85,9 +92,11 @@ const fmtDate = (d?: string) =>
 
 const EMPTY_FORM = {
   numeroSiniestro: '', numeroPoliza: '', aseguradora: '', tipoSeguro: 'Automotor',
-  clienteNombre: '', clienteDni: '', fechaSiniestro: '', horaSiniestro: '',
+  clienteNombre: '', clienteDni: '', clienteTelefono: '', clienteEmail: '', fechaSiniestro: '', horaSiniestro: '',
   lugarSiniestro: '', descripcion: '', patente: '', marcaModelo: '', tipoDanio: '',
-  estado: 'DENUNCIADO' as SiniestroEstado, responsable: '',
+  terceroNombre: '', terceroMarcaModeloVehiculo: '', terceroDanios: '', terceroCelular: '',
+  terceroDireccion: '', terceroDni: '', terceroAseguradora: '',
+  estado: 'DENUNCIADO' as SiniestroEstado, prioridad: 'BAJA' as SiniestroProioridad, responsable: '',
   importeReclamado: '', deducible: '', montoAprobado: '',
   ultimoContactoAseguradora: '', ultimoContactoCliente: '',
 };
@@ -149,6 +158,8 @@ export const SiniestrosPage: React.FC = () => {
       tipoSeguro: s.tipoSeguro,
       clienteNombre: s.clienteNombre,
       clienteDni: s.clienteDni ?? '',
+      clienteTelefono: s.clienteTelefono ?? '',
+      clienteEmail: s.clienteEmail ?? '',
       fechaSiniestro: s.fechaSiniestro ? s.fechaSiniestro.split('T')[0] : '',
       horaSiniestro: s.horaSiniestro ?? '',
       lugarSiniestro: s.lugarSiniestro ?? '',
@@ -156,7 +167,15 @@ export const SiniestrosPage: React.FC = () => {
       patente: s.patente ?? '',
       marcaModelo: s.marcaModelo ?? '',
       tipoDanio: s.tipoDanio ?? '',
+      terceroNombre: s.terceroNombre ?? '',
+      terceroMarcaModeloVehiculo: s.terceroMarcaModeloVehiculo ?? '',
+      terceroDanios: s.terceroDanios ?? '',
+      terceroCelular: s.terceroCelular ?? '',
+      terceroDireccion: s.terceroDireccion ?? '',
+      terceroDni: s.terceroDni ?? '',
+      terceroAseguradora: s.terceroAseguradora ?? '',
       estado: s.estado,
+      prioridad: s.prioridad,
       responsable: s.responsable ?? '',
       importeReclamado: s.importeReclamado !== undefined ? String(s.importeReclamado) : '',
       deducible: s.deducible !== undefined ? String(s.deducible) : '',
@@ -456,6 +475,12 @@ export const SiniestrosPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField fullWidth label="DNI del Cliente" size="small" value={form.clienteDni} onChange={e => setF('clienteDni', e.target.value)} />
             </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField fullWidth label="Celular del Cliente" size="small" value={form.clienteTelefono} onChange={e => setF('clienteTelefono', e.target.value)} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField fullWidth label="Email del Cliente" size="small" type="email" value={form.clienteEmail} onChange={e => setF('clienteEmail', e.target.value)} />
+            </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
               <TextField fullWidth label="Fecha del Siniestro *" type="date" size="small" value={form.fechaSiniestro} onChange={e => setF('fechaSiniestro', e.target.value)} InputLabelProps={{ shrink: true }} />
             </Grid>
@@ -488,11 +513,43 @@ export const SiniestrosPage: React.FC = () => {
               </Grid>
             )}
 
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Datos del tercero</Typography></Divider></Grid>
+
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField fullWidth label="Nombre y apellido" size="small" value={form.terceroNombre} onChange={e => setF('terceroNombre', e.target.value)} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField fullWidth label="DNI" size="small" value={form.terceroDni} onChange={e => setF('terceroDni', e.target.value)} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField fullWidth label="Marca y modelo del vehiculo" size="small" value={form.terceroMarcaModeloVehiculo} onChange={e => setF('terceroMarcaModeloVehiculo', e.target.value)} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField fullWidth label="Aseguradora del tercero" size="small" value={form.terceroAseguradora} onChange={e => setF('terceroAseguradora', e.target.value)} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField fullWidth label="Celular del tercero" size="small" value={form.terceroCelular} onChange={e => setF('terceroCelular', e.target.value)} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField fullWidth label="Direccion del tercero" size="small" value={form.terceroDireccion} onChange={e => setF('terceroDireccion', e.target.value)} />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField fullWidth label="Daños del tercero" size="small" multiline rows={2} value={form.terceroDanios} onChange={e => setF('terceroDanios', e.target.value)} />
+            </Grid>
+
             <Grid size={{ xs: 12, sm: 4 }}>
               <FormControl fullWidth size="small">
                 <InputLabel shrink>Estado</InputLabel>
                 <Select label="Estado" notched value={form.estado} onChange={e => setF('estado', e.target.value as SiniestroEstado)}>
                   {ESTADOS.map(e => <MenuItem key={e.value} value={e.value}>{e.label}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel shrink>Prioridad</InputLabel>
+                <Select label="Prioridad" notched value={form.prioridad} onChange={e => setF('prioridad', e.target.value as SiniestroProioridad)}>
+                  {PRIORIDADES.map(p => <MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
@@ -594,6 +651,8 @@ export const SiniestrosPage: React.FC = () => {
                   { label: 'Hora', value: s.horaSiniestro ?? '—' },
                   { label: 'Lugar', value: s.lugarSiniestro ?? '—' },
                   { label: 'DNI', value: s.clienteDni ?? '—' },
+                  { label: 'Celular Cliente', value: s.clienteTelefono ?? '—' },
+                  { label: 'Email Cliente', value: s.clienteEmail ?? '—' },
                   { label: 'Responsable', value: s.responsable ?? '—' },
                   ...(s.patente ? [{ label: 'Patente', value: s.patente }] : []),
                   ...(s.marcaModelo ? [{ label: 'Vehículo', value: s.marcaModelo }] : []),
@@ -609,6 +668,33 @@ export const SiniestrosPage: React.FC = () => {
               <Typography variant="body2" sx={{ mb: 2 }}>
                 <b>Descripción:</b> {s.descripcion}
               </Typography>
+
+              {(s.terceroNombre || s.terceroMarcaModeloVehiculo || s.terceroDanios || s.terceroCelular || s.terceroDireccion || s.terceroDni || s.terceroAseguradora) && (
+                <Card sx={{ bgcolor: '#f8fafc', mb: 3, borderRadius: 2 }}>
+                  <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>Datos del tercero</Typography>
+                    <Grid container spacing={1}>
+                      {[
+                        { label: 'Nombre', value: s.terceroNombre },
+                        { label: 'DNI', value: s.terceroDni },
+                        { label: 'Vehículo', value: s.terceroMarcaModeloVehiculo },
+                        { label: 'Aseguradora', value: s.terceroAseguradora },
+                        { label: 'Celular', value: s.terceroCelular },
+                        { label: 'Dirección', value: s.terceroDireccion },
+                      ].map(({ label, value }) => (
+                        <Grid size={{ xs: 6 }} key={label}>
+                          <Typography variant="caption" color="text.secondary">{label}</Typography>
+                          <Typography variant="body2" fontWeight={500}>{value || '—'}</Typography>
+                        </Grid>
+                      ))}
+                      <Grid size={{ xs: 12 }}>
+                        <Typography variant="caption" color="text.secondary">Daños</Typography>
+                        <Typography variant="body2" fontWeight={500}>{s.terceroDanios || '—'}</Typography>
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Montos */}
               <Card sx={{ bgcolor: '#f8fafc', mb: 3, borderRadius: 2 }}>

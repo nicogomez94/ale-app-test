@@ -1,27 +1,23 @@
 import { ThemeOptions } from '@mui/material/styles';
 
 export const getTheme = (mode: 'light' | 'dark'): ThemeOptions => {
-  const isDark = mode === 'dark';
-
   return {
     palette: {
       mode,
       primary: {
-        main: isDark ? '#0f8a7d' : '#00453D',
-        light: isDark ? '#41c7ba' : '#2AB7A9',
-        dark: isDark ? '#0a5c54' : '#002d27',
+        main: '#1a237e',
+        light: '#534bae',
+        dark: '#000051',
       },
       secondary: {
-        main: isDark ? '#39bfb2' : '#2AB7A9',
-        light: isDark ? '#6fddd4' : '#4ECDC4',
-        dark: isDark ? '#208d83' : '#1e9387',
+        main: '#00c853',
       },
       info: {
         main: '#1A96D4',
       },
       background: {
-        default: isDark ? '#0a0f0e' : '#f4fbf9',
-        paper: isDark ? '#121a18' : '#ffffff',
+        default: mode === 'light' ? '#f4f6f8' : '#0a0a0a',
+        paper: mode === 'light' ? '#ffffff' : '#121212',
       },
     },
     typography: {

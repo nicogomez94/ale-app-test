@@ -14,6 +14,7 @@ import { ReferralPage } from './pages/ReferralPage';
 import { PaymentPage } from './pages/PaymentPage';
 import { ClientsPage } from './pages/ClientsPage';
 import { CommissionsPage } from './pages/CommissionsPage';
+import { BillingPage } from './pages/BillingPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { CompaniesPage } from './pages/CompaniesPage';
 import { LifeAndFinancePage } from './pages/LifeAndFinancePage';
@@ -138,6 +139,8 @@ function AppSystem() {
             <Route path="/siniestros" element={<SiniestrosPage />} />
             <Route path="/cotizaciones" element={<CotizacionesPage />} />
             <Route path="/directorio" element={<DirectoryPage />} />
+            <Route path="/aseguradoras" element={<DirectoryPage />} />
+            <Route path="/facturacion" element={<BillingPage />} />
             <Route path="/comisiones" element={<CommissionsPage />} />
             <Route path="/referidos" element={<ReferralPage />} />
             <Route path="/pagos" element={<PaymentPage />} />

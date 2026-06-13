@@ -34,11 +34,21 @@ function parseOptionalDate(value: unknown) {
   return new Date(String(value));
 }
 
+function normalizePrioridad(value: unknown): "ALTA" | "MEDIA" | "BAJA" | null {
+  return value === "ALTA" || value === "MEDIA" || value === "BAJA" ? value : null;
+}
+
 function firstNonEmpty(...values: Array<string | null | undefined>) {
   return values.find((value) => typeof value === "string" && value.trim()) ?? null;
 }
 
-async function agregarContactoClientes<T extends { numeroPoliza: string; clienteNombre: string; clienteDni?: string | null }>(
+async function agregarContactoClientes<T extends {
+  numeroPoliza: string;
+  clienteNombre: string;
+  clienteDni?: string | null;
+  clienteTelefono?: string | null;
+  clienteEmail?: string | null;
+}>(
   siniestros: T[],
   userId: string
 ) {
@@ -109,8 +119,8 @@ async function agregarContactoClientes<T extends { numeroPoliza: string; cliente
 
     return {
       ...siniestro,
-      clienteTelefono: firstNonEmpty(cliente?.telefono, policy?.clienteTelefono),
-      clienteEmail: firstNonEmpty(cliente?.email, policy?.clienteEmail),
+      clienteTelefono: firstNonEmpty(siniestro.clienteTelefono, cliente?.telefono, policy?.clienteTelefono),
+      clienteEmail: firstNonEmpty(siniestro.clienteEmail, cliente?.email, policy?.clienteEmail),
     };
   });
 }
@@ -123,6 +133,8 @@ siniestrosRouter.get("/", async (req: AuthRequest, res: Response) => {
     const where: any = { userId: req.userId };
 
     if (estado) where.estado = estado as string;
+    const prioridadNormalizada = normalizePrioridad(prioridad);
+    if (prioridadNormalizada) where.prioridad = prioridadNormalizada;
     if (search) {
       where.OR = [
         { numeroSiniestro: { contains: search as string, mode: "insensitive" } },
@@ -138,13 +150,7 @@ siniestrosRouter.get("/", async (req: AuthRequest, res: Response) => {
       orderBy: { createdAt: "desc" },
     });
 
-    // Recalculate priority on the fly
-    const result = siniestros.map((s) => ({
-      ...s,
-      prioridad: calcularPrioridad(s.importeReclamado, s.updatedAt),
-    })).filter((s) => !prioridad || s.prioridad === prioridad);
-
-    res.json(await agregarContactoClientes(result, req.userId!));
+    res.json(await agregarContactoClientes(siniestros, req.userId!));
   } catch (error) {
     console.error("List siniestros error:", error);
     res.status(500).json({ error: "Error interno del servidor" });
@@ -198,10 +204,19 @@ siniestrosRouter.get("/export", async (req: AuthRequest, res: Response) => {
       "N° Póliza": s.numeroPoliza,
       "Fecha Siniestro": s.fechaSiniestro.toISOString().split("T")[0],
       Estado: s.estado,
-      Prioridad: calcularPrioridad(s.importeReclamado, s.updatedAt),
+      Prioridad: s.prioridad,
       "Importe Reclamado": s.importeReclamado ?? 0,
       Deducible: s.deducible ?? 0,
       "Monto Aprobado": s.montoAprobado ?? 0,
+      "Telefono Cliente": s.clienteTelefono ?? "",
+      "Email Cliente": s.clienteEmail ?? "",
+      "Tercero Nombre": s.terceroNombre ?? "",
+      "Tercero Vehiculo": s.terceroMarcaModeloVehiculo ?? "",
+      "Tercero Danios": s.terceroDanios ?? "",
+      "Tercero Celular": s.terceroCelular ?? "",
+      "Tercero Direccion": s.terceroDireccion ?? "",
+      "Tercero DNI": s.terceroDni ?? "",
+      "Tercero Aseguradora": s.terceroAseguradora ?? "",
     }));
 
     const wb = XLSX.utils.book_new();
@@ -231,6 +246,8 @@ siniestrosRouter.post("/", async (req: AuthRequest, res: Response) => {
       tipoSeguro,
       clienteNombre,
       clienteDni,
+      clienteTelefono,
+      clienteEmail,
       fechaSiniestro,
       horaSiniestro,
       lugarSiniestro,
@@ -238,7 +255,15 @@ siniestrosRouter.post("/", async (req: AuthRequest, res: Response) => {
       patente,
       marcaModelo,
       tipoDanio,
+      terceroNombre,
+      terceroMarcaModeloVehiculo,
+      terceroDanios,
+      terceroCelular,
+      terceroDireccion,
+      terceroDni,
+      terceroAseguradora,
       estado,
+      prioridad,
       responsable,
       importeReclamado,
       deducible,
@@ -266,6 +291,8 @@ siniestrosRouter.post("/", async (req: AuthRequest, res: Response) => {
         tipoSeguro,
         clienteNombre,
         clienteDni,
+        clienteTelefono,
+        clienteEmail,
         fechaSiniestro: new Date(fechaSiniestro),
         horaSiniestro,
         lugarSiniestro,
@@ -273,8 +300,15 @@ siniestrosRouter.post("/", async (req: AuthRequest, res: Response) => {
         patente,
         marcaModelo,
         tipoDanio,
+        terceroNombre,
+        terceroMarcaModeloVehiculo,
+        terceroDanios,
+        terceroCelular,
+        terceroDireccion,
+        terceroDni,
+        terceroAseguradora,
         estado: estado ?? "DENUNCIADO",
-        prioridad: prioridadCalculada,
+        prioridad: normalizePrioridad(prioridad) ?? prioridadCalculada,
         responsable,
         importeReclamado: parsedImporteReclamado,
         deducible: parsedDeducible,
@@ -285,12 +319,7 @@ siniestrosRouter.post("/", async (req: AuthRequest, res: Response) => {
       include: { notas: true },
     });
 
-    const withPrioridad = {
-      ...siniestro,
-      prioridad: calcularPrioridad(siniestro.importeReclamado, siniestro.updatedAt),
-    };
-
-    res.status(201).json(withPrioridad);
+    res.status(201).json(siniestro);
   } catch (error) {
     console.error("Create siniestro error:", error);
     res.status(500).json({ error: "Error interno del servidor" });
@@ -318,6 +347,8 @@ siniestrosRouter.put("/:id", async (req: AuthRequest, res: Response) => {
       tipoSeguro,
       clienteNombre,
       clienteDni,
+      clienteTelefono,
+      clienteEmail,
       fechaSiniestro,
       horaSiniestro,
       lugarSiniestro,
@@ -325,7 +356,15 @@ siniestrosRouter.put("/:id", async (req: AuthRequest, res: Response) => {
       patente,
       marcaModelo,
       tipoDanio,
+      terceroNombre,
+      terceroMarcaModeloVehiculo,
+      terceroDanios,
+      terceroCelular,
+      terceroDireccion,
+      terceroDni,
+      terceroAseguradora,
       estado,
+      prioridad,
       responsable,
       importeReclamado,
       deducible,
@@ -351,6 +390,8 @@ siniestrosRouter.put("/:id", async (req: AuthRequest, res: Response) => {
         tipoSeguro,
         clienteNombre,
         clienteDni,
+        clienteTelefono,
+        clienteEmail,
         fechaSiniestro: fechaSiniestro ? new Date(fechaSiniestro) : undefined,
         horaSiniestro,
         lugarSiniestro,
@@ -358,8 +399,15 @@ siniestrosRouter.put("/:id", async (req: AuthRequest, res: Response) => {
         patente,
         marcaModelo,
         tipoDanio,
+        terceroNombre,
+        terceroMarcaModeloVehiculo,
+        terceroDanios,
+        terceroCelular,
+        terceroDireccion,
+        terceroDni,
+        terceroAseguradora,
         estado,
-        prioridad: prioridadCalculada,
+        prioridad: normalizePrioridad(prioridad) ?? prioridadCalculada,
         responsable,
         importeReclamado: parsedImporteReclamado,
         deducible: parsedDeducible,
@@ -370,12 +418,7 @@ siniestrosRouter.put("/:id", async (req: AuthRequest, res: Response) => {
       include: { notas: { orderBy: { createdAt: "desc" } } },
     });
 
-    const withPrioridad = {
-      ...updated,
-      prioridad: calcularPrioridad(updated.importeReclamado, updated.updatedAt),
-    };
-
-    res.json(withPrioridad);
+    res.json(updated);
   } catch (error) {
     console.error("Update siniestro error:", error);
     res.status(500).json({ error: "Error interno del servidor" });

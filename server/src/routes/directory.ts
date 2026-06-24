@@ -77,6 +77,10 @@ function serializeInsurer(insurer: any) {
     totalFacturadoARS,
     totalFacturadoUSD,
     cantidadFacturas: invoices.length,
+    invoices: invoices.map((invoice: any) => ({
+      ...invoice,
+      fechaEmision: invoice.fechaEmision?.toISOString().split("T")[0] || "",
+    })),
   };
 }
 
@@ -110,6 +114,9 @@ const insurerInclude = {
   commissionInvoices: {
     select: {
       id: true,
+      periodo: true,
+      numeroFactura: true,
+      fechaEmision: true,
       monto: true,
       moneda: true,
       estado: true,

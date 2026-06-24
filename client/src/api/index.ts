@@ -89,6 +89,38 @@ export interface PolicyPaymentResponse {
   nextQuotaPolicies?: DashboardPolicy[];
 }
 
+export interface PolicyListItem {
+  id: string;
+  clienteNombre: string;
+  aseguradora: string;
+  numeroPoliza: string;
+  moneda: string;
+  comisionCalculada: number;
+  cuotaActual: number;
+  cuotaTotal: number;
+}
+
+export interface CommissionInvoicePayload {
+  insuranceCompanyId: string;
+  periodo: string;
+  numeroFactura: string;
+  fechaEmision: string;
+  fechaVencimiento?: string;
+  estado: string;
+  monto: number;
+  moneda: "ARS" | "USD";
+  comprobanteUrl?: string;
+  notes?: string;
+  policyIds: string[];
+}
+
+export interface CommissionPaymentPayload {
+  fechaPago: string;
+  monto: number;
+  medioPago?: string;
+  comprobanteUrl?: string;
+}
+
 function getToken(): string | null {
   return localStorage.getItem("pas_token");
 }
@@ -226,7 +258,7 @@ export const api = {
   policies: {
     list: (params?: Record<string, string>) => {
       const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
-      return request<DashboardPolicy[]>(`/policies${qs}`);
+      return request<PolicyListItem[]>(`/policies${qs}`);
     },
     create: (data: PolicyPayload) =>
       request<DashboardPolicy & { generatedCount: number; generatedPolicies: DashboardPolicy[] }>("/policies", { method: "POST", body: JSON.stringify(data) }),
@@ -273,18 +305,18 @@ export const api = {
     invoices: {
       list: (params?: { search?: string; periodo?: string; estado?: string; insuranceCompanyId?: string }) => {
         const qs = params ? `?${new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v))).toString()}` : "";
-        return request<any[]>(`/commissions/invoices${qs}`);
+        return request<Record<string, unknown>[]>(`/commissions/invoices${qs}`);
       },
-      create: (data: any) =>
-        request<any>("/commissions/invoices", { method: "POST", body: JSON.stringify(data) }),
-      update: (id: string, data: any) =>
-        request<any>(`/commissions/invoices/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      create: (data: CommissionInvoicePayload) =>
+        request<Record<string, unknown>>("/commissions/invoices", { method: "POST", body: JSON.stringify(data) }),
+      update: (id: string, data: CommissionInvoicePayload) =>
+        request<Record<string, unknown>>(`/commissions/invoices/${id}`, { method: "PUT", body: JSON.stringify(data) }),
       delete: (id: string) =>
         request<any>(`/commissions/invoices/${id}`, { method: "DELETE" }),
-      addPayment: (invoiceId: string, data: any) =>
-        request<any>(`/commissions/invoices/${invoiceId}/payments`, { method: "POST", body: JSON.stringify(data) }),
+      addPayment: (invoiceId: string, data: CommissionPaymentPayload) =>
+        request<Record<string, unknown>>(`/commissions/invoices/${invoiceId}/payments`, { method: "POST", body: JSON.stringify(data) }),
       deletePayment: (invoiceId: string, paymentId: string) =>
-        request<any>(`/commissions/invoices/${invoiceId}/payments/${paymentId}`, { method: "DELETE" }),
+        request<Record<string, unknown>>(`/commissions/invoices/${invoiceId}/payments/${paymentId}`, { method: "DELETE" }),
       export: () => request<Blob>("/commissions/invoices/export"),
     },
   },

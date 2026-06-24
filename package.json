@@ -10,6 +10,7 @@
     "build:server": "npm --prefix server run build",
     "preview": "npm --prefix client run preview",
     "clean": "rm -rf client/dist server/dist",
+    "test": "npm --prefix server run test",
     "lint": "npm --prefix client run lint && npm --prefix server run build",
     "start": "npm --prefix server run start"
   },

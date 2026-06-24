@@ -14,6 +14,16 @@ const INVOICE_STATUSES = new Set<CommissionInvoiceStatus>([
   "PARCIAL",
   "VENCIDA",
 ]);
+const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+export function isValidInvoicePeriod(value: string): boolean {
+  return PERIOD_PATTERN.test(value);
+}
+
+export function getInvoicePendingAmount(invoiceAmount: number, payments: Array<{ monto: number }>): number {
+  const paid = payments.reduce((sum, payment) => sum + Number(payment.monto || 0), 0);
+  return Math.max(0, Number(invoiceAmount || 0) - paid);
+}
 
 function asText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -47,18 +57,28 @@ function normalizeInvoiceCurrency(value: unknown): CurrencyType {
 }
 
 async function ensureOwnedInsuranceCompany(userId: string, insuranceCompanyId?: string | null) {
-  if (!insuranceCompanyId) return;
-  const count = await prisma.insuranceCompany.count({ where: { id: insuranceCompanyId, userId } });
-  if (count !== 1) {
+  if (!insuranceCompanyId) throw new Error("Aseguradora requerida");
+  const company = await prisma.insuranceCompany.findFirst({
+    where: { id: insuranceCompanyId, userId },
+    select: { id: true, razonSocial: true },
+  });
+  if (!company) {
     throw new Error("Aseguradora no encontrada");
   }
+  return company;
 }
 
-async function ensureOwnedPolicies(userId: string, policyIds: string[]) {
+async function ensureOwnedPolicies(userId: string, policyIds: string[], currency: CurrencyType) {
   if (policyIds.length === 0) return;
-  const count = await prisma.policy.count({ where: { userId, id: { in: policyIds } } });
-  if (count !== policyIds.length) {
+  const policies = await prisma.policy.findMany({
+    where: { userId, id: { in: policyIds } },
+    select: { id: true, moneda: true },
+  });
+  if (policies.length !== policyIds.length) {
     throw new Error("Una o mas polizas seleccionadas no pertenecen al usuario");
+  }
+  if (policies.some((policy) => policy.moneda !== currency)) {
+    throw new Error("Todas las polizas vinculadas deben tener la misma moneda que la factura");
   }
 }
 
@@ -165,7 +185,7 @@ function serializeInvoice(invoice: any) {
   };
 }
 
-function getPaymentSyncedStatus(invoice: { monto: number; estado: CommissionInvoiceStatus }, montoCobrado: number): CommissionInvoiceStatus {
+export function getPaymentSyncedStatus(invoice: { monto: number; estado: CommissionInvoiceStatus }, montoCobrado: number): CommissionInvoiceStatus {
   if (Number(invoice.monto || 0) > 0 && montoCobrado >= Number(invoice.monto || 0)) return "COBRADA";
   if (montoCobrado > 0) return "PARCIAL";
   if (invoice.estado === "COBRADA" || invoice.estado === "PARCIAL") return "PENDIENTE";
@@ -258,15 +278,16 @@ commissionsRouter.post("/invoices", async (req: AuthRequest, res: Response) => {
   try {
     const insuranceCompanyId = asText(req.body?.insuranceCompanyId);
     const policyIds = uniqueStringArray(req.body?.policyIds);
+    const moneda = normalizeInvoiceCurrency(req.body?.moneda);
     await ensureOwnedInsuranceCompany(req.userId!, insuranceCompanyId);
-    await ensureOwnedPolicies(req.userId!, policyIds);
+    await ensureOwnedPolicies(req.userId!, policyIds, moneda);
 
     const periodo = asText(req.body?.periodo);
     const numeroFactura = asText(req.body?.numeroFactura);
     const fechaEmision = asDate(req.body?.fechaEmision);
     const monto = asNumber(req.body?.monto);
 
-    if (!periodo || !numeroFactura || !fechaEmision || monto == null || monto <= 0) {
+    if (!periodo || !isValidInvoicePeriod(periodo) || !numeroFactura || !fechaEmision || monto == null || monto <= 0) {
       res.status(400).json({ error: "Periodo, numero, fecha de emision y monto son requeridos" });
       return;
     }
@@ -281,7 +302,7 @@ commissionsRouter.post("/invoices", async (req: AuthRequest, res: Response) => {
         fechaVencimiento: asDate(req.body?.fechaVencimiento),
         estado: normalizeInvoiceStatus(req.body?.estado),
         monto,
-        moneda: normalizeInvoiceCurrency(req.body?.moneda),
+        moneda,
         comprobanteUrl: asText(req.body?.comprobanteUrl),
         notes: asText(req.body?.notes),
         policies: {
@@ -295,13 +316,16 @@ commissionsRouter.post("/invoices", async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Create commission invoice error:", error);
     const message = error instanceof Error ? error.message : "Error interno del servidor";
-    res.status(message.includes("pertenecen") || message.includes("Aseguradora") ? 400 : 500).json({ error: message });
+    res.status(message.includes("poliza") || message.includes("moneda") || message.includes("Aseguradora") ? 400 : 500).json({ error: message });
   }
 });
 
 commissionsRouter.put("/invoices/:id", async (req: AuthRequest, res: Response) => {
   try {
-    const existing = await prisma.commissionInvoice.findFirst({ where: { id: req.params.id, userId: req.userId! } });
+    const existing = await prisma.commissionInvoice.findFirst({
+      where: { id: req.params.id, userId: req.userId! },
+      include: { payments: { select: { monto: true } } },
+    });
     if (!existing) {
       res.status(404).json({ error: "Factura no encontrada" });
       return;
@@ -309,16 +333,22 @@ commissionsRouter.put("/invoices/:id", async (req: AuthRequest, res: Response) =
 
     const insuranceCompanyId = asText(req.body?.insuranceCompanyId);
     const policyIds = Array.isArray(req.body?.policyIds) ? uniqueStringArray(req.body.policyIds) : undefined;
+    const moneda = normalizeInvoiceCurrency(req.body?.moneda);
     await ensureOwnedInsuranceCompany(req.userId!, insuranceCompanyId);
-    if (policyIds) await ensureOwnedPolicies(req.userId!, policyIds);
+    if (policyIds) await ensureOwnedPolicies(req.userId!, policyIds, moneda);
 
     const periodo = asText(req.body?.periodo);
     const numeroFactura = asText(req.body?.numeroFactura);
     const fechaEmision = asDate(req.body?.fechaEmision);
     const monto = asNumber(req.body?.monto);
 
-    if (!periodo || !numeroFactura || !fechaEmision || monto == null || monto <= 0) {
+    if (!periodo || !isValidInvoicePeriod(periodo) || !numeroFactura || !fechaEmision || monto == null || monto <= 0) {
       res.status(400).json({ error: "Periodo, numero, fecha de emision y monto son requeridos" });
+      return;
+    }
+    const collected = existing.payments.reduce((sum, payment) => sum + Number(payment.monto || 0), 0);
+    if (monto + 0.01 < collected) {
+      res.status(400).json({ error: "El monto facturado no puede ser menor que el total ya cobrado" });
       return;
     }
 
@@ -342,7 +372,7 @@ commissionsRouter.put("/invoices/:id", async (req: AuthRequest, res: Response) =
           fechaVencimiento: asDate(req.body?.fechaVencimiento),
           estado: normalizeInvoiceStatus(req.body?.estado),
           monto,
-          moneda: normalizeInvoiceCurrency(req.body?.moneda),
+          moneda,
           comprobanteUrl: asText(req.body?.comprobanteUrl),
           notes: asText(req.body?.notes),
         },
@@ -354,7 +384,7 @@ commissionsRouter.put("/invoices/:id", async (req: AuthRequest, res: Response) =
   } catch (error) {
     console.error("Update commission invoice error:", error);
     const message = error instanceof Error ? error.message : "Error interno del servidor";
-    res.status(message.includes("pertenecen") || message.includes("Aseguradora") ? 400 : 500).json({ error: message });
+    res.status(message.includes("poliza") || message.includes("moneda") || message.includes("Aseguradora") ? 400 : 500).json({ error: message });
   }
 });
 
@@ -402,6 +432,12 @@ commissionsRouter.post("/invoices/:invoiceId/payments", async (req: AuthRequest,
       return;
     }
 
+    const pending = getInvoicePendingAmount(invoice.monto, invoice.payments);
+    if (monto > pending + 0.01) {
+      res.status(400).json({ error: `El pago supera el saldo pendiente de ${pending.toFixed(2)}` });
+      return;
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.commissionInvoicePayment.create({
         data: {
@@ -424,7 +460,8 @@ commissionsRouter.post("/invoices/:invoiceId/payments", async (req: AuthRequest,
     res.status(201).json(serializeInvoice(updated));
   } catch (error) {
     console.error("Create invoice payment error:", error);
-    res.status(500).json({ error: "Error interno del servidor" });
+    const message = error instanceof Error ? error.message : "Error interno del servidor";
+    res.status(message.includes("saldo pendiente") ? 400 : 500).json({ error: message });
   }
 });
 

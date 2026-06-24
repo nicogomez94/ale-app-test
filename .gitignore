@@ -3,6 +3,7 @@ build/
 dist/
 coverage/
 pas_nuevo/
+remix_-ad-system/
 .DS_Store
 *.log
 .env*

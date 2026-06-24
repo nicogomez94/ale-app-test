@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Autocomplete,
@@ -44,8 +44,10 @@ import {
   Globe,
   Mail,
   MapPin,
+  Banknote,
   Phone,
   Plus,
+  Receipt,
   Search,
   ShieldCheck,
   Trash2,
@@ -84,6 +86,7 @@ export const DirectoryPage: React.FC = () => {
   const [tab, setTab] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [insurers, setInsurers] = useState<any[]>([]);
+  const [allInsurers, setAllInsurers] = useState<any[]>([]);
   const [brokers, setBrokers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedInsurer, setExpandedInsurer] = useState<string | null>(null);
@@ -101,14 +104,28 @@ export const DirectoryPage: React.FC = () => {
     severity: 'success',
   });
 
+  const financialTotals = useMemo(() => allInsurers.reduce(
+    (totals, insurer) => ({
+      ars: totals.ars + Number(insurer.totalFacturadoARS || 0),
+      usd: totals.usd + Number(insurer.totalFacturadoUSD || 0),
+      invoices: totals.invoices + Number(insurer.cantidadFacturas || 0),
+    }),
+    { ars: 0, usd: 0, invoices: 0 },
+  ), [allInsurers]);
+
+  const formatMoney = (value: number, currency: 'ARS' | 'USD') =>
+    new Intl.NumberFormat('es-AR', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value);
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [insurerData, brokerData] = await Promise.all([
+      const [insurerData, brokerData, allInsurerData] = await Promise.all([
         api.directory.insurers.list(tab === 0 ? searchTerm : undefined),
         api.directory.brokers.list(tab === 1 ? searchTerm : undefined),
+        api.directory.insurers.list(),
       ]);
       setInsurers(insurerData);
+      setAllInsurers(allInsurerData);
       setBrokers(brokerData);
     } catch (error: any) {
       setSnack({ open: true, message: error.message || 'No se pudo cargar el directorio.', severity: 'error' });
@@ -244,6 +261,26 @@ export const DirectoryPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
+
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {[
+          { label: 'Total facturado ARS', value: formatMoney(financialTotals.ars, 'ARS'), icon: <Banknote size={22} />, color: '#2563eb' },
+          { label: 'Total facturado USD', value: formatMoney(financialTotals.usd, 'USD'), icon: <Banknote size={22} />, color: '#16a34a' },
+          { label: 'Facturas emitidas', value: String(financialTotals.invoices), icon: <Receipt size={22} />, color: '#9333ea' },
+        ].map((item) => (
+          <Grid key={item.label} size={{ xs: 12, sm: 4 }}>
+            <Card sx={{ height: '100%', borderLeft: `5px solid ${item.color}` }}>
+              <CardContent sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                <Box sx={{ color: item.color }}>{item.icon}</Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>{item.label}</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 800 }}>{item.value}</Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 4 }}>
         <Tabs value={tab} onChange={(_, value) => { setTab(value); setSearchTerm(''); }} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile>
@@ -383,6 +420,26 @@ export const DirectoryPage: React.FC = () => {
                               </Typography>
                               <Typography variant="body2"><strong>Cód. Cliente:</strong> {insurer.producerCode || '-'}</Typography>
                               <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}><strong>Notas:</strong> {insurer.notes || '-'}</Typography>
+                            </Grid>
+                            <Grid size={{ xs: 12 }}>
+                              <Divider sx={{ my: 1 }} />
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase' }}>Resumen de facturación</Typography>
+                              <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mt: 1 }}>
+                                <Typography variant="body2"><strong>ARS:</strong> {formatMoney(Number(insurer.totalFacturadoARS || 0), 'ARS')}</Typography>
+                                <Typography variant="body2"><strong>USD:</strong> {formatMoney(Number(insurer.totalFacturadoUSD || 0), 'USD')}</Typography>
+                                <Typography variant="body2"><strong>Facturas:</strong> {insurer.cantidadFacturas || 0}</Typography>
+                              </Box>
+                              {(insurer.invoices || []).length > 0 && (
+                                <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                  {insurer.invoices.slice(0, 6).map((invoice: any) => (
+                                    <Chip
+                                      key={invoice.id}
+                                      size="small"
+                                      label={`${invoice.numeroFactura} · ${invoice.periodo} · ${formatMoney(Number(invoice.monto || 0), invoice.moneda === 'USD' ? 'USD' : 'ARS')}`}
+                                    />
+                                  ))}
+                                </Box>
+                              )}
                             </Grid>
                           </Grid>
                         </Box>

@@ -498,8 +498,6 @@ function buildPolicyPayload(policy: DashboardPolicy, values: EditFormValues): Po
     cuotaActual: policy.cuotaActual || 1,
     cuotaTotal: policy.cuotaTotal || getQuotaTotalFromVigencia(values.vigencia),
     groupId: policy.groupId || policy.id,
-    pagada: values.pagada,
-    fechaPago: values.pagada ? values.fechaPago : '',
     prima: Number(values.prima || 0),
     porcentajeComision: Number(values.porcentajeComision || 0),
     moneda: values.moneda || 'ARS',
@@ -1003,19 +1001,6 @@ export const Dashboard: React.FC = () => {
                 <Grid size={{ xs: 12, md: 6 }}>
                   <TextField fullWidth label="Porcentaje Comision (%)" type="number" value={editValues.porcentajeComision} onChange={(event) => setEditValues((prev) => prev ? { ...prev, porcentajeComision: event.target.value } : prev)} />
                 </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <IconButton onClick={() => setEditValues((prev) => prev ? { ...prev, pagada: !prev.pagada } : prev)} sx={{ color: editValues.pagada ? 'success.main' : 'text.disabled' }}>
-                      {editValues.pagada ? <CheckSquare size={22} /> : <Square size={22} />}
-                    </IconButton>
-                    <Typography variant="body1" sx={{ fontWeight: 600 }}>{editValues.pagada ? 'Marcada como pagada' : 'Pendiente de pago'}</Typography>
-                  </Box>
-                </Grid>
-                {editValues.pagada && (
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField fullWidth type="date" label="Fecha de Pago" InputLabelProps={{ shrink: true }} value={editValues.fechaPago} onChange={(event) => setEditValues((prev) => prev ? { ...prev, fechaPago: event.target.value } : prev)} />
-                  </Grid>
-                )}
               </Grid>
             </DialogContent>
             <DialogActions sx={{ p: 3 }}>

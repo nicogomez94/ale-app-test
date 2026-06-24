@@ -7,6 +7,10 @@ const PLAN_LIMITS: Record<string, { polizas: number; clientes: number; empresas:
   AGENCIA: { polizas: 500, clientes: 500, empresas: 500 },
 };
 
+export function countPolicyGroups(policies: Array<{ id: string; groupId: string | null }>): number {
+  return new Set(policies.map((policy) => policy.groupId || policy.id)).size;
+}
+
 export async function checkPlanLimit(
   userId: string,
   resource: "polizas" | "clientes" | "empresas"
@@ -23,7 +27,11 @@ export async function checkPlanLimit(
 
   let count = 0;
   if (resource === "polizas") {
-    count = await prisma.policy.count({ where: { userId } });
+    const policies = await prisma.policy.findMany({
+      where: { userId },
+      select: { id: true, groupId: true },
+    });
+    count = countPolicyGroups(policies);
   } else if (resource === "clientes") {
     count = await prisma.client.count({ where: { userId } });
   } else if (resource === "empresas") {

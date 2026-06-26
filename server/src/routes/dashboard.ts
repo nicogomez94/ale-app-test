@@ -42,19 +42,38 @@ const dashboardPolicyInclude = {
 dashboardRouter.get("/stats", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId!;
+    const now = new Date();
+    const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    const [totalPolicies, activePolicies, expiredPolicies, totalClients, totalCompanies] = await Promise.all([
+    const [
+      totalPolicies,
+      activePolicies,
+      expiredPolicies,
+      totalClients,
+      totalCompanies,
+      clientPolicyCount,
+      companyPolicyCount,
+      lifePolicyCount,
+      unseenCotizaciones,
+    ] = await Promise.all([
       prisma.policy.count({ where: { userId } }),
       prisma.policy.count({ where: { userId, estado: "ACTIVA" } }),
       prisma.policy.count({ where: { userId, estado: "VENCIDA" } }),
       prisma.client.count({ where: { userId } }),
       prisma.company.count({ where: { userId } }),
+      prisma.policy.count({ where: { userId, tipo: "INDIVIDUAL", estado: { not: "VENCIDA" } } }),
+      prisma.policy.count({ where: { userId, tipo: "EMPRESA", estado: { not: "VENCIDA" } } }),
+      prisma.lifePolicy.count({ where: { userId } }),
+      prisma.cotizacion.count({ where: { userId, viewedAt: null } }),
     ]);
 
     const expiringCount = await prisma.policy.count({
       where: {
         userId,
-        estado: "VENCE_PRONTO",
+        fechaVencimiento: {
+          gte: now,
+          lte: in7Days,
+        },
       },
     });
 
@@ -64,6 +83,10 @@ dashboardRouter.get("/stats", async (req: AuthRequest, res: Response) => {
       polizasVencidas: expiredPolicies,
       clientesTotales: totalClients + totalCompanies,
       totalPolizas: totalPolicies,
+      polizasClientes: clientPolicyCount,
+      polizasEmpresas: companyPolicyCount,
+      polizasVidaRetiro: lifePolicyCount,
+      cotizacionesSinVer: unseenCotizaciones,
     });
   } catch (error) {
     console.error("Dashboard stats error:", error);
@@ -80,7 +103,9 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
     const take = Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : undefined;
 
     if (filter === "expiring") {
-      where.estado = "VENCE_PRONTO";
+      const now = new Date();
+      const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      where.fechaVencimiento = { gte: now, lte: in7Days };
     } else if (filter === "expired") {
       where.estado = "VENCIDA";
     } else if (filter === "active") {

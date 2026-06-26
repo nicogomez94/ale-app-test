@@ -20,7 +20,7 @@ import { Building2, Hash, HeartPulse, Mail, MapPin, Phone, Save, Shield, User } 
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { api, PolicyPayload } from '../api';
 import { DEBUG, debugData } from '../data/debugData';
 import {
@@ -121,6 +121,10 @@ function createGroupId(): string {
 
 export const PolicyForm: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const routeState = (location.state || {}) as { policyMode?: 'CLIENTE' | 'EMPRESA' | 'VIDA_RETIRO'; lockPolicyMode?: boolean };
+  const initialPolicyMode = routeState.policyMode || 'CLIENTE';
+  const lockPolicyMode = !!routeState.lockPolicyMode;
   const [snackOpen, setSnackOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -132,14 +136,14 @@ export const PolicyForm: React.FC = () => {
   const defaultValues = useMemo<FormData>(() => {
     if (DEBUG) {
       return {
-        policyMode: 'CLIENTE',
+        policyMode: initialPolicyMode,
         vidaRetiroTipo: 'VIDA',
         ...debugData.policy,
       } as FormData;
     }
 
     return {
-      policyMode: 'CLIENTE',
+      policyMode: initialPolicyMode,
       vidaRetiroTipo: 'VIDA',
       clienteNombre: '',
       clienteDni: '',
@@ -164,7 +168,7 @@ export const PolicyForm: React.FC = () => {
       aporteMensual: undefined,
       fondoAcumulado: undefined,
     };
-  }, [defaultFechaInicio]);
+  }, [defaultFechaInicio, initialPolicyMode]);
 
   const {
     control,
@@ -228,7 +232,7 @@ export const PolicyForm: React.FC = () => {
           provincia: data.clienteProvincia || undefined,
         });
         setSnackOpen(true);
-        setTimeout(() => navigate('/dashboard'), 1200);
+        setTimeout(() => navigate('/vida-y-retiro'), 1200);
         return;
       }
 
@@ -264,7 +268,7 @@ export const PolicyForm: React.FC = () => {
 
       await api.policies.create(payload);
       setSnackOpen(true);
-      setTimeout(() => navigate('/dashboard'), 1200);
+      setTimeout(() => navigate(policyType === 'EMPRESA' ? '/empresas' : '/clientes'), 1200);
     } catch (err: any) {
       setError(err.message || 'No se pudo guardar la poliza');
     } finally {
@@ -275,7 +279,7 @@ export const PolicyForm: React.FC = () => {
   return (
     <Box>
       <Typography variant="h4" sx={{ fontWeight: 800, mb: 4 }}>
-        Nueva Poliza
+        {policyMode === 'EMPRESA' ? 'Nueva Póliza de Empresa' : policyMode === 'VIDA_RETIRO' ? 'Nueva Póliza de Vida y Retiro' : 'Nueva Póliza de Cliente'}
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
@@ -283,6 +287,7 @@ export const PolicyForm: React.FC = () => {
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 8 }}>
+            {!lockPolicyMode && (
             <Card sx={{ mb: 3 }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -307,6 +312,7 @@ export const PolicyForm: React.FC = () => {
                 />
               </CardContent>
             </Card>
+            )}
 
             <Card sx={{ mb: 3 }}>
               <CardContent>

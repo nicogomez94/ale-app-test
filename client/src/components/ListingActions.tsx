@@ -59,7 +59,10 @@ export const ListingActions: React.FC<ListingActionsProps> = ({
           variant="outlined"
           color="success"
           startIcon={<MessageCircle size={14} />}
-          onClick={onWhatsApp}
+          onClick={(event) => {
+            event.stopPropagation();
+            onWhatsApp();
+          }}
           disabled={disableWhatsApp}
           sx={ACTION_BUTTON_SX}
         >
@@ -73,7 +76,10 @@ export const ListingActions: React.FC<ListingActionsProps> = ({
       variant="outlined"
       color="primary"
       startIcon={<Edit2 size={14} />}
-      onClick={onEdit}
+      onClick={(event) => {
+        event.stopPropagation();
+        onEdit();
+      }}
       sx={ACTION_BUTTON_SX}
     >
       Modificar
@@ -86,7 +92,10 @@ export const ListingActions: React.FC<ListingActionsProps> = ({
           variant="outlined"
           color="info"
           startIcon={<Mail size={14} />}
-          onClick={onEmail}
+          onClick={(event) => {
+            event.stopPropagation();
+            onEmail();
+          }}
           disabled={disableEmail}
           sx={ACTION_BUTTON_SX}
         >
@@ -100,7 +109,10 @@ export const ListingActions: React.FC<ListingActionsProps> = ({
       variant="outlined"
       color="error"
       startIcon={<Trash2 size={14} />}
-      onClick={onDelete}
+      onClick={(event) => {
+        event.stopPropagation();
+        onDelete();
+      }}
       sx={ACTION_BUTTON_SX}
     >
       Eliminar

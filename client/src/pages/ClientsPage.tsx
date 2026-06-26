@@ -96,8 +96,9 @@ export const ClientsPage: React.FC = () => {
           <Typography variant="h4" sx={{ fontWeight: 800, overflowWrap: 'anywhere' }}>Gestión de Clientes</Typography>
           <Typography variant="body1" color="text.secondary">Administra tu cartera de clientes individuales.</Typography>
         </Box>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(2, max-content)' }, gap: 1.5, justifyContent: { xs: 'stretch', md: 'flex-end' }, minWidth: 0 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, max-content)' }, gap: 1.5, justifyContent: { xs: 'stretch', md: 'flex-end' }, minWidth: 0 }}>
           <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleExport} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25 }}>Exportar Excel</Button>
+          <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => navigate('/polizas', { state: { policyMode: 'CLIENTE', lockPolicyMode: true } })} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25, borderRadius: 3 }}>Nueva Póliza</Button>
           <Button variant="contained" startIcon={<Plus size={20} />} onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25, borderRadius: 3 }}>Nuevo...</Button>
           <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
             <MenuItem onClick={() => { setAnchorEl(null); handleOpen(); }} sx={{ gap: 1.5 }}><User size={18} />Nuevo Cliente (Individuo)</MenuItem>

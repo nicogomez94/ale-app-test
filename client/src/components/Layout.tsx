@@ -5,10 +5,10 @@ import {
   Divider, Avatar, Menu, MenuItem, Badge, Tooltip, Collapse
 } from '@mui/material';
 import {
-  LayoutDashboard, FileText, Users, CreditCard, Bell, LogOut,
+  LayoutDashboard, Users, CreditCard, Bell, LogOut,
   Menu as MenuIcon, UserCircle, BarChart3, Sun, Moon, Building2, HeartPulse,
   Calendar, Clock, Shield, AlertTriangle, MessageSquare,
-  PanelLeftClose, PanelLeftOpen, ShieldCheck, Receipt, ChevronDown, ChevronRight
+  PanelLeftClose, PanelLeftOpen, ShieldCheck, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -51,6 +51,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [expiringCount, setExpiringCount] = useState(0);
+  const [menuCounts, setMenuCounts] = useState({ clientes: 0, empresas: 0, vidaRetiro: 0, cotizaciones: 0 });
   const [insurersOpen, setInsurersOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -63,32 +64,38 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
   }, []);
 
   useEffect(() => {
-    api.dashboard.stats().then(s => setExpiringCount(s.vencen7Dias)).catch(() => {});
+    api.dashboard.stats().then((s) => {
+      setExpiringCount(s.vencen7Dias || 0);
+      setMenuCounts({
+        clientes: s.polizasClientes || 0,
+        empresas: s.polizasEmpresas || 0,
+        vidaRetiro: s.polizasVidaRetiro || 0,
+        cotizaciones: s.cotizacionesSinVer || 0,
+      });
+    }).catch(() => {});
   }, [location.pathname]);
 
   useEffect(() => {
-    if (['/directorio', '/aseguradoras', '/facturacion', '/comisiones'].includes(location.pathname)) {
+    if (['/directorio', '/aseguradoras'].includes(location.pathname)) {
       setInsurersOpen(true);
     }
   }, [location.pathname]);
 
   const menuItems = [
     { text: 'Dashboard', icon: <LayoutDashboard size={20} color="#4f46e5" />, path: '/dashboard' },
-    { text: 'Nueva Póliza', icon: <FileText size={20} color="#f59e0b" />, path: '/polizas' },
-    { text: 'Clientes', icon: <UserCircle size={20} color="#0ea5e9" />, path: '/clientes' },
-    { text: 'Empresas', icon: <Building2 size={20} color="#8b5cf6" />, path: '/empresas' },
-    { text: 'Vida y Retiro', icon: <HeartPulse size={20} color="#ef4444" />, path: '/vida-y-retiro' },
-    { text: 'Cotizaciones', icon: <MessageSquare size={20} color="#10b981" />, path: '/cotizaciones' },
+    { text: 'Clientes', icon: <UserCircle size={20} color="#0ea5e9" />, path: '/clientes', badge: menuCounts.clientes },
+    { text: 'Empresas', icon: <Building2 size={20} color="#8b5cf6" />, path: '/empresas', badge: menuCounts.empresas },
+    { text: 'Vida y Retiro', icon: <HeartPulse size={20} color="#ef4444" />, path: '/vida-y-retiro', badge: menuCounts.vidaRetiro },
+    { text: 'Cotizaciones', icon: <MessageSquare size={20} color="#10b981" />, path: '/cotizaciones', badge: menuCounts.cotizaciones },
     { text: 'Siniestros', icon: <AlertTriangle size={20} color="#f43f5e" />, path: '/siniestros' },
+    { text: 'Comisiones', icon: <BarChart3 size={20} color="#10b981" />, path: '/comisiones' },
     { text: 'Referidos', icon: <Users size={20} color="#ec4899" />, path: '/referidos' },
     { text: subscriptionSectionLabel, icon: <CreditCard size={20} color="#6366f1" />, path: '/pagos' },
     ...(user?.isAdmin ? [{ text: 'Administración', icon: <Shield size={20} color="#dc2626" />, path: '/admin' }] : []),
   ];
 
   const insurerSubItems = [
-    { text: 'Compañias y Brokers', icon: <ShieldCheck size={20} color="#10b981" />, path: '/aseguradoras', aliases: ['/directorio'] },
-    { text: 'Facturación', icon: <Receipt size={20} color="#f59e0b" />, path: '/facturacion' },
-    { text: 'Comisiones', icon: <BarChart3 size={20} color="#10b981" />, path: '/comisiones' },
+    { text: 'Compañías y Brokers', icon: <ShieldCheck size={20} color="#10b981" />, path: '/aseguradoras', aliases: ['/directorio'] },
   ];
 
   const isPathActive = (path: string, aliases: string[] = []) => location.pathname === path || aliases.includes(location.pathname);
@@ -151,7 +158,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
                 '&:hover': { bgcolor: location.pathname === item.path ? 'primary.main' : 'primary.light', color: 'white', '& .MuiListItemIcon-root': { color: 'white' } }
               }}
             >
-              <ListItemIcon sx={{ minWidth: collapsed ? 0 : 40, justifyContent: 'center' }}>{item.icon}</ListItemIcon>
+              <ListItemIcon sx={{ minWidth: collapsed ? 0 : 40, justifyContent: 'center' }}>
+                <Badge badgeContent={(item as any).badge || 0} color={(item as any).text === 'Cotizaciones' ? 'error' : 'primary'} max={99}>
+                  {item.icon}
+                </Badge>
+              </ListItemIcon>
               {!collapsed && <ListItemText primary={item.text} primaryTypographyProps={{ fontWeight: 500 }} />}
             </ListItem>
           </Tooltip>
@@ -245,7 +256,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
                 '&:hover': { bgcolor: location.pathname === item.path ? 'primary.main' : 'primary.light', color: 'white', '& .MuiListItemIcon-root': { color: 'white' } }
               }}
             >
-              <ListItemIcon sx={{ minWidth: collapsed ? 0 : 40, justifyContent: 'center' }}>{item.icon}</ListItemIcon>
+              <ListItemIcon sx={{ minWidth: collapsed ? 0 : 40, justifyContent: 'center' }}>
+                <Badge badgeContent={(item as any).badge || 0} color={(item as any).text === 'Cotizaciones' ? 'error' : 'primary'} max={99}>
+                  {item.icon}
+                </Badge>
+              </ListItemIcon>
               {!collapsed && <ListItemText primary={item.text} primaryTypographyProps={{ fontWeight: 500 }} />}
             </ListItem>
           </Tooltip>

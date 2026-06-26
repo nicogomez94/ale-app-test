@@ -182,6 +182,33 @@ cotizacionesRouter.put("/:id", async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Mark cotizacion as viewed by the PAS
+cotizacionesRouter.patch("/:id/viewed", async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const existing = await prisma.cotizacion.findFirst({
+      where: { id, userId: req.userId },
+      select: { id: true, viewedAt: true },
+    });
+
+    if (!existing) {
+      res.status(404).json({ error: "Cotización no encontrada" });
+      return;
+    }
+
+    const cotizacion = await prisma.cotizacion.update({
+      where: { id },
+      data: { viewedAt: existing.viewedAt || new Date() },
+    });
+
+    res.json(cotizacion);
+  } catch (error) {
+    console.error("Mark cotizacion viewed error:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
 // Delete cotizacion
 cotizacionesRouter.delete("/:id", async (req: AuthRequest, res: Response) => {
   try {

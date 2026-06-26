@@ -13,7 +13,6 @@ import { PolicyForm } from './pages/PolicyForm';
 import { ReferralPage } from './pages/ReferralPage';
 import { PaymentPage } from './pages/PaymentPage';
 import { ClientsPage } from './pages/ClientsPage';
-import { CommissionsPage } from './pages/CommissionsPage';
 import { BillingPage } from './pages/BillingPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { CompaniesPage } from './pages/CompaniesPage';
@@ -140,8 +139,8 @@ function AppSystem() {
             <Route path="/cotizaciones" element={<CotizacionesPage />} />
             <Route path="/directorio" element={<DirectoryPage />} />
             <Route path="/aseguradoras" element={<DirectoryPage />} />
-            <Route path="/facturacion" element={<BillingPage />} />
-            <Route path="/comisiones" element={<CommissionsPage />} />
+            <Route path="/facturacion" element={<Navigate to="/comisiones" replace />} />
+            <Route path="/comisiones" element={<BillingPage />} />
             <Route path="/referidos" element={<ReferralPage />} />
             <Route path="/pagos" element={<PaymentPage />} />
             <Route path="/perfil" element={<ProfilePage />} />

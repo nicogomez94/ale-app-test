@@ -6,12 +6,14 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
+  Drawer,
   Grid,
   IconButton,
   InputAdornment,
@@ -33,12 +35,10 @@ import {
   Clock,
   FileCheck,
   Hash,
-  HeartPulse,
   Mail,
   MapPin,
   MessageCircle,
   Phone,
-  Plus,
   Square,
   Users,
   X,
@@ -222,14 +222,28 @@ const PolicyTable = ({
   totalCount: number;
   onToggleShowAll: () => void;
 }) => {
-  const visiblePolicies = showAll ? policies : policies.slice(0, VISIBLE_POLICIES_LIMIT);
+  const [detailGroup, setDetailGroup] = useState<{ key: string; cliente: string; policies: DashboardPolicy[] } | null>(null);
+  const groupedPolicies = useMemo(() => {
+    const groups = new Map<string, { key: string; cliente: string; policies: DashboardPolicy[] }>();
+    policies.forEach((policy) => {
+      const key = policy.clienteId || policy.companyId || policy.cliente;
+      const group = groups.get(key) || { key, cliente: policy.cliente, policies: [] };
+      group.policies.push(policy);
+      groups.set(key, group);
+    });
+    return Array.from(groups.values()).map((group) => ({
+      ...group,
+      policies: [...group.policies].sort((a, b) => a.vencimiento.localeCompare(b.vencimiento)),
+    }));
+  }, [policies]);
+  const visibleGroups = showAll ? groupedPolicies : groupedPolicies.slice(0, VISIBLE_POLICIES_LIMIT);
 
   return (
     <Card sx={{ mb: 4, minWidth: 0, maxWidth: '100%' }}>
       <CardContent sx={{ px: { xs: 2, sm: 3 }, '&:last-child': { pb: { xs: 2, sm: 3 } } }}>
         <Box sx={{ mb: 3, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 1.5, minWidth: 0 }}>
           <Typography variant="h6" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{title}</Typography>
-          {totalCount > VISIBLE_POLICIES_LIMIT && (
+          {groupedPolicies.length > VISIBLE_POLICIES_LIMIT && (
             <Button size="small" onClick={onToggleShowAll}>
               {showAll ? 'Ver menos' : 'Ver todas'}
             </Button>
@@ -250,19 +264,23 @@ const PolicyTable = ({
               </TableRow>
             </TableHead>
             <TableBody>
-              {visiblePolicies.map((policy) => {
+              {visibleGroups.map((group) => {
+                const policy = group.policies[0];
                 const status = getStatusVisual(policy);
 
                 return (
-                  <TableRow key={policy.id} hover>
+                  <TableRow key={group.key} hover onClick={() => setDetailGroup(group)} sx={{ cursor: 'pointer' }}>
                     <TableCell sx={{ fontWeight: 600, minWidth: 220 }}>
                       <Typography variant="body2" sx={{ fontWeight: 700 }}>{policy.cliente}</Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 600 }}>
-                        Poliza: {policy.poliza}
+                        {group.policies.length === 1 ? `Poliza: ${policy.poliza}` : `${group.policies.length} polizas en cascada`}
                       </Typography>
-                      <Typography variant="caption" sx={{ display: 'inline-block', px: 1, py: 0.25, mt: 0.75, borderRadius: 1, bgcolor: 'primary.dark', color: 'common.white', fontWeight: 700 }}>
-                        {policy.aseguradora}
-                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.75 }}>
+                        {group.policies.slice(0, 3).map((item) => (
+                          <Chip key={item.id} label={`${item.poliza} · ${item.aseguradora}`} size="small" variant="outlined" />
+                        ))}
+                        {group.policies.length > 3 && <Chip label={`+${group.policies.length - 3}`} size="small" />}
+                      </Box>
                       <Typography variant="caption" display="block" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', mt: 0.5 }}>
                         {policy.tipo === 'EMPRESA' ? 'EMPRESA' : 'INDIVIDUAL'}
                       </Typography>
@@ -316,13 +334,18 @@ const PolicyTable = ({
                           </Typography>
                         </Box>
                         {policy.pagada && (
-                          <TextField
-                            type="date"
-                            size="small"
-                            value={policy.fechaPago || ''}
-                            onChange={(event) => onUpdatePaymentDate(policy, event.target.value)}
-                            sx={{ '& .MuiInputBase-input': { fontSize: '0.75rem', p: '6px 8px', width: '110px' } }}
-                          />
+                          <>
+                            <TextField
+                              type="date"
+                              size="small"
+                              value={policy.fechaPago || ''}
+                              onChange={(event) => onUpdatePaymentDate(policy, event.target.value)}
+                              sx={{ '& .MuiInputBase-input': { fontSize: '0.75rem', p: '6px 8px', width: '110px' } }}
+                            />
+                            <Typography variant="caption" sx={{ fontWeight: 800, color: 'success.dark' }}>
+                              Prima: {formatMoney(policy.prima)}
+                            </Typography>
+                          </>
                         )}
                       </Box>
                     </TableCell>
@@ -356,7 +379,7 @@ const PolicyTable = ({
                   </TableRow>
                 );
               })}
-              {visiblePolicies.length === 0 && (
+              {visibleGroups.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} sx={{ textAlign: 'center', py: 5, color: 'text.secondary', fontWeight: 600 }}>
                     No hay datos
@@ -367,6 +390,42 @@ const PolicyTable = ({
           </Table>
         </TableContainer>
       </CardContent>
+      <Drawer anchor="right" open={!!detailGroup} onClose={() => setDetailGroup(null)}>
+        <Box sx={{ width: { xs: 340, sm: 460 }, maxWidth: '100vw', p: 3 }}>
+          <Typography variant="h6" sx={{ fontWeight: 900, mb: 0.5 }}>{detailGroup?.cliente}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {detailGroup?.policies.length || 0} póliza(s) asociadas
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          {detailGroup?.policies.map((item) => {
+            const itemStatus = getStatusVisual(item);
+            return (
+              <Card key={item.id} variant="outlined" sx={{ mb: 2 }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mb: 1 }}>
+                    <Box>
+                      <Typography fontWeight={900}>{item.poliza}</Typography>
+                      <Typography variant="body2" color="text.secondary">{item.aseguradora} · {item.rubro}</Typography>
+                    </Box>
+                    <Chip label={itemStatus.label} size="small" />
+                  </Box>
+                  <Typography variant="body2">Vigencia: {format(parseISO(item.inicio), 'dd/MM/yyyy')} - {format(parseISO(item.vencimiento), 'dd/MM/yyyy')}</Typography>
+                  <Typography variant="body2">Cuota: {item.cuota} · {item.medioPago || '-'}</Typography>
+                  <Typography variant="body2">Prima: {formatMoney(item.prima)} · Comisión: {formatMoney(item.comisionCalculada)}</Typography>
+                  <Box sx={{ mt: 2 }}>
+                    <ListingActions
+                      onWhatsApp={() => onWhatsApp(item)}
+                      onEmail={() => onEmail(item)}
+                      onEdit={() => onEdit(item)}
+                      onDelete={() => onDelete(item)}
+                    />
+                  </Box>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </Box>
+      </Drawer>
     </Card>
   );
 };
@@ -600,10 +659,9 @@ export const Dashboard: React.FC = () => {
 
   const statCards = [
     { title: 'Polizas Activas', value: stats.polizasActivas, icon: <FileCheck size={20} />, color: 'primary', onClick: () => applyFilter(filter === 'active' ? null : 'active'), active: filter === 'active' },
-    { title: 'Vencen en 30 dias', value: stats.vencen7Dias, icon: <Clock size={20} />, color: 'warning', subtitle: 'Requieren atencion', onClick: () => applyFilter(filter === 'expiring' ? null : 'expiring'), active: filter === 'expiring' },
+    { title: 'Vencen en 7 dias', value: stats.vencen7Dias, icon: <Clock size={20} />, color: 'warning', subtitle: 'Requieren atencion', onClick: () => applyFilter(filter === 'expiring' ? null : 'expiring'), active: filter === 'expiring' },
     { title: 'Polizas Vencidas', value: stats.polizasVencidas, icon: <AlertCircle size={20} />, color: 'error', subtitle: 'Accion inmediata', onClick: () => applyFilter(filter === 'expired' ? null : 'expired'), active: filter === 'expired' },
     { title: 'Clientes Totales', value: stats.clientesTotales, icon: <Users size={20} />, color: 'info', subtitle: 'Cartera activa' },
-    { title: 'Vida y Retiro', value: lifePolicies.length, icon: <HeartPulse size={20} />, color: 'secondary', subtitle: 'Total de pólizas', onClick: () => navigate('/vida-y-retiro') },
   ];
 
   const handleWhatsApp = async (policy: DashboardPolicy) => {
@@ -804,9 +862,6 @@ export const Dashboard: React.FC = () => {
               Quitar Filtro
             </Button>
           )}
-          <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => navigate('/polizas')} sx={{ px: 3, py: 1.5, borderRadius: 3, width: { xs: '100%', sm: 'auto' } }}>
-            Nueva Poliza
-          </Button>
         </Box>
       </Box>
 
@@ -821,7 +876,7 @@ export const Dashboard: React.FC = () => {
               </Button>
             )}
           >
-            {filter === 'expiring' && 'Mostrando solo polizas que vencen en los proximos 30 dias.'}
+            {filter === 'expiring' && 'Mostrando solo polizas que vencen en los proximos 7 dias.'}
             {filter === 'expired' && 'Mostrando solo polizas vencidas.'}
             {filter === 'active' && 'Mostrando solo polizas activas.'}
           </Alert>
@@ -834,7 +889,7 @@ export const Dashboard: React.FC = () => {
           gridTemplateColumns: {
             xs: '1fr',
             sm: 'repeat(2, minmax(0, 1fr))',
-            md: 'repeat(5, minmax(0, 1fr))',
+            md: 'repeat(4, minmax(0, 1fr))',
           },
           gap: { xs: 2, md: 1.5, lg: 2 },
           mb: 3,
@@ -877,7 +932,8 @@ export const Dashboard: React.FC = () => {
             totalCount={companyPolicies.length}
             onToggleShowAll={() => setShowAll((prev) => ({ ...prev, companies: !prev.companies }))}
           />
-          <LifeFinanceTable
+          {/* La gestión de Vida y Retiro queda en su módulo específico para reducir densidad del dashboard. */}
+          {false && <LifeFinanceTable
             policies={lifePolicies}
             showAll={showAll.lifeFinance}
             onToggleShowAll={() => setShowAll((prev) => ({ ...prev, lifeFinance: !prev.lifeFinance }))}
@@ -885,7 +941,7 @@ export const Dashboard: React.FC = () => {
             onEmail={handleLifeEmail}
             onEdit={handleLifeEdit}
             onDelete={handleLifeDelete}
-          />
+          />}
       </Box>
 
 

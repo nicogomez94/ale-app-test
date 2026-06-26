@@ -81,7 +81,7 @@ function computeStatus(fechaVencimiento: Date): PolicyStatus {
   const diff = fechaVencimiento.getTime() - now.getTime();
   const daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
   if (daysLeft < 0) return "VENCIDA";
-  if (daysLeft <= 30) return "VENCE_PRONTO";
+  if (daysLeft <= 7) return "VENCE_PRONTO";
   return "ACTIVA";
 }
 

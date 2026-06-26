@@ -429,6 +429,8 @@ export const api = {
       request<any>("/cotizaciones", { method: "POST", body: JSON.stringify(data) }),
     update: (id: string, data: any) =>
       request<any>(`/cotizaciones/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    markViewed: (id: string) =>
+      request<any>(`/cotizaciones/${id}/viewed`, { method: "PATCH" }),
     delete: (id: string) =>
       request<any>(`/cotizaciones/${id}`, { method: "DELETE" }),
     export: (params?: { tipo?: string }) => {

@@ -120,6 +120,11 @@ export const BillingPage: React.FC = () => {
     return policies.filter((policy) => policy.moneda === form.moneda && policy.aseguradora.trim().toLowerCase() === name);
   }, [form.insuranceCompanyId, form.moneda, insurers, policies]);
 
+  const totals = useMemo(() => invoices.reduce((acc, invoice) => ({
+    facturado: acc.facturado + Number(invoice.monto || 0),
+    cobrado: acc.cobrado + Number(invoice.montoCobrado || 0),
+  }), { facturado: 0, cobrado: 0 }), [invoices]);
+
   const openForm = (invoice?: Invoice) => {
     setEditing(invoice || null);
     setForm(invoice ? {
@@ -182,19 +187,23 @@ export const BillingPage: React.FC = () => {
   return (
     <Box sx={{ minWidth: 0 }}>
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-        <Box><Typography variant="h4" sx={{ fontWeight: 800, color: 'primary.main' }}>Facturación de Comisiones</Typography><Typography color="text.secondary">Facturas, pólizas vinculadas y cobranzas.</Typography></Box>
+        <Box><Typography variant="h4" sx={{ fontWeight: 800, color: 'primary.main' }}>Comisiones</Typography><Typography color="text.secondary">Facturado, cobrado y detalle histórico por período.</Typography></Box>
         <Box sx={{ display: 'flex', gap: 1 }}><Button variant="outlined" startIcon={<Download size={18} />} onClick={exportInvoices}>Exportar</Button><Button variant="contained" startIcon={<Plus size={18} />} onClick={() => openForm()}>Nueva factura</Button></Box>
       </Box>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, md: 6 }}><Card><CardContent><Typography variant="caption" color="text.secondary" fontWeight={800}>Total facturado</Typography><Typography variant="h4" fontWeight={900}>{money(totals.facturado, 'ARS')}</Typography></CardContent></Card></Grid>
+        <Grid size={{ xs: 12, md: 6 }}><Card><CardContent><Typography variant="caption" color="text.secondary" fontWeight={800}>Total cobrado</Typography><Typography variant="h4" fontWeight={900} color="success.main">{money(totals.cobrado, 'ARS')}</Typography></CardContent></Card></Grid>
+      </Grid>
       <Card sx={{ mb: 3 }}><CardContent><TextField fullWidth value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por aseguradora, período o número..." InputProps={{ startAdornment: <InputAdornment position="start"><Search size={18} /></InputAdornment> }} /></CardContent></Card>
       {loading ? <Box sx={{ py: 8, textAlign: 'center' }}><CircularProgress /></Box> : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}><Table sx={{ minWidth: 1120 }}>
-          <TableHead><TableRow><TableCell>Aseguradora</TableCell><TableCell>Período / Factura</TableCell><TableCell>Emisión / Vto.</TableCell><TableCell>Estado</TableCell><TableCell align="right">Facturado</TableCell><TableCell align="right">Cobrado</TableCell><TableCell align="right">Saldo</TableCell><TableCell align="right">Acciones</TableCell></TableRow></TableHead>
+          <TableHead><TableRow><TableCell>Aseguradora</TableCell><TableCell>Período / Factura</TableCell><TableCell>Emisión / Vto.</TableCell><TableCell>Estado</TableCell><TableCell align="right">Facturado</TableCell><TableCell align="right">Cobrado</TableCell><TableCell align="right">Acciones</TableCell></TableRow></TableHead>
           <TableBody>{filteredInvoices.map((invoice) => <TableRow key={invoice.id} hover>
             <TableCell sx={{ fontWeight: 700 }}>{invoice.insuranceCompany?.razonSocial || '-'}</TableCell>
             <TableCell><Typography variant="body2" fontWeight={700}>{invoice.numeroFactura}</Typography><Typography variant="caption">{invoice.periodo}</Typography></TableCell>
             <TableCell><Typography variant="caption" display="block">{invoice.fechaEmision}</Typography><Typography variant="caption">{invoice.fechaVencimiento || '-'}</Typography></TableCell>
             <TableCell><Chip size="small" color={STATUS_COLORS[invoice.estadoCalculado]} label={STATUS_LABELS[invoice.estadoCalculado]} /></TableCell>
-            <TableCell align="right">{money(invoice.monto, invoice.moneda)}</TableCell><TableCell align="right">{money(invoice.montoCobrado, invoice.moneda)}</TableCell><TableCell align="right" sx={{ fontWeight: 700 }}>{money(invoice.saldoPendiente, invoice.moneda)}</TableCell>
+            <TableCell align="right">{money(invoice.monto, invoice.moneda)}</TableCell><TableCell align="right">{money(invoice.montoCobrado, invoice.moneda)}</TableCell>
             <TableCell align="right"><Tooltip title="Ver detalle"><IconButton onClick={() => { setDetail(invoice); setPayment({ ...emptyPayment, monto: String(invoice.saldoPendiente) }); }}><Eye size={17} /></IconButton></Tooltip><Tooltip title="Editar"><IconButton onClick={() => openForm(invoice)}><Edit size={17} /></IconButton></Tooltip><Tooltip title="Eliminar"><IconButton color="error" onClick={() => deleteInvoice(invoice)}><Trash2 size={17} /></IconButton></Tooltip></TableCell>
           </TableRow>)}</TableBody>
         </Table></TableContainer>
@@ -217,8 +226,7 @@ export const BillingPage: React.FC = () => {
       </Dialog>
 
       <Dialog open={!!detail} onClose={() => setDetail(null)} maxWidth="md" fullWidth><DialogTitle>Detalle de factura {detail?.numeroFactura}</DialogTitle>{detail && <DialogContent dividers>
-        <Grid container spacing={2}><Grid size={{ xs: 12, md: 4 }}><Typography variant="caption">Estado</Typography><Box><Chip size="small" color={STATUS_COLORS[detail.estadoCalculado]} label={STATUS_LABELS[detail.estadoCalculado]} /></Box></Grid><Grid size={{ xs: 6, md: 2 }}><Typography variant="caption">Esperado</Typography><Typography fontWeight={700}>{money(detail.montoEsperado, detail.moneda)}</Typography></Grid><Grid size={{ xs: 6, md: 2 }}><Typography variant="caption">Facturado</Typography><Typography fontWeight={700}>{money(detail.monto, detail.moneda)}</Typography></Grid><Grid size={{ xs: 6, md: 2 }}><Typography variant="caption">Cobrado</Typography><Typography fontWeight={700}>{money(detail.montoCobrado, detail.moneda)}</Typography></Grid><Grid size={{ xs: 6, md: 2 }}><Typography variant="caption">Saldo</Typography><Typography fontWeight={700}>{money(detail.saldoPendiente, detail.moneda)}</Typography></Grid></Grid>
-        {detail.diferenciaDetectada && <Alert severity="warning" sx={{ mt: 2 }}>Existe una diferencia entre la comisión esperada y el monto facturado.</Alert>}
+        <Grid container spacing={2}><Grid size={{ xs: 12, md: 4 }}><Typography variant="caption">Estado</Typography><Box><Chip size="small" color={STATUS_COLORS[detail.estadoCalculado]} label={STATUS_LABELS[detail.estadoCalculado]} /></Box></Grid><Grid size={{ xs: 6, md: 4 }}><Typography variant="caption">Facturado</Typography><Typography fontWeight={700}>{money(detail.monto, detail.moneda)}</Typography></Grid><Grid size={{ xs: 6, md: 4 }}><Typography variant="caption">Cobrado</Typography><Typography fontWeight={700}>{money(detail.montoCobrado, detail.moneda)}</Typography></Grid></Grid>
         {detail.comprobanteUrl && <Link href={detail.comprobanteUrl} target="_blank" rel="noreferrer" sx={{ mt: 2, display: 'inline-flex', gap: 1 }}>Abrir comprobante <ExternalLink size={15} /></Link>}
         <Divider sx={{ my: 2 }} /><Typography variant="subtitle1" fontWeight={800}>Pólizas vinculadas</Typography>{detail.policies.length ? detail.policies.map((policy) => <Chip key={policy.id} sx={{ mr: 1, mt: 1 }} label={`${policy.numeroPoliza} · ${policy.clienteNombre} · ${policy.cuotaActual}/${policy.cuotaTotal}`} />) : <Typography color="text.secondary">Sin pólizas vinculadas.</Typography>}
         <Divider sx={{ my: 2 }} /><Typography variant="subtitle1" fontWeight={800}>Pagos</Typography>{detail.payments.map((item) => <Box key={item.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1, borderBottom: '1px solid', borderColor: 'divider' }}><Box><Typography fontWeight={700}>{money(item.monto, detail.moneda)}</Typography><Typography variant="caption">{item.fechaPago} · {item.medioPago || 'Sin medio'} {item.comprobanteUrl && <>· <Link href={item.comprobanteUrl} target="_blank">Comprobante</Link></>}</Typography></Box><IconButton color="error" onClick={() => removePayment(item.id)}><Trash2 size={17} /></IconButton></Box>)}

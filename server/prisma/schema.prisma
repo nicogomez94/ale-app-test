@@ -436,6 +436,7 @@ model Cotizacion {
   tipoVivienda       String?
   superficieCubierta Float?
   descripcionRiesgo  String?
+  viewedAt           DateTime?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
@@ -443,6 +444,7 @@ model Cotizacion {
 
   @@index([userId])
   @@index([tipo])
+  @@index([viewedAt])
 }
 
 model InsuranceCompany {

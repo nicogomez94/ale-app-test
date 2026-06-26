@@ -6,7 +6,7 @@ import {
   DialogActions, Grid, Tabs, Tab, Chip, CircularProgress
 } from '@mui/material';
 import { Plus, Search, Building2, Download, Users, Truck, Shield, Briefcase, Home, Store } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { DEBUG, debugData } from '../data/debugData';
 import { ListingActions } from '../components/ListingActions';
@@ -21,6 +21,7 @@ const COMPANY_TYPES = [
 
 export const CompaniesPage: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [tab, setTab] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [open, setOpen] = useState(false);
@@ -112,8 +113,9 @@ export const CompaniesPage: React.FC = () => {
           <Typography variant="h4" sx={{ fontWeight: 800, overflowWrap: 'anywhere' }}>Gestión de Empresas</Typography>
           <Typography variant="body1" color="text.secondary">Administra ART, Flotas, TRO, Consorcios e Integrales.</Typography>
         </Box>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(2, max-content)' }, gap: 1.5, justifyContent: { xs: 'stretch', md: 'flex-end' }, minWidth: 0 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, max-content)' }, gap: 1.5, justifyContent: { xs: 'stretch', md: 'flex-end' }, minWidth: 0 }}>
           <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleExport} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25 }}>Exportar Excel</Button>
+          <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => navigate('/polizas', { state: { policyMode: 'EMPRESA', lockPolicyMode: true } })} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25, borderRadius: 3 }}>Nueva Póliza</Button>
           <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => handleOpen()} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25, borderRadius: 3 }}>Nueva Empresa</Button>
         </Box>
       </Box>

@@ -47,6 +47,7 @@ interface Cotizacion {
   tipoVivienda?: string;
   superficieCubierta?: number;
   descripcionRiesgo?: string;
+  viewedAt?: string | null;
   createdAt: string;
 }
 
@@ -280,6 +281,7 @@ export const CotizacionesPage: React.FC = () => {
   };
 
   const handleWhatsApp = (cotizacion: Cotizacion) => {
+    markViewed(cotizacion);
     const phone = normalizeWhatsAppPhone(cotizacion.celular);
     if (!phone) return;
     const pasName = user?.nombre || 'Tu Productor';
@@ -290,6 +292,16 @@ export const CotizacionesPage: React.FC = () => {
   const handleEmailClick = (email?: string) => {
     if (!email) return;
     window.open(`mailto:${email}`);
+  };
+
+  const markViewed = async (cotizacion: Cotizacion) => {
+    if (cotizacion.viewedAt) return;
+    setCotizaciones((items) => items.map((item) => item.id === cotizacion.id ? { ...item, viewedAt: new Date().toISOString() } : item));
+    try {
+      await api.cotizaciones.markViewed(cotizacion.id);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const isAutoMoto = form.tipo === 'AUTO' || form.tipo === 'MOTO';
@@ -383,12 +395,13 @@ export const CotizacionesPage: React.FC = () => {
               const hasHomeData = c.tipo === 'HOGAR' && (c.tipoVivienda || c.superficieCubierta);
               const hasOtherData = c.tipo === 'OTROS' && c.descripcionRiesgo;
               return (
-                <TableRow key={c.id} hover>
+                <TableRow key={c.id} hover onClick={() => markViewed(c)} sx={{ cursor: c.viewedAt ? 'default' : 'pointer', bgcolor: c.viewedAt ? 'inherit' : 'rgba(25, 118, 210, 0.04)' }}>
                   <TableCell>
                     <Chip
                       label={tc.label} size="small" icon={tc.icon as any}
                       sx={{ bgcolor: tc.color + '20', color: tc.color, fontWeight: 600, fontSize: 11 }}
                     />
+                    {!c.viewedAt && <Chip label="Nuevo" color="error" size="small" sx={{ ml: 0.75, fontWeight: 800 }} />}
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" fontWeight={600}>{c.nombre} {c.apellido ?? ''}</Typography>
@@ -420,7 +433,7 @@ export const CotizacionesPage: React.FC = () => {
                     <ListingActions
                       onWhatsApp={() => handleWhatsApp(c)}
                       onEmail={() => handleEmailClick(c.email)}
-                      onEdit={() => openEdit(c)}
+                      onEdit={() => { markViewed(c); openEdit(c); }}
                       onDelete={() => handleDelete(c.id)}
                       disableWhatsApp={!c.celular}
                       disableEmail={!c.email}

@@ -19,6 +19,7 @@ import {
   Grid,
   IconButton,
   InputAdornment,
+  Menu,
   MenuItem,
   Paper,
   Snackbar,
@@ -44,6 +45,7 @@ import {
   Globe,
   Mail,
   MapPin,
+  MessageSquare,
   Banknote,
   Phone,
   Plus,
@@ -66,6 +68,7 @@ const emptyInsurer = {
   email: '',
   telefono: '',
   websiteUrl: '',
+  portalLoginUrl: '',
   portalUsername: '',
   portalPassword: '',
   clearPortalPassword: false,
@@ -79,6 +82,7 @@ const emptyBroker = {
   color: BROKER_COLORS[0],
   contactoNombre: '',
   email: '',
+  telefono: '',
   insurerIds: [] as string[],
 };
 
@@ -91,6 +95,8 @@ export const DirectoryPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [expandedInsurer, setExpandedInsurer] = useState<string | null>(null);
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({});
+  const [insurerMenuAnchor, setInsurerMenuAnchor] = useState<null | HTMLElement>(null);
+  const [selectedInsurerForMenu, setSelectedInsurerForMenu] = useState<any | null>(null);
   const [insurerDialogOpen, setInsurerDialogOpen] = useState(false);
   const [brokerDialogOpen, setBrokerDialogOpen] = useState(false);
   const [editingInsurer, setEditingInsurer] = useState<any>(null);
@@ -147,6 +153,7 @@ export const DirectoryPage: React.FC = () => {
           email: insurer.email || '',
           telefono: insurer.telefono || '',
           websiteUrl: insurer.websiteUrl || '',
+          portalLoginUrl: insurer.portalLoginUrl || '',
           portalUsername: insurer.portalUsername || '',
           portalPassword: '',
           clearPortalPassword: false,
@@ -166,6 +173,7 @@ export const DirectoryPage: React.FC = () => {
           color: broker.color || BROKER_COLORS[0],
           contactoNombre: broker.contactoNombre || '',
           email: broker.email || '',
+          telefono: broker.telefono || '',
           insurerIds: (broker.insurers || []).map((insurer: any) => insurer.id),
         }
       : { ...emptyBroker });
@@ -246,6 +254,21 @@ export const DirectoryPage: React.FC = () => {
     } catch (error: any) {
       setSnack({ open: true, message: error.message || 'No se pudo revelar la credencial.', severity: 'error' });
     }
+  };
+
+  const openUrl = (url?: string) => {
+    if (!url) return;
+    window.open(url.startsWith('http') ? url : `https://${url}`, '_blank');
+  };
+
+  const handleInsurerChipClick = (event: React.MouseEvent<HTMLElement>, insurer: any) => {
+    setInsurerMenuAnchor(event.currentTarget);
+    setSelectedInsurerForMenu(insurer);
+  };
+
+  const closeInsurerMenu = () => {
+    setInsurerMenuAnchor(null);
+    setSelectedInsurerForMenu(null);
   };
 
   return (
@@ -364,7 +387,7 @@ export const DirectoryPage: React.FC = () => {
                           size="small"
                           variant="outlined"
                           startIcon={<Globe size={14} />}
-                          onClick={() => window.open(insurer.websiteUrl?.startsWith('http') ? insurer.websiteUrl : `https://${insurer.websiteUrl}`, '_blank')}
+                          onClick={() => openUrl(insurer.websiteUrl)}
                           sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
                         >
                           Acceder Web
@@ -398,10 +421,14 @@ export const DirectoryPage: React.FC = () => {
                                 <Typography variant="body2"><strong>Email:</strong> {insurer.email || '-'}</Typography>
                                 <Typography variant="body2"><strong>Teléfono:</strong> {insurer.telefono || '-'}</Typography>
                                 <Typography variant="body2"><strong>Web:</strong> {insurer.websiteUrl || '-'}</Typography>
+                                <Typography variant="body2"><strong>Login PAS:</strong> {insurer.portalLoginUrl || '-'}</Typography>
                               </Box>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                                 {insurer.websiteUrl && (
-                                  <Button size="small" startIcon={<ExternalLink size={16} />} onClick={() => window.open(insurer.websiteUrl, '_blank')}>Abrir web</Button>
+                                  <Button size="small" startIcon={<ExternalLink size={16} />} onClick={() => openUrl(insurer.websiteUrl)}>Abrir web</Button>
+                                )}
+                                {insurer.portalLoginUrl && (
+                                  <Button size="small" startIcon={<Globe size={16} />} onClick={() => openUrl(insurer.portalLoginUrl)}>Login PAS</Button>
                                 )}
                                 {insurer.hasPortalPassword && (
                                   <Button size="small" startIcon={revealedPasswords[insurer.id] ? <EyeOff size={16} /> : <Eye size={16} />} onClick={() => revealPassword(insurer)}>
@@ -469,6 +496,9 @@ export const DirectoryPage: React.FC = () => {
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <Mail size={14} /> {broker.email || 'Sin mail'}
                       </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Phone size={14} /> {broker.telefono || 'Sin celular'}
+                      </Typography>
                     </Box>
                     <Box sx={{ whiteSpace: 'nowrap' }}>
                       {broker.email && <Tooltip title="Email"><IconButton size="small" onClick={() => window.open(`mailto:${broker.email}`)}><Mail size={18} /></IconButton></Tooltip>}
@@ -477,17 +507,50 @@ export const DirectoryPage: React.FC = () => {
                     </Box>
                   </Box>
 
+                  <Box sx={{ display: 'flex', gap: 1.5, mb: 2 }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="success"
+                      startIcon={<MessageSquare size={14} />}
+                      onClick={() => broker.telefono && window.open(`https://wa.me/${String(broker.telefono).replace(/\D/g, '')}`, '_blank')}
+                      disabled={!broker.telefono}
+                      sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2.5, flex: 1, fontSize: '0.75rem' }}
+                    >
+                      WhatsApp
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<Mail size={14} />}
+                      onClick={() => broker.email && window.open(`mailto:${broker.email}`)}
+                      disabled={!broker.email}
+                      sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2.5, flex: 1, fontSize: '0.75rem' }}
+                    >
+                      Email
+                    </Button>
+                  </Box>
+
                   <Divider sx={{ mb: 2 }} />
 
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Aseguradoras asignadas:</Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                     {(broker.insurers || []).length > 0 ? broker.insurers.map((insurer: any) => (
-                      <Chip
-                        key={insurer.id}
-                        label={insurer.razonSocial}
-                        size="small"
-                        sx={{ bgcolor: 'white', border: `1px solid ${broker.color}`, color: broker.color, fontWeight: 600 }}
-                      />
+                      <Tooltip title="Ver accesos (Sitio Web / Login PAS)" key={insurer.id}>
+                        <Chip
+                          label={insurer.razonSocial}
+                          size="small"
+                          onClick={(event) => handleInsurerChipClick(event, insurer)}
+                          sx={{
+                            bgcolor: 'white',
+                            border: `1px solid ${broker.color}`,
+                            color: broker.color,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            '&:hover': { bgcolor: `${broker.color}11`, transform: 'translateY(-1px)' },
+                          }}
+                        />
+                      </Tooltip>
                     )) : <Typography variant="caption" color="text.secondary">No hay aseguradoras asignadas</Typography>}
                   </Box>
                 </CardContent>
@@ -520,6 +583,7 @@ export const DirectoryPage: React.FC = () => {
             <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth label="Email" value={insurerForm.email} onChange={(e) => setInsurerForm((s) => ({ ...s, email: e.target.value }))} InputProps={{ startAdornment: <InputAdornment position="start"><Mail size={16} /></InputAdornment> }} /></Grid>
             <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth label="Telefono" value={insurerForm.telefono} onChange={(e) => setInsurerForm((s) => ({ ...s, telefono: e.target.value }))} InputProps={{ startAdornment: <InputAdornment position="start"><Phone size={16} /></InputAdornment> }} /></Grid>
             <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth label="Web oficial" value={insurerForm.websiteUrl} onChange={(e) => setInsurerForm((s) => ({ ...s, websiteUrl: e.target.value }))} /></Grid>
+            <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth label="URL Acceso Login PAS" value={insurerForm.portalLoginUrl} onChange={(e) => setInsurerForm((s) => ({ ...s, portalLoginUrl: e.target.value }))} InputProps={{ startAdornment: <InputAdornment position="start"><ExternalLink size={16} /></InputAdornment> }} /></Grid>
             <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth label="Codigo productor" value={insurerForm.producerCode} onChange={(e) => setInsurerForm((s) => ({ ...s, producerCode: e.target.value }))} /></Grid>
             <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth label="Usuario portal" value={insurerForm.portalUsername} onChange={(e) => setInsurerForm((s) => ({ ...s, portalUsername: e.target.value }))} /></Grid>
             <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth type="password" label={editingInsurer ? 'Nueva clave portal' : 'Clave portal'} value={insurerForm.portalPassword} onChange={(e) => setInsurerForm((s) => ({ ...s, portalPassword: e.target.value }))} /></Grid>
@@ -563,6 +627,7 @@ export const DirectoryPage: React.FC = () => {
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth label="Contacto principal" value={brokerForm.contactoNombre} onChange={(e) => setBrokerForm((s) => ({ ...s, contactoNombre: e.target.value }))} /></Grid>
             <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth label="Email" value={brokerForm.email} onChange={(e) => setBrokerForm((s) => ({ ...s, email: e.target.value }))} /></Grid>
+            <Grid size={{ xs: 12 }}><TextField fullWidth label="Número de celular" placeholder="+5491155554321" value={brokerForm.telefono} onChange={(e) => setBrokerForm((s) => ({ ...s, telefono: e.target.value }))} helperText="Número con prefijo internacional para WhatsApp." /></Grid>
             <Grid size={{ xs: 12 }}>
               <Autocomplete
                 multiple
@@ -580,6 +645,40 @@ export const DirectoryPage: React.FC = () => {
           <Button variant="contained" onClick={saveBroker} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</Button>
         </DialogActions>
       </Dialog>
+
+      <Menu
+        anchorEl={insurerMenuAnchor}
+        open={Boolean(insurerMenuAnchor)}
+        onClose={closeInsurerMenu}
+        slotProps={{ paper: { sx: { borderRadius: 3, minWidth: 230, mt: 1 } } }}
+      >
+        <Box sx={{ px: 2, py: 1, borderBottom: '1px solid', borderColor: 'divider', mb: 0.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, textTransform: 'uppercase', display: 'block' }}>
+            Accesos de Aseguradora
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 800, color: 'primary.main' }}>
+            {selectedInsurerForMenu?.razonSocial}
+          </Typography>
+        </Box>
+        <MenuItem
+          onClick={() => {
+            openUrl(selectedInsurerForMenu?.websiteUrl);
+            closeInsurerMenu();
+          }}
+          disabled={!selectedInsurerForMenu?.websiteUrl}
+        >
+          <Globe size={16} style={{ marginRight: 8 }} /> Sitio web
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            openUrl(selectedInsurerForMenu?.portalLoginUrl);
+            closeInsurerMenu();
+          }}
+          disabled={!selectedInsurerForMenu?.portalLoginUrl}
+        >
+          <ExternalLink size={16} style={{ marginRight: 8 }} /> Login PAS
+        </MenuItem>
+      </Menu>
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))}>
         <Alert severity={snack.severity} onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.message}</Alert>

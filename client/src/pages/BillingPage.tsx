@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert, Autocomplete, Box, Button, Card, CardContent, Chip, CircularProgress,
-  Dialog, DialogActions, DialogContent, DialogTitle, Divider, Grid, IconButton,
+  Collapse, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Grid, IconButton,
   InputAdornment, Link, MenuItem, Paper, Snackbar, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, TextField, Tooltip, Typography,
 } from '@mui/material';
-import { CreditCard, Download, Edit, ExternalLink, Eye, Plus, Search, Trash2 } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, CreditCard, Download, Edit, ExternalLink, Eye, Layers, Plus, Search, Trash2, TrendingUp } from 'lucide-react';
+import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from 'recharts';
 import { api } from '../api';
 
 type Currency = 'ARS' | 'USD';
@@ -64,6 +65,12 @@ const STATUS_COLORS: Record<InvoiceStatus, 'default' | 'info' | 'success' | 'war
 const money = (value: number, currency: Currency) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(value || 0));
 
+const moneyPair = (values: { ars: number; usd: number }) => {
+  const parts = [money(values.ars, 'ARS')];
+  if (values.usd > 0) parts.push(money(values.usd, 'USD'));
+  return parts.join(' / ');
+};
+
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
@@ -85,6 +92,8 @@ export const BillingPage: React.FC = () => {
   const [detail, setDetail] = useState<Invoice | null>(null);
   const [payment, setPayment] = useState(emptyPayment);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<'individual' | 'consolidated'>('individual');
+  const [expandedPeriods, setExpandedPeriods] = useState<Record<string, boolean>>({});
   const [snack, setSnack] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
 
   const loadData = async () => {
@@ -120,10 +129,42 @@ export const BillingPage: React.FC = () => {
     return policies.filter((policy) => policy.moneda === form.moneda && policy.aseguradora.trim().toLowerCase() === name);
   }, [form.insuranceCompanyId, form.moneda, insurers, policies]);
 
-  const totals = useMemo(() => invoices.reduce((acc, invoice) => ({
-    facturado: acc.facturado + Number(invoice.monto || 0),
-    cobrado: acc.cobrado + Number(invoice.montoCobrado || 0),
-  }), { facturado: 0, cobrado: 0 }), [invoices]);
+  const totals = useMemo(() => invoices.reduce((acc, invoice) => {
+    const bucket = invoice.moneda === 'USD' ? 'usd' : 'ars';
+    acc[bucket].facturado += Number(invoice.monto || 0);
+    acc[bucket].cobrado += Number(invoice.montoCobrado || 0);
+    return acc;
+  }, { ars: { facturado: 0, cobrado: 0 }, usd: { facturado: 0, cobrado: 0 } }), [invoices]);
+
+  const chartData = useMemo(() => {
+    const periods = new Map<string, { periodo: string; FacturadoARS: number; CobradoARS: number; FacturadoUSD: number; CobradoUSD: number }>();
+    invoices.forEach((invoice) => {
+      const current = periods.get(invoice.periodo) || { periodo: invoice.periodo, FacturadoARS: 0, CobradoARS: 0, FacturadoUSD: 0, CobradoUSD: 0 };
+      if (invoice.moneda === 'USD') {
+        current.FacturadoUSD += Number(invoice.monto || 0);
+        current.CobradoUSD += Number(invoice.montoCobrado || 0);
+      } else {
+        current.FacturadoARS += Number(invoice.monto || 0);
+        current.CobradoARS += Number(invoice.montoCobrado || 0);
+      }
+      periods.set(invoice.periodo, current);
+    });
+    return Array.from(periods.values()).sort((a, b) => a.periodo.localeCompare(b.periodo)).slice(-12);
+  }, [invoices]);
+
+  const groupedByPeriod = useMemo(() => {
+    const groups = new Map<string, { periodo: string; invoices: Invoice[]; facturado: { ars: number; usd: number }; cobrado: { ars: number; usd: number }; companies: Set<string> }>();
+    filteredInvoices.forEach((invoice) => {
+      const group = groups.get(invoice.periodo) || { periodo: invoice.periodo, invoices: [], facturado: { ars: 0, usd: 0 }, cobrado: { ars: 0, usd: 0 }, companies: new Set<string>() };
+      const bucket = invoice.moneda === 'USD' ? 'usd' : 'ars';
+      group.invoices.push(invoice);
+      group.facturado[bucket] += Number(invoice.monto || 0);
+      group.cobrado[bucket] += Number(invoice.montoCobrado || 0);
+      if (invoice.insuranceCompany?.razonSocial) group.companies.add(invoice.insuranceCompany.razonSocial);
+      groups.set(invoice.periodo, group);
+    });
+    return Array.from(groups.values()).sort((a, b) => b.periodo.localeCompare(a.periodo));
+  }, [filteredInvoices]);
 
   const openForm = (invoice?: Invoice) => {
     setEditing(invoice || null);
@@ -191,22 +232,126 @@ export const BillingPage: React.FC = () => {
         <Box sx={{ display: 'flex', gap: 1 }}><Button variant="outlined" startIcon={<Download size={18} />} onClick={exportInvoices}>Exportar</Button><Button variant="contained" startIcon={<Plus size={18} />} onClick={() => openForm()}>Nueva factura</Button></Box>
       </Box>
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, md: 6 }}><Card><CardContent><Typography variant="caption" color="text.secondary" fontWeight={800}>Total facturado</Typography><Typography variant="h4" fontWeight={900}>{money(totals.facturado, 'ARS')}</Typography></CardContent></Card></Grid>
-        <Grid size={{ xs: 12, md: 6 }}><Card><CardContent><Typography variant="caption" color="text.secondary" fontWeight={800}>Total cobrado</Typography><Typography variant="h4" fontWeight={900} color="success.main">{money(totals.cobrado, 'ARS')}</Typography></CardContent></Card></Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Card><CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Layers size={18} color="#1a237e" />
+              <Typography variant="caption" color="text.secondary" fontWeight={800}>Total facturado</Typography>
+            </Box>
+            <Typography variant="h4" fontWeight={900}>{moneyPair({ ars: totals.ars.facturado, usd: totals.usd.facturado })}</Typography>
+          </CardContent></Card>
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Card><CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <CheckCircle2 size={18} color="#0f9f6e" />
+              <Typography variant="caption" color="text.secondary" fontWeight={800}>Total cobrado</Typography>
+            </Box>
+            <Typography variant="h4" fontWeight={900} color="success.main">{moneyPair({ ars: totals.ars.cobrado, usd: totals.usd.cobrado })}</Typography>
+          </CardContent></Card>
+        </Grid>
       </Grid>
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <TrendingUp size={18} color="#1a237e" />
+            <Typography variant="h6" fontWeight={900}>Histórico mensual</Typography>
+          </Box>
+          <Box sx={{ width: '100%', height: 260 }}>
+            <ResponsiveContainer>
+              <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="facturadoFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#1a237e" stopOpacity={0.28} />
+                    <stop offset="95%" stopColor="#1a237e" stopOpacity={0.02} />
+                  </linearGradient>
+                  <linearGradient id="cobradoFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0f9f6e" stopOpacity={0.28} />
+                    <stop offset="95%" stopColor="#0f9f6e" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="periodo" tickLine={false} axisLine={false} />
+                <YAxis tickLine={false} axisLine={false} />
+                <ChartTooltip formatter={(value: number, name: string) => [money(Number(value || 0), String(name).includes('USD') ? 'USD' : 'ARS'), name]} />
+                <Legend />
+                <Area type="monotone" dataKey="FacturadoARS" name="Facturado ARS" stroke="#1a237e" fill="url(#facturadoFill)" strokeWidth={2} />
+                <Area type="monotone" dataKey="CobradoARS" name="Cobrado ARS" stroke="#0f9f6e" fill="url(#cobradoFill)" strokeWidth={2} />
+                <Area type="monotone" dataKey="FacturadoUSD" name="Facturado USD" stroke="#6d28d9" fill="transparent" strokeWidth={2} />
+                <Area type="monotone" dataKey="CobradoUSD" name="Cobrado USD" stroke="#d97706" fill="transparent" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </Box>
+        </CardContent>
+      </Card>
       <Card sx={{ mb: 3 }}><CardContent><TextField fullWidth value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por aseguradora, período o número..." InputProps={{ startAdornment: <InputAdornment position="start"><Search size={18} /></InputAdornment> }} /></CardContent></Card>
+      <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+        <Button variant={activeTab === 'individual' ? 'contained' : 'outlined'} onClick={() => setActiveTab('individual')}>Detalle de liquidaciones</Button>
+        <Button variant={activeTab === 'consolidated' ? 'contained' : 'outlined'} onClick={() => setActiveTab('consolidated')}>Consolidación por período</Button>
+      </Box>
       {loading ? <Box sx={{ py: 8, textAlign: 'center' }}><CircularProgress /></Box> : (
-        <TableContainer component={Paper} sx={{ overflowX: 'auto' }}><Table sx={{ minWidth: 1120 }}>
-          <TableHead><TableRow><TableCell>Aseguradora</TableCell><TableCell>Período / Factura</TableCell><TableCell>Emisión / Vto.</TableCell><TableCell>Estado</TableCell><TableCell align="right">Facturado</TableCell><TableCell align="right">Cobrado</TableCell><TableCell align="right">Acciones</TableCell></TableRow></TableHead>
-          <TableBody>{filteredInvoices.map((invoice) => <TableRow key={invoice.id} hover>
-            <TableCell sx={{ fontWeight: 700 }}>{invoice.insuranceCompany?.razonSocial || '-'}</TableCell>
-            <TableCell><Typography variant="body2" fontWeight={700}>{invoice.numeroFactura}</Typography><Typography variant="caption">{invoice.periodo}</Typography></TableCell>
-            <TableCell><Typography variant="caption" display="block">{invoice.fechaEmision}</Typography><Typography variant="caption">{invoice.fechaVencimiento || '-'}</Typography></TableCell>
-            <TableCell><Chip size="small" color={STATUS_COLORS[invoice.estadoCalculado]} label={STATUS_LABELS[invoice.estadoCalculado]} /></TableCell>
-            <TableCell align="right">{money(invoice.monto, invoice.moneda)}</TableCell><TableCell align="right">{money(invoice.montoCobrado, invoice.moneda)}</TableCell>
-            <TableCell align="right"><Tooltip title="Ver detalle"><IconButton onClick={() => { setDetail(invoice); setPayment({ ...emptyPayment, monto: String(invoice.saldoPendiente) }); }}><Eye size={17} /></IconButton></Tooltip><Tooltip title="Editar"><IconButton onClick={() => openForm(invoice)}><Edit size={17} /></IconButton></Tooltip><Tooltip title="Eliminar"><IconButton color="error" onClick={() => deleteInvoice(invoice)}><Trash2 size={17} /></IconButton></Tooltip></TableCell>
-          </TableRow>)}</TableBody>
-        </Table></TableContainer>
+        activeTab === 'individual' ? (
+          <TableContainer component={Paper} sx={{ overflowX: 'auto' }}><Table sx={{ minWidth: 1120 }}>
+            <TableHead><TableRow><TableCell>Aseguradora</TableCell><TableCell>Período / Factura</TableCell><TableCell>Emisión / Vto.</TableCell><TableCell>Estado</TableCell><TableCell align="right">Facturado</TableCell><TableCell align="right">Cobrado</TableCell><TableCell align="right">Acciones</TableCell></TableRow></TableHead>
+            <TableBody>{filteredInvoices.map((invoice) => <TableRow key={invoice.id} hover>
+              <TableCell sx={{ fontWeight: 700 }}>{invoice.insuranceCompany?.razonSocial || '-'}</TableCell>
+              <TableCell><Typography variant="body2" fontWeight={700}>{invoice.numeroFactura}</Typography><Typography variant="caption">{invoice.periodo}</Typography></TableCell>
+              <TableCell><Typography variant="caption" display="block">{invoice.fechaEmision}</Typography><Typography variant="caption">{invoice.fechaVencimiento || '-'}</Typography></TableCell>
+              <TableCell><Chip size="small" color={STATUS_COLORS[invoice.estadoCalculado]} label={STATUS_LABELS[invoice.estadoCalculado]} /></TableCell>
+              <TableCell align="right">{money(invoice.monto, invoice.moneda)}</TableCell><TableCell align="right">{money(invoice.montoCobrado, invoice.moneda)}</TableCell>
+              <TableCell align="right"><Tooltip title="Ver detalle"><IconButton onClick={() => { setDetail(invoice); setPayment({ ...emptyPayment, monto: String(invoice.saldoPendiente) }); }}><Eye size={17} /></IconButton></Tooltip><Tooltip title="Editar"><IconButton onClick={() => openForm(invoice)}><Edit size={17} /></IconButton></Tooltip><Tooltip title="Eliminar"><IconButton color="error" onClick={() => deleteInvoice(invoice)}><Trash2 size={17} /></IconButton></Tooltip></TableCell>
+            </TableRow>)}</TableBody>
+          </Table></TableContainer>
+        ) : (
+          <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+            <Table sx={{ minWidth: 1120 }}>
+              <TableHead><TableRow><TableCell>Período</TableCell><TableCell>Aseguradoras liquidadas</TableCell><TableCell align="right">Facturado total</TableCell><TableCell align="right">Cobrado total</TableCell><TableCell>Conciliaciones</TableCell><TableCell>Estado general</TableCell></TableRow></TableHead>
+              <TableBody>{groupedByPeriod.map((group) => {
+                const isExpanded = Boolean(expandedPeriods[group.periodo]);
+                const allCollected = group.invoices.every((invoice) => invoice.estadoCalculado === 'COBRADA');
+                const hasPartial = group.invoices.some((invoice) => invoice.estadoCalculado === 'PARCIAL');
+                return (
+                  <React.Fragment key={group.periodo}>
+                    <TableRow hover sx={{ cursor: 'pointer' }} onClick={() => setExpandedPeriods((current) => ({ ...current, [group.periodo]: !current[group.periodo] }))}>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <IconButton size="small">{isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</IconButton>
+                          <Typography fontWeight={900}>{group.periodo}</Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>{Array.from(group.companies).join(', ') || '-'}</TableCell>
+                      <TableCell align="right">{moneyPair(group.facturado)}</TableCell>
+                      <TableCell align="right">{moneyPair(group.cobrado)}</TableCell>
+                      <TableCell>{group.invoices.length} factura{group.invoices.length === 1 ? '' : 's'}</TableCell>
+                      <TableCell><Chip size="small" color={allCollected ? 'success' : hasPartial ? 'warning' : 'info'} label={allCollected ? 'Cobrado' : hasPartial ? 'Parcial' : 'Facturado'} /></TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell colSpan={6} sx={{ p: 0, border: 0 }}>
+                        <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                          <Box sx={{ p: 2, bgcolor: 'background.default' }}>
+                            <Table size="small">
+                              <TableHead><TableRow><TableCell>Aseguradora / Broker</TableCell><TableCell>Factura</TableCell><TableCell align="right">Facturado</TableCell><TableCell align="right">Cobrado</TableCell><TableCell>Estado</TableCell><TableCell align="right">Acciones</TableCell></TableRow></TableHead>
+                              <TableBody>{group.invoices.map((invoice) => (
+                                <TableRow key={invoice.id} hover>
+                                  <TableCell>{invoice.insuranceCompany?.razonSocial || '-'}</TableCell>
+                                  <TableCell><Typography variant="body2" fontWeight={700}>{invoice.numeroFactura}</Typography><Typography variant="caption">{invoice.fechaEmision}</Typography></TableCell>
+                                  <TableCell align="right">{money(invoice.monto, invoice.moneda)}</TableCell>
+                                  <TableCell align="right">{money(invoice.montoCobrado, invoice.moneda)}</TableCell>
+                                  <TableCell><Chip size="small" color={STATUS_COLORS[invoice.estadoCalculado]} label={STATUS_LABELS[invoice.estadoCalculado]} /></TableCell>
+                                  <TableCell align="right"><IconButton onClick={() => { setDetail(invoice); setPayment({ ...emptyPayment, monto: String(invoice.saldoPendiente) }); }}><Eye size={17} /></IconButton><IconButton onClick={() => openForm(invoice)}><Edit size={17} /></IconButton></TableCell>
+                                </TableRow>
+                              ))}</TableBody>
+                            </Table>
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  </React.Fragment>
+                );
+              })}</TableBody>
+            </Table>
+          </TableContainer>
+        )
       )}
 
       <Dialog open={formOpen} onClose={() => setFormOpen(false)} maxWidth="md" fullWidth>

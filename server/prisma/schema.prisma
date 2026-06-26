@@ -457,6 +457,7 @@ model InsuranceCompany {
   email                   String?
   telefono                String?
   websiteUrl              String?
+  portalLoginUrl          String?
   portalUsername          String?
   portalPasswordEncrypted String?
   producerCode            String?
@@ -479,6 +480,7 @@ model Broker {
   color          String
   contactoNombre String?
   email          String?
+  telefono       String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

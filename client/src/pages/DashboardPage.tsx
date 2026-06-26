@@ -13,7 +13,6 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  Drawer,
   Grid,
   IconButton,
   InputAdornment,
@@ -28,9 +27,12 @@ import {
   TableRow,
   TextField,
   Typography,
+  Collapse,
 } from '@mui/material';
 import {
   AlertCircle,
+  ChevronDown,
+  ChevronUp,
   CheckSquare,
   Clock,
   FileCheck,
@@ -222,7 +224,7 @@ const PolicyTable = ({
   totalCount: number;
   onToggleShowAll: () => void;
 }) => {
-  const [detailGroup, setDetailGroup] = useState<{ key: string; cliente: string; policies: DashboardPolicy[] } | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const groupedPolicies = useMemo(() => {
     const groups = new Map<string, { key: string; cliente: string; policies: DashboardPolicy[] }>();
     policies.forEach((policy) => {
@@ -237,6 +239,14 @@ const PolicyTable = ({
     }));
   }, [policies]);
   const visibleGroups = showAll ? groupedPolicies : groupedPolicies.slice(0, VISIBLE_POLICIES_LIMIT);
+  const toggleGroup = (key: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   return (
     <Card sx={{ mb: 4, minWidth: 0, maxWidth: '100%' }}>
@@ -265,25 +275,38 @@ const PolicyTable = ({
             </TableHead>
             <TableBody>
               {visibleGroups.map((group) => {
-                const policy = group.policies[0];
-                const status = getStatusVisual(policy);
-
                 return (
-                  <TableRow key={group.key} hover onClick={() => setDetailGroup(group)} sx={{ cursor: 'pointer' }}>
+                  <React.Fragment key={group.key}>
+                  {group.policies.slice(0, 1).map((policy) => {
+                    const status = getStatusVisual(policy);
+                    const isExpanded = expandedGroups.has(group.key);
+                    return (
+                  <TableRow key={policy.id} hover sx={{ bgcolor: group.policies.length > 1 ? 'action.hover' : 'inherit', borderLeft: group.policies.length > 1 ? '4px solid' : 'none', borderLeftColor: headerColor }}>
                     <TableCell sx={{ fontWeight: 600, minWidth: 220 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{policy.cliente}</Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 600 }}>
-                        {group.policies.length === 1 ? `Poliza: ${policy.poliza}` : `${group.policies.length} polizas en cascada`}
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.75 }}>
-                        {group.policies.slice(0, 3).map((item) => (
-                          <Chip key={item.id} label={`${item.poliza} · ${item.aseguradora}`} size="small" variant="outlined" />
-                        ))}
-                        {group.policies.length > 3 && <Chip label={`+${group.policies.length - 3}`} size="small" />}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {group.policies.length > 1 && (
+                          <IconButton size="small" onClick={() => toggleGroup(group.key)}>
+                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </IconButton>
+                        )}
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>{policy.cliente}</Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 600 }}>
+                            Poliza: {policy.poliza}
+                          </Typography>
+                          <Chip
+                            label={policy.aseguradora}
+                            size="small"
+                            sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: 700, fontSize: '0.65rem', height: 20, mt: 0.5, borderRadius: 1 }}
+                          />
+                          {group.policies.length > 1 && (
+                            <Chip label={`${group.policies.length} en cascada`} size="small" variant="outlined" sx={{ ml: 0.75, height: 20, fontWeight: 700 }} />
+                          )}
+                          <Typography variant="caption" display="block" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', mt: 0.5 }}>
+                            {policy.tipo === 'EMPRESA' ? 'EMPRESA' : 'INDIVIDUAL'}
+                          </Typography>
+                        </Box>
                       </Box>
-                      <Typography variant="caption" display="block" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', mt: 0.5 }}>
-                        {policy.tipo === 'EMPRESA' ? 'EMPRESA' : 'INDIVIDUAL'}
-                      </Typography>
                     </TableCell>
                     <TableCell sx={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                       {policy.inicio ? format(parseISO(policy.inicio), 'dd/MM/yyyy') : '-'}
@@ -377,6 +400,50 @@ const PolicyTable = ({
                       />
                     </TableCell>
                   </TableRow>
+                    );
+                  })}
+                  {group.policies.length > 1 && (
+                    <TableRow>
+                      <TableCell colSpan={8} sx={{ p: 0, border: 0 }}>
+                        <Collapse in={expandedGroups.has(group.key)} timeout="auto" unmountOnExit>
+                          <Box sx={{ m: 2, p: 2, bgcolor: 'background.default', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 800, color: 'primary.main' }}>
+                              Detalle de pólizas en cascada
+                            </Typography>
+                            <Table size="small">
+                              <TableBody>
+                                {group.policies.slice(1).map((policy) => {
+                                  const status = getStatusVisual(policy);
+                                  return (
+                                    <TableRow key={policy.id} hover>
+                                      <TableCell sx={{ minWidth: 220 }}>
+                                        <Typography variant="body2" fontWeight={800}>{policy.poliza}</Typography>
+                                        <Typography variant="caption" color="text.secondary">{policy.aseguradora} · {policy.rubro}</Typography>
+                                      </TableCell>
+                                      <TableCell align="center">{policy.inicio ? format(parseISO(policy.inicio), 'dd/MM/yyyy') : '-'}</TableCell>
+                                      <TableCell align="center">{format(parseISO(policy.vencimiento), 'dd/MM/yyyy')}</TableCell>
+                                      <TableCell align="center"><Chip label={status.label} size="small" sx={{ bgcolor: status.color, color: status.textColor, fontWeight: 700 }} /></TableCell>
+                                      <TableCell align="center">{policy.cuota}</TableCell>
+                                      <TableCell align="center">{policy.pagada ? `SI · ${formatMoney(policy.prima)}` : 'NO'}</TableCell>
+                                      <TableCell align="right">
+                                        <ListingActions
+                                          onWhatsApp={() => onWhatsApp(policy)}
+                                          onEmail={() => onEmail(policy)}
+                                          onEdit={() => onEdit(policy)}
+                                          onDelete={() => onDelete(policy)}
+                                        />
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  </React.Fragment>
                 );
               })}
               {visibleGroups.length === 0 && (
@@ -390,42 +457,6 @@ const PolicyTable = ({
           </Table>
         </TableContainer>
       </CardContent>
-      <Drawer anchor="right" open={!!detailGroup} onClose={() => setDetailGroup(null)}>
-        <Box sx={{ width: { xs: 340, sm: 460 }, maxWidth: '100vw', p: 3 }}>
-          <Typography variant="h6" sx={{ fontWeight: 900, mb: 0.5 }}>{detailGroup?.cliente}</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {detailGroup?.policies.length || 0} póliza(s) asociadas
-          </Typography>
-          <Divider sx={{ mb: 2 }} />
-          {detailGroup?.policies.map((item) => {
-            const itemStatus = getStatusVisual(item);
-            return (
-              <Card key={item.id} variant="outlined" sx={{ mb: 2 }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mb: 1 }}>
-                    <Box>
-                      <Typography fontWeight={900}>{item.poliza}</Typography>
-                      <Typography variant="body2" color="text.secondary">{item.aseguradora} · {item.rubro}</Typography>
-                    </Box>
-                    <Chip label={itemStatus.label} size="small" />
-                  </Box>
-                  <Typography variant="body2">Vigencia: {format(parseISO(item.inicio), 'dd/MM/yyyy')} - {format(parseISO(item.vencimiento), 'dd/MM/yyyy')}</Typography>
-                  <Typography variant="body2">Cuota: {item.cuota} · {item.medioPago || '-'}</Typography>
-                  <Typography variant="body2">Prima: {formatMoney(item.prima)} · Comisión: {formatMoney(item.comisionCalculada)}</Typography>
-                  <Box sx={{ mt: 2 }}>
-                    <ListingActions
-                      onWhatsApp={() => onWhatsApp(item)}
-                      onEmail={() => onEmail(item)}
-                      onEdit={() => onEdit(item)}
-                      onDelete={() => onDelete(item)}
-                    />
-                  </Box>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </Box>
-      </Drawer>
     </Card>
   );
 };

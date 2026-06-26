@@ -273,7 +273,7 @@ export const BillingPage: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="periodo" tickLine={false} axisLine={false} />
                 <YAxis tickLine={false} axisLine={false} />
-                <ChartTooltip formatter={(value: number, name: string) => [money(Number(value || 0), String(name).includes('USD') ? 'USD' : 'ARS'), name]} />
+                <ChartTooltip formatter={(value, name) => [money(Number(value || 0), String(name).includes('USD') ? 'USD' : 'ARS'), String(name)]} />
                 <Legend />
                 <Area type="monotone" dataKey="FacturadoARS" name="Facturado ARS" stroke="#1a237e" fill="url(#facturadoFill)" strokeWidth={2} />
                 <Area type="monotone" dataKey="CobradoARS" name="Cobrado ARS" stroke="#0f9f6e" fill="url(#cobradoFill)" strokeWidth={2} />

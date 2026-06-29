@@ -50,7 +50,7 @@ curl -X POST https://pasalert.com/api/admin/run-jobs \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-**Resultado esperado:** respuesta `{ "results": { "policies": "ok" } }` y las pólizas de pepe muestran `VENCE_PRONTO` en el dashboard.
+**Resultado esperado:** respuesta `{ "results": { "policies": "ok" } }` y las pólizas de pepe muestran `VENCE_PRONTO` en el dashboard. La ejecución manual también intenta el resumen semanal para usuarios de prueba y devuelve `weeklySummaries`.
 
 Variante — pólizas ya vencidas:
 ```bash
@@ -153,6 +153,18 @@ curl -X POST https://pasalert.com/api/auth/reset-password \
   -d '{"email":"pepe@gmail.com","code":"123456","newPassword":"nueva1234"}'
 # Debe responder: "El código ha expirado. Solicita uno nuevo."
 ```
+
+---
+
+## Test 6 — Resumen semanal WhatsApp
+
+1. Marcá al usuario como usuario de prueba y cargale un teléfono argentino válido.
+2. Aplicá `policy_vence_pronto`.
+3. Ejecutá `/api/admin/run-jobs`; la ejecución manual fuerza la Etapa C aunque no sea lunes.
+4. Con un primer envío aceptado, volvé a ejecutarla: debe informar el despacho como duplicado y no enviar nuevamente. Los despachos fallidos sí se reintentan.
+5. Revisá “Auditoría de resúmenes semanales” en el panel administrador.
+
+Con Meta sin configurar, el despacho queda `FAILED` con `whatsapp_not_configured`, sin simular éxito. Con Meta configurado y la plantilla aprobada debe quedar `ACCEPTED` y luego avanzar por webhook a `SENT`, `DELIVERED` o `READ`.
 
 ---
 

@@ -2,6 +2,7 @@ import { Router, Response } from "express";
 import prisma from "../lib/prisma.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
 import { runJobsNow } from "../lib/subscriptionReminders.js";
+import { getWeekStartForBuenosAires } from "../lib/weeklySummary.js";
 
 export const adminRouter = Router();
 
@@ -57,6 +58,70 @@ adminRouter.get("/stats", async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Admin stats error:", error);
     res.status(500).json({ error: "Error al obtener estadísticas" });
+  }
+});
+
+// GET /api/admin/weekly-summaries — global audit for Stage C
+adminRouter.get("/weekly-summaries", async (_req: AuthRequest, res: Response) => {
+  try {
+    const now = new Date();
+    const weekStart = getWeekStartForBuenosAires(now);
+    const windowEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const [pasUsers, expiringPolicies, dispatches, recent] = await Promise.all([
+      prisma.user.findMany({
+        where: { isAdmin: false, estado: "ACTIVO" },
+        select: { id: true, telefono: true },
+      }),
+      prisma.policy.findMany({
+        where: {
+          user: { isAdmin: false, estado: "ACTIVO" },
+          fechaVencimiento: { gte: now, lte: windowEnd },
+        },
+        select: { userId: true },
+      }),
+      prisma.weeklySummaryDispatch.findMany({ where: { weekStart }, select: { status: true } }),
+      prisma.weeklySummaryDispatch.findMany({
+        include: {
+          user: { select: { nombre: true, email: true } },
+          messages: { select: { status: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+    ]);
+    const usersWithExpirations = new Set(expiringPolicies.map((policy) => policy.userId));
+    const byStatus = dispatches.reduce<Record<string, number>>((acc, dispatch) => {
+      acc[dispatch.status] = (acc[dispatch.status] || 0) + 1;
+      return acc;
+    }, {});
+
+    res.json({
+      weekStart,
+      totalPas: pasUsers.length,
+      pasWithValidPhone: pasUsers.filter((user) => Boolean(user.telefono?.trim())).length,
+      policiesExpiring: expiringPolicies.length,
+      pasWithoutExpirations: pasUsers.filter((user) => !usersWithExpirations.has(user.id)).length,
+      dispatches: dispatches.length,
+      byStatus,
+      recent: recent.map((dispatch) => ({
+        id: dispatch.id,
+        pasName: dispatch.user.nombre,
+        pasEmail: dispatch.user.email,
+        recipient: dispatch.recipient,
+        weekStart: dispatch.weekStart,
+        policyCount: dispatch.policyCount,
+        totalChunks: dispatch.totalChunks,
+        status: dispatch.status,
+        attemptCount: dispatch.attemptCount,
+        sentAt: dispatch.sentAt,
+        errorMessage: dispatch.errorMessage,
+        createdAt: dispatch.createdAt,
+        messageStatuses: dispatch.messages.map((message) => message.status),
+      })),
+    });
+  } catch (error) {
+    console.error("Admin weekly summaries error:", error);
+    res.status(500).json({ error: "No se pudo auditar el resumen semanal" });
   }
 });
 

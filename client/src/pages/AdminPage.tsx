@@ -6,7 +6,7 @@ import {
   DialogContentText, DialogActions, Button, Snackbar, Alert, CircularProgress,
   Divider, Tooltip,
 } from '@mui/material';
-import { Search, Users, Shield, FileText, Building2, Trash2, FlaskConical, Play, CalendarPlus } from 'lucide-react';
+import { Search, Users, Shield, FileText, Building2, Trash2, FlaskConical, Play, CalendarPlus, MessageCircle } from 'lucide-react';
 import { api } from '../api';
 
 interface AdminStats {
@@ -34,6 +34,29 @@ interface AdminUser {
   _count: { polizas: number; clientes: number; empresas: number };
 }
 
+interface WeeklySummaryAudit {
+  weekStart: string;
+  totalPas: number;
+  pasWithValidPhone: number;
+  policiesExpiring: number;
+  pasWithoutExpirations: number;
+  dispatches: number;
+  byStatus: Record<string, number>;
+  recent: Array<{
+    id: string;
+    pasName: string;
+    pasEmail: string;
+    recipient: string;
+    weekStart: string;
+    policyCount: number;
+    totalChunks: number;
+    status: string;
+    attemptCount: number;
+    sentAt: string | null;
+    errorMessage: string | null;
+  }>;
+}
+
 const planColors: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'info'> = {
   TRIAL: 'default',
   EMPRENDEDOR: 'info',
@@ -49,6 +72,7 @@ const estadoColors: Record<string, 'success' | 'error'> = {
 export const AdminPage = () => {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [weeklyAudit, setWeeklyAudit] = useState<WeeklySummaryAudit | null>(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [deleteDialog, setDeleteDialog] = useState<AdminUser | null>(null);
@@ -65,12 +89,14 @@ export const AdminPage = () => {
 
   const loadData = useCallback(async () => {
     try {
-      const [statsData, usersData] = await Promise.all([
+      const [statsData, usersData, weeklyData] = await Promise.all([
         api.admin.stats(),
         api.admin.users(search || undefined),
+        api.admin.weeklySummaries(),
       ]);
       setStats(statsData);
       setUsers(usersData);
+      setWeeklyAudit(weeklyData);
     } catch (err: any) {
       setSnackbar({ open: true, message: err.message, severity: 'error' });
     } finally {
@@ -249,6 +275,63 @@ export const AdminPage = () => {
         </Box>
       )}
 
+      <Card sx={{ borderRadius: 3, mb: 4, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ bgcolor: '#111936', color: 'white', px: 3, py: 2.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <MessageCircle size={24} />
+          <Box>
+            <Typography variant="h6" fontWeight={900}>Auditoría de resúmenes semanales</Typography>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,.7)' }}>
+              Envíos de los lunes 08:00 · administradores excluidos
+            </Typography>
+          </Box>
+        </Box>
+        <CardContent>
+          <Grid container spacing={2} sx={{ mb: 2.5 }}>
+            {[
+              { label: 'PAS activos', value: weeklyAudit?.totalPas ?? 0, detail: `${weeklyAudit?.pasWithValidPhone ?? 0} con teléfono` },
+              { label: 'Pólizas próximos 7 días', value: weeklyAudit?.policiesExpiring ?? 0, detail: 'ventana actual' },
+              { label: 'PAS sin vencimientos', value: weeklyAudit?.pasWithoutExpirations ?? 0, detail: 'también reciben aviso' },
+              { label: 'Despachos de la semana', value: weeklyAudit?.dispatches ?? 0, detail: Object.entries(weeklyAudit?.byStatus || {}).map(([key, value]) => `${key}: ${value}`).join(' · ') || 'sin ejecutar' },
+            ].map((item) => (
+              <Grid key={item.label} size={{ xs: 12, sm: 6, md: 3 }}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
+                  <Typography variant="caption" color="text.secondary" fontWeight={800} textTransform="uppercase">{item.label}</Typography>
+                  <Typography variant="h4" fontWeight={900} sx={{ my: 0.5 }}>{item.value}</Typography>
+                  <Typography variant="caption" color="text.secondary">{item.detail}</Typography>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+
+          <Typography variant="subtitle2" fontWeight={900} sx={{ mb: 1 }}>Últimos despachos</Typography>
+          <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 300 }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  {['PAS', 'Semana', 'Pólizas', 'Partes', 'Estado', 'Intentos', 'Enviado / error'].map((header) => (
+                    <TableCell key={header} sx={{ fontWeight: 800 }}>{header}</TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(weeklyAudit?.recent || []).map((item) => (
+                  <TableRow key={item.id} hover>
+                    <TableCell><Typography variant="body2" fontWeight={700}>{item.pasName}</Typography><Typography variant="caption" color="text.secondary">{item.pasEmail}</Typography></TableCell>
+                    <TableCell>{formatDate(item.weekStart)}</TableCell>
+                    <TableCell>{item.policyCount}</TableCell>
+                    <TableCell>{item.totalChunks}</TableCell>
+                    <TableCell><Chip size="small" label={item.status} color={item.status === 'FAILED' ? 'error' : item.status === 'READ' || item.status === 'DELIVERED' ? 'success' : 'info'} /></TableCell>
+                    <TableCell>{item.attemptCount}</TableCell>
+                    <TableCell>{item.errorMessage ? <Typography variant="caption" color="error">{item.errorMessage}</Typography> : item.sentAt ? formatDate(item.sentAt) : '—'}</TableCell>
+                  </TableRow>
+                ))}
+                {!weeklyAudit?.recent?.length && <TableRow><TableCell colSpan={7} align="center" sx={{ py: 3, color: 'text.secondary' }}>Todavía no hay despachos registrados.</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </CardContent>
+      </Card>
+
       {/* Search */}
       <TextField
         fullWidth
@@ -291,7 +374,7 @@ export const AdminPage = () => {
               Ejecutar Jobs Ahora
             </Button>
             <Typography variant="caption" color="text.secondary">
-              Corre actualización y limpieza de pólizas vencidas, reset de referidos y envío de recordatorios.
+              Corre actualización y limpieza de pólizas, recordatorios y resumen semanal para usuarios de prueba.
             </Typography>
           </Box>
 

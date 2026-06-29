@@ -2,8 +2,10 @@ import prisma from "./prisma.js";
 import { sendEmail } from "./email.js";
 import { cleanupOrphanCouponFiles, deleteCouponPdf } from "./couponStorage.js";
 import { getExpiredPolicyGroups } from "./policyCleanup.js";
+import { runWeeklySummaryJob } from "./weeklySummaryJob.js";
 
 const INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const WEEKLY_CHECK_INTERVAL_MS = 60 * 1000;
 
 function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -283,8 +285,8 @@ async function runAllJobs(): Promise<void> {
 
 // Exported for manual trigger (admin endpoint / testing)
 // onlyTestUsers=true: only affects users with isTestUser=true (used from admin panel)
-export async function runJobsNow(onlyTestUsers = false): Promise<{ policies: string; policyCleanup: string; policyReminders: string; referrals: string; reminders: string }> {
-  const results = { policies: "ok", policyCleanup: "ok", policyReminders: "ok", referrals: "ok", reminders: "ok" };
+export async function runJobsNow(onlyTestUsers = false): Promise<{ policies: string; policyCleanup: string; policyReminders: string; weeklySummaries: string; referrals: string; reminders: string }> {
+  const results = { policies: "ok", policyCleanup: "ok", policyReminders: "ok", weeklySummaries: "ok", referrals: "ok", reminders: "ok" };
 
   await updatePolicyStatuses(onlyTestUsers).catch((err) => {
     console.error("[PolicyJob] Error:", err);
@@ -299,6 +301,13 @@ export async function runJobsNow(onlyTestUsers = false): Promise<{ policies: str
   await sendPolicyExpirationReminders(onlyTestUsers).catch((err) => {
     console.error("[PolicyReminders] Error:", err);
     results.policyReminders = String(err?.message || err);
+  });
+
+  await runWeeklySummaryJob({ onlyTestUsers, force: true }).then((result) => {
+    results.weeklySummaries = `accepted:${result.accepted},failed:${result.failed},duplicates:${result.duplicates}`;
+  }).catch((err) => {
+    console.error("[WeeklySummary] Error:", err);
+    results.weeklySummaries = String(err?.message || err);
   });
 
   await resetMonthlyReferrals().catch((err) => {
@@ -325,5 +334,12 @@ export function startSubscriptionReminders(): void {
     runAllJobs().catch((err) => console.error("[Jobs] Error en ciclo diario:", err));
   }, INTERVAL_MS);
 
-  console.log("[Jobs] Servicios periódicos iniciados: estados, limpieza de pólizas, referidos y recordatorios.");
+  setTimeout(() => {
+    runWeeklySummaryJob().catch((err) => console.error("[WeeklySummary] Error inicial:", err));
+  }, 15_000);
+  setInterval(() => {
+    runWeeklySummaryJob().catch((err) => console.error("[WeeklySummary] Error:", err));
+  }, WEEKLY_CHECK_INTERVAL_MS);
+
+  console.log("[Jobs] Servicios periódicos iniciados: estados, limpieza, referidos, recordatorios y resumen semanal WhatsApp.");
 }

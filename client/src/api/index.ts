@@ -434,6 +434,7 @@ export const api = {
   // Admin
   admin: {
     stats: () => request<any>("/admin/stats"),
+    weeklySummaries: () => request<any>("/admin/weekly-summaries"),
     users: (search?: string) =>
       request<any[]>(`/admin/users${search ? `?search=${encodeURIComponent(search)}` : ""}`),
     updateUser: (id: string, data: { plan?: string; estado?: string; isTestUser?: boolean; trialDays?: number; trialMode?: "set" | "extend" }) =>

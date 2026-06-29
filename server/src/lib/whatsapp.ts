@@ -18,6 +18,8 @@ type WhatsAppConfig = {
   phoneNumberId: string;
   templateName: string;
   templateLanguage: string;
+  weeklyTemplateName: string;
+  weeklyTemplateLanguage: string;
 };
 
 export class WhatsAppNotConfiguredError extends Error {
@@ -33,6 +35,8 @@ function getConfig(): WhatsAppConfig {
     phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID?.trim() || "",
     templateName: process.env.WHATSAPP_TEMPLATE_NAME?.trim() || "aviso_vencimiento_cuponera",
     templateLanguage: process.env.WHATSAPP_TEMPLATE_LANGUAGE?.trim() || "es_AR",
+    weeklyTemplateName: process.env.WHATSAPP_WEEKLY_TEMPLATE_NAME?.trim() || "resumen_semanal_vencimientos",
+    weeklyTemplateLanguage: process.env.WHATSAPP_WEEKLY_TEMPLATE_LANGUAGE?.trim() || "es_AR",
   };
   if (!config.graphVersion || !config.accessToken || !config.phoneNumberId) {
     throw new WhatsAppNotConfiguredError();
@@ -114,6 +118,42 @@ export async function sendCouponTemplate(input: TemplateInput): Promise<{ messag
   const messageId = String(messagePayload?.messages?.[0]?.id || "");
   if (!messageId) throw new Error("Meta no devolvió el identificador del mensaje");
   return { messageId, mediaId };
+}
+
+export async function sendWeeklySummaryTemplate(input: {
+  recipient: string;
+  producerName: string;
+  summaryChunk: string;
+}): Promise<{ messageId: string }> {
+  const config = getConfig();
+  const response = await fetch(`https://graph.facebook.com/${config.graphVersion}/${config.phoneNumberId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: input.recipient,
+      type: "template",
+      template: {
+        name: config.weeklyTemplateName,
+        language: { code: config.weeklyTemplateLanguage },
+        components: [{
+          type: "body",
+          parameters: [
+            { type: "text", text: input.producerName },
+            { type: "text", text: input.summaryChunk },
+          ],
+        }],
+      },
+    }),
+  });
+  const payload = await parseMetaResponse(response);
+  const messageId = String(payload?.messages?.[0]?.id || "");
+  if (!messageId) throw new Error("Meta no devolvió el identificador del resumen semanal");
+  return { messageId };
 }
 
 export function verifyWhatsAppSignature(rawBody: Buffer, signatureHeader: string | undefined): boolean {

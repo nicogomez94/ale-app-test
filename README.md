@@ -66,6 +66,28 @@ https://pasalert.com/api/whatsapp/webhook
 Mientras falten número, versión de Graph API o token, el backend responde
 `503 whatsapp_not_configured` y no abre WhatsApp Web como alternativa.
 
+### Etapa C: resumen semanal por WhatsApp
+
+El servidor revisa cada minuto si en `America/Argentina/Buenos_Aires` ya son
+las 08:00 del lunes. Cada PAS activo y no administrador recibe su propio
+resumen de pólizas con vencimiento durante los próximos 7 días. Si no tiene
+vencimientos, recibe igualmente el mensaje correspondiente.
+
+La plantilla aprobada `resumen_semanal_vencimientos` (`es_AR`) debe tener este
+cuerpo con dos parámetros:
+
+```text
+Hola {{1}}, este es tu resumen semanal de PAS Alert:
+
+{{2}}
+```
+
+El primer parámetro es el nombre del PAS y el segundo contiene el detalle. Si
+el listado supera `WHATSAPP_WEEKLY_CHUNK_MAX_CHARS`, se divide en partes
+numeradas sin omitir pólizas. La combinación PAS + semana es única, evitando
+duplicados ante reinicios o ejecuciones repetidas. Los estados se auditan en
+el Panel de Administración y se actualizan mediante el mismo webhook de Meta.
+
 La carpeta de cuponeras debe incluirse en el backup del VPS junto con
 PostgreSQL. Por ejemplo:
 

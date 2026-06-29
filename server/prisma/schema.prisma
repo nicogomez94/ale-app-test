@@ -114,6 +114,15 @@ enum WhatsAppDeliveryStatus {
   FAILED
 }
 
+enum WeeklySummaryStatus {
+  PROCESSING
+  ACCEPTED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
 // ─── Models ──────────────────────────────────────────────
 
 model User {
@@ -156,6 +165,7 @@ model User {
   commissionInvoices CommissionInvoice[]
   policyCoupons      PolicyCoupon[]
   couponDeliveries   WhatsAppCouponDelivery[]
+  weeklySummaryDispatches WeeklySummaryDispatch[]
 }
 
 model Client {
@@ -292,6 +302,49 @@ model WhatsAppCouponDelivery {
   @@index([couponId, createdAt])
   @@index([userId])
   @@index([policyId])
+  @@index([status])
+}
+
+model WeeklySummaryDispatch {
+  id             String              @id @default(uuid())
+  userId         String
+  weekStart      DateTime
+  recipient      String
+  policyCount    Int
+  summaryText    String
+  totalChunks    Int                 @default(1)
+  status         WeeklySummaryStatus @default(PROCESSING)
+  attemptCount   Int                 @default(1)
+  lastAttemptAt  DateTime            @default(now())
+  sentAt         DateTime?
+  errorCode      String?
+  errorMessage   String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  user     User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages WeeklySummaryMessage[]
+
+  @@unique([userId, weekStart])
+  @@index([weekStart])
+  @@index([status])
+}
+
+model WeeklySummaryMessage {
+  id            String                 @id @default(uuid())
+  dispatchId    String
+  chunkIndex    Int
+  metaMessageId String?                @unique
+  status        WhatsAppDeliveryStatus @default(ACCEPTED)
+  errorCode     String?
+  errorMessage  String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  dispatch WeeklySummaryDispatch @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+
+  @@unique([dispatchId, chunkIndex])
+  @@index([dispatchId])
   @@index([status])
 }
 

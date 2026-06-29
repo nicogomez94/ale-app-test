@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import prisma from "../lib/prisma.js";
 import { extractWhatsAppStatusUpdates, verifyWhatsAppSignature } from "../lib/whatsapp.js";
+import { refreshWeeklyDispatchStatus } from "../lib/weeklySummaryJob.js";
 
 export const whatsappWebhookRouter = Router();
 
@@ -40,15 +41,33 @@ whatsappWebhookRouter.post("/", async (req: Request, res: Response) => {
         where: { metaMessageId: update.messageId },
         select: { id: true, status: true },
       });
-      if (!delivery || (update.status !== "FAILED" && rank[update.status] < rank[delivery.status])) continue;
-      await prisma.whatsAppCouponDelivery.update({
-        where: { id: delivery.id },
+      if (delivery) {
+        if (update.status !== "FAILED" && rank[update.status] < rank[delivery.status]) continue;
+        await prisma.whatsAppCouponDelivery.update({
+          where: { id: delivery.id },
+          data: {
+            status: update.status,
+            errorCode: update.errorCode,
+            errorMessage: update.errorMessage,
+          },
+        });
+        continue;
+      }
+
+      const weeklyMessage = await prisma.weeklySummaryMessage.findUnique({
+        where: { metaMessageId: update.messageId },
+        select: { id: true, dispatchId: true, status: true },
+      });
+      if (!weeklyMessage || (update.status !== "FAILED" && rank[update.status] < rank[weeklyMessage.status])) continue;
+      await prisma.weeklySummaryMessage.update({
+        where: { id: weeklyMessage.id },
         data: {
           status: update.status,
           errorCode: update.errorCode,
           errorMessage: update.errorMessage,
         },
       });
+      await refreshWeeklyDispatchStatus(weeklyMessage.dispatchId);
     } catch (error) {
       console.error(`[WhatsAppWebhook] No se pudo actualizar ${update.messageId}:`, error);
     }

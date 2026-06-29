@@ -217,7 +217,7 @@ adminRouter.post("/run-jobs", async (_req: AuthRequest, res: Response) => {
 });
 
 // POST /api/admin/test-seed
-// Body: { userId, scenario: "expiring_1d" | "expiring_3d" | "expired" | "day1_referrals" | "policy_vencida" | "policy_vence_pronto" }
+// Body: { userId, scenario: "expiring_1d" | "expiring_3d" | "expired" | "day1_referrals" | "policy_vencida" | "policy_cleanup" | "policy_vence_pronto" }
 adminRouter.post("/test-seed", async (req: AuthRequest, res: Response) => {
   try {
     const { userId, scenario } = req.body as { userId: string; scenario: string };
@@ -254,19 +254,38 @@ adminRouter.post("/test-seed", async (req: AuthRequest, res: Response) => {
       }
       case "policy_vencida": {
         const policies = await prisma.policy.findMany({ where: { userId }, select: { id: true, fechaInicio: true, fechaVencimiento: true } });
-        const shift = 400 * 24 * 60 * 60 * 1000;
         for (const p of policies) {
+          const duration = p.fechaVencimiento.getTime() - p.fechaInicio.getTime();
+          const fechaVencimiento = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
           await prisma.policy.update({
             where: { id: p.id },
             data: {
-              fechaInicio: new Date(p.fechaInicio.getTime() - shift),
-              fechaVencimiento: new Date(p.fechaVencimiento.getTime() - shift),
+              fechaInicio: new Date(fechaVencimiento.getTime() - duration),
+              fechaVencimiento,
               recordatorioProximoEnviadoAt: null,
               recordatorioVencidaEnviadoAt: null,
             },
           });
         }
-        res.json({ message: `${policies.length} póliza(s) movidas 400 días al pasado` });
+        res.json({ message: `${policies.length} póliza(s) vencidas hace 30 días` });
+        break;
+      }
+      case "policy_cleanup": {
+        const policies = await prisma.policy.findMany({ where: { userId }, select: { id: true, fechaInicio: true, fechaVencimiento: true } });
+        for (const p of policies) {
+          const duration = p.fechaVencimiento.getTime() - p.fechaInicio.getTime();
+          const fechaVencimiento = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          await prisma.policy.update({
+            where: { id: p.id },
+            data: {
+              fechaInicio: new Date(fechaVencimiento.getTime() - duration),
+              fechaVencimiento,
+              recordatorioProximoEnviadoAt: null,
+              recordatorioVencidaEnviadoAt: null,
+            },
+          });
+        }
+        res.json({ message: `${policies.length} póliza(s) preparadas para limpieza a 60 días` });
         break;
       }
       case "policy_vence_pronto": {

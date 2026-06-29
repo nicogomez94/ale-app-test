@@ -122,6 +122,14 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
       ...(take ? { take } : {}),
       include: dashboardPolicyInclude,
     });
+    const policyGroupIds = Array.from(new Set(policies.map((policy) => policy.groupId || policy.id)));
+    const coupons = policyGroupIds.length
+      ? await prisma.policyCoupon.findMany({
+          where: { userId: req.userId!, policyGroupId: { in: policyGroupIds } },
+          include: { deliveries: { orderBy: { createdAt: "desc" }, take: 1 } },
+        })
+      : [];
+    const couponsByGroup = new Map(coupons.map((coupon) => [coupon.policyGroupId, coupon]));
 
     // Map to frontend format
     const mapped = policies.map((p: any) => {
@@ -132,6 +140,8 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
       let estadoLabel = "Activa";
       if (daysLeft < 0) estadoLabel = "Vencida";
       else if (daysLeft <= 30) estadoLabel = "Vence pronto";
+      const coupon = couponsByGroup.get(p.groupId || p.id);
+      const lastDelivery = coupon?.deliveries[0];
 
       return {
         id: p.id,
@@ -171,6 +181,26 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
         porcentajeComision: p.porcentajeComision,
         moneda: (p as any).moneda ?? "ARS",
         comisionCalculada: p.comisionCalculada,
+        coupon: coupon
+          ? {
+              id: coupon.id,
+              originalName: coupon.originalName,
+              mimeType: coupon.mimeType,
+              sizeBytes: coupon.sizeBytes,
+              createdAt: coupon.createdAt,
+              updatedAt: coupon.updatedAt,
+              lastDelivery: lastDelivery
+                ? {
+                    id: lastDelivery.id,
+                    status: lastDelivery.status,
+                    recipient: lastDelivery.recipient,
+                    errorMessage: lastDelivery.errorMessage,
+                    createdAt: lastDelivery.createdAt,
+                    updatedAt: lastDelivery.updatedAt,
+                  }
+                : null,
+            }
+          : null,
         ultimaGestion:
           p.ultimaGestionTipo && p.ultimaGestionFecha
             ? {

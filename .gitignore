@@ -9,3 +9,4 @@ remix_-ad-system/
 .env*
 !.env.example
 deploy.local.env
+server/storage/

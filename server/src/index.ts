@@ -21,6 +21,7 @@ import { directoryRouter } from "./routes/directory.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { subscriptionGuard } from "./middleware/subscriptionGuard.js";
 import { startSubscriptionReminders } from "./lib/subscriptionReminders.js";
+import { whatsappWebhookRouter } from "./routes/whatsappWebhook.js";
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3001");
@@ -53,6 +54,7 @@ app.use(cors({
   },
   credentials: true,
 }));
+app.use("/api/whatsapp/webhook", express.raw({ type: "application/json", limit: "1mb" }), whatsappWebhookRouter);
 app.use(express.json({ limit: "5mb" }));
 
 // Unguarded routes (accessible even with expired subscription)

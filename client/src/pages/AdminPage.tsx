@@ -291,7 +291,7 @@ export const AdminPage = () => {
               Ejecutar Jobs Ahora
             </Button>
             <Typography variant="caption" color="text.secondary">
-              Corre actualización de estados de pólizas, reset de referidos y envío de recordatorios.
+              Corre actualización y limpieza de pólizas vencidas, reset de referidos y envío de recordatorios.
             </Typography>
           </Box>
 

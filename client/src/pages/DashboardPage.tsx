@@ -61,6 +61,7 @@ import {
   VIGENCIA_OPTIONS,
 } from '../data/policyCatalogs';
 import { ListingActions } from '../components/ListingActions';
+import { PolicyCouponDialog } from '../components/PolicyCouponDialog';
 
 const VISIBLE_POLICIES_LIMIT = 5;
 
@@ -201,6 +202,7 @@ const PolicyTable = ({
   title,
   policies,
   onWhatsApp,
+  onCoupon,
   onEmail,
   onDelete,
   onEdit,
@@ -214,6 +216,7 @@ const PolicyTable = ({
   title: string;
   policies: DashboardPolicy[];
   onWhatsApp: (policy: DashboardPolicy) => void;
+  onCoupon: (policy: DashboardPolicy) => void;
   onEmail: (policy: DashboardPolicy) => void;
   onDelete: (policy: DashboardPolicy) => void;
   onEdit: (policy: DashboardPolicy) => void;
@@ -393,10 +396,14 @@ const PolicyTable = ({
                     </TableCell>
                     <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
                       <ListingActions
+                        onCoupon={() => onCoupon(policy)}
+                        hasCoupon={Boolean(policy.coupon)}
                         onWhatsApp={() => onWhatsApp(policy)}
                         onEmail={() => onEmail(policy)}
                         onEdit={() => onEdit(policy)}
                         onDelete={() => onDelete(policy)}
+                        disableWhatsApp={!policy.coupon || !policy.telefono}
+                        whatsappTitle={!policy.coupon ? 'Cargá una cuponera antes de enviar' : !policy.telefono ? 'La póliza no tiene un teléfono válido' : 'Enviar cuponera por Meta WhatsApp'}
                       />
                     </TableCell>
                   </TableRow>
@@ -427,10 +434,14 @@ const PolicyTable = ({
                                       <TableCell align="center">{policy.pagada ? `SI · ${formatMoney(policy.prima)}` : 'NO'}</TableCell>
                                       <TableCell align="right">
                                         <ListingActions
+                                          onCoupon={() => onCoupon(policy)}
+                                          hasCoupon={Boolean(policy.coupon)}
                                           onWhatsApp={() => onWhatsApp(policy)}
                                           onEmail={() => onEmail(policy)}
                                           onEdit={() => onEdit(policy)}
                                           onDelete={() => onDelete(policy)}
+                                          disableWhatsApp={!policy.coupon || !policy.telefono}
+                                          whatsappTitle={!policy.coupon ? 'Cargá una cuponera antes de enviar' : !policy.telefono ? 'La póliza no tiene un teléfono válido' : 'Enviar cuponera por Meta WhatsApp'}
                                         />
                                       </TableCell>
                                     </TableRow>
@@ -614,6 +625,8 @@ export const Dashboard: React.FC = () => {
   const [editingLifePolicy, setEditingLifePolicy] = useState<any | null>(null);
   const [lifeEditValues, setLifeEditValues] = useState<LifePolicyEditValues | null>(null);
   const [savingLifeEdit, setSavingLifeEdit] = useState(false);
+  const [couponPolicy, setCouponPolicy] = useState<DashboardPolicy | null>(null);
+  const [couponPromptSend, setCouponPromptSend] = useState(false);
   const [snack, setSnack] = useState<{ open: boolean; severity: 'success' | 'error'; message: string }>({
     open: false,
     severity: 'success',
@@ -695,19 +708,13 @@ export const Dashboard: React.FC = () => {
     { title: 'Clientes Totales', value: stats.clientesTotales, icon: <Users size={20} />, color: 'info', subtitle: 'Cartera activa' },
   ];
 
-  const handleWhatsApp = async (policy: DashboardPolicy) => {
-    try {
-      await api.policies.trackInteraction(policy.id, 'WHATSAPP');
-      await loadDashboardData(false);
-    } catch (error) {
-      console.error(error);
-    }
+  const handleCoupon = (policy: DashboardPolicy, promptSend = false) => {
+    setCouponPromptSend(promptSend);
+    setCouponPolicy(policy);
+  };
 
-    const pasName = user?.nombre || 'Tu Productor';
-    const message = `Hola ${policy.cliente}, te informamos que tu poliza N° ${policy.poliza} vence el dia ${format(parseISO(policy.vencimiento), 'dd/MM/yyyy')}. Por favor, contactanos para renovarla. Saludos, ${pasName} - PAS Alert.`;
-    const phone = policy.telefono ? policy.telefono.replace(/\D/g, '') : '';
-    const url = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` : `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
+  const handleWhatsApp = (policy: DashboardPolicy) => {
+    handleCoupon(policy, true);
   };
 
   const handleEmail = async (policy: DashboardPolicy) => {
@@ -841,12 +848,12 @@ export const Dashboard: React.FC = () => {
   };
 
   const handleDelete = async (policy: DashboardPolicy) => {
-    if (!window.confirm(`¿Seguro que queres eliminar la poliza ${policy.poliza}?`)) return;
+    if (!window.confirm(`¿Eliminar la póliza ${policy.poliza}, todas sus cuotas, su cuponera y el historial de envíos?`)) return;
 
     try {
       await api.policies.delete(policy.id);
       await loadDashboardData(false);
-      setSnack({ open: true, severity: 'success', message: 'Poliza eliminada.' });
+      setSnack({ open: true, severity: 'success', message: 'Póliza, cuotas y documentos asociados eliminados.' });
     } catch (error: any) {
       setSnack({ open: true, severity: 'error', message: error.message || 'No se pudo eliminar la poliza.' });
     }
@@ -939,6 +946,7 @@ export const Dashboard: React.FC = () => {
             title={`Gestion de Polizas de Clientes (Total: ${individualPolicies.length})`}
             policies={individualPolicies}
             onWhatsApp={handleWhatsApp}
+            onCoupon={handleCoupon}
             onEmail={handleEmail}
             onDelete={handleDelete}
             onEdit={handleEdit}
@@ -953,6 +961,7 @@ export const Dashboard: React.FC = () => {
             title={`Gestion de Polizas de Empresas (Total: ${companyPolicies.length})`}
             policies={companyPolicies}
             onWhatsApp={handleWhatsApp}
+            onCoupon={handleCoupon}
             onEmail={handleEmail}
             onDelete={handleDelete}
             onEdit={handleEdit}
@@ -1162,6 +1171,18 @@ export const Dashboard: React.FC = () => {
           </>
         )}
       </Dialog>
+
+      <PolicyCouponDialog
+        open={Boolean(couponPolicy)}
+        policy={couponPolicy}
+        initialSend={couponPromptSend}
+        onClose={() => {
+          setCouponPolicy(null);
+          setCouponPromptSend(false);
+        }}
+        onChanged={() => loadDashboardData(false)}
+        onNotify={(severity, message) => setSnack({ open: true, severity, message })}
+      />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((prev) => ({ ...prev, open: false }))}>
         <Alert severity={snack.severity} onClose={() => setSnack((prev) => ({ ...prev, open: false }))}>

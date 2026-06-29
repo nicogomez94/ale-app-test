@@ -47,6 +47,32 @@ CORS_ALLOWED_ORIGINS=https://pasalert.com
 PORT=3001
 ```
 
+### Etapa B: cuponeras y WhatsApp
+
+Las cuponeras PDF se guardan fuera del repositorio, por defecto en
+`/var/lib/pas-alert/cuponeras`, y solo se descargan por endpoints autenticados.
+Antes de desplegar, completar en `server/.env` las variables `COUPON_*` y
+`WHATSAPP_*` documentadas en `server/.env.example`.
+
+El envío usa una plantilla aprobada de Meta llamada
+`aviso_vencimiento_cuponera`, idioma `es_AR`, con encabezado de tipo documento
+y cinco parámetros de cuerpo: cliente, número de póliza, aseguradora,
+vencimiento y nombre del PAS. El webhook público a registrar en Meta es:
+
+```text
+https://pasalert.com/api/whatsapp/webhook
+```
+
+Mientras falten número, versión de Graph API o token, el backend responde
+`503 whatsapp_not_configured` y no abre WhatsApp Web como alternativa.
+
+La carpeta de cuponeras debe incluirse en el backup del VPS junto con
+PostgreSQL. Por ejemplo:
+
+```bash
+sudo tar -czf /ruta-segura/pas-alert-cuponeras-$(date +%F).tar.gz /var/lib/pas-alert/cuponeras
+```
+
 ## Build
 
 Desde la raiz:
@@ -71,6 +97,8 @@ BRANCH=colores \
 APP_URL=https://pasalert.com \
 API_URL=https://pasalert.com \
 SERVICE_NAME=pas-alert-api \
+SERVICE_USER=pas-alert \
+COUPON_STORAGE_DIR=/var/lib/pas-alert/cuponeras \
 ./scripts/deploy-vps.sh
 ```
 

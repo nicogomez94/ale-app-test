@@ -1,12 +1,14 @@
 import React from 'react';
 import { Box, Button, Tooltip } from '@mui/material';
-import { Edit2, Mail, MessageCircle, Trash2 } from 'lucide-react';
+import { Edit2, FileText, Mail, MessageCircle, Trash2 } from 'lucide-react';
 
 type ListingActionsProps = {
   onWhatsApp: () => void;
   onEmail: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onCoupon?: () => void;
+  hasCoupon?: boolean;
   disableWhatsApp?: boolean;
   disableEmail?: boolean;
   whatsappTitle?: string;
@@ -35,6 +37,8 @@ export const ListingActions: React.FC<ListingActionsProps> = ({
   onEmail,
   onEdit,
   onDelete,
+  onCoupon,
+  hasCoupon = false,
   disableWhatsApp = false,
   disableEmail = false,
   whatsappTitle,
@@ -51,6 +55,22 @@ export const ListingActions: React.FC<ListingActionsProps> = ({
       ml: 'auto',
     }}
   >
+    {onCoupon && (
+      <Button
+        fullWidth
+        size="small"
+        variant={hasCoupon ? 'contained' : 'outlined'}
+        color="secondary"
+        startIcon={<FileText size={14} />}
+        onClick={(event) => {
+          event.stopPropagation();
+          onCoupon();
+        }}
+        sx={{ ...ACTION_BUTTON_SX, gridColumn: '1 / -1' }}
+      >
+        {hasCoupon ? 'Cuponera cargada' : 'Cargar cuponera'}
+      </Button>
+    )}
     <Tooltip title={whatsappTitle || ''}>
       <span>
         <Button

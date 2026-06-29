@@ -60,6 +60,21 @@ curl -X POST https://pasalert.com/api/admin/test-seed \
   -d '{"userId":"a28ad896-5666-41c2-966f-50bcb0e8432b","scenario":"policy_vencida"}'
 ```
 
+El escenario las deja vencidas hace 30 días, por lo que todavía deben permanecer visibles.
+
+Variante — limpieza automática a 60 días:
+```bash
+curl -X POST https://pasalert.com/api/admin/test-seed \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"userId":"a28ad896-5666-41c2-966f-50bcb0e8432b","scenario":"policy_cleanup"}'
+
+curl -X POST https://pasalert.com/api/admin/run-jobs \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Resultado esperado:** `policyCleanup: "ok"` y las pólizas, cuotas y cuponeras del usuario de prueba quedan eliminadas.
+
 ---
 
 ## Test 2 — Email de recordatorio de suscripción
@@ -149,5 +164,6 @@ curl -X POST https://pasalert.com/api/auth/reset-password \
 | `expiring_3d` | `planVencimiento` y `trialFin` → ahora + 2d23h59m |
 | `expired` | `planVencimiento` y `trialFin` → hace 1 minuto |
 | `policy_vence_pronto` | todas las pólizas del usuario vencen en 3 días |
-| `policy_vencida` | todas las pólizas del usuario se mueven 400 días al pasado |
+| `policy_vencida` | todas las pólizas del usuario vencen hace 30 días y permanecen visibles |
+| `policy_cleanup` | todas las pólizas del usuario vencen hace 90 días para probar la eliminación automática |
 | `day1_referrals` | `referidosMes` = 5 (para testear el reset del día 1) |

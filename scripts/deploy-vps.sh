@@ -5,6 +5,8 @@ APP_URL="${APP_URL:-https://pasalert.com}"
 API_URL="${API_URL:-https://pasalert.com}"
 BRANCH="${BRANCH:-colores}"
 SERVICE_NAME="${SERVICE_NAME:-pas-alert-api}"
+SERVICE_USER="${SERVICE_USER:-$(id -un)}"
+COUPON_STORAGE_DIR="${COUPON_STORAGE_DIR:-/var/lib/pas-alert/cuponeras}"
 RUN_GIT_PULL="${RUN_GIT_PULL:-1}"
 RESTART_SERVICE="${RESTART_SERVICE:-1}"
 
@@ -41,10 +43,13 @@ npm --prefix server run db:generate
 (cd server && npx prisma migrate deploy)
 npm --prefix server run build
 
+sudo install -d -m 0750 -o "$SERVICE_USER" -g "$SERVICE_USER" "$COUPON_STORAGE_DIR"
+
 if [[ "$RESTART_SERVICE" == "1" ]]; then
   sudo systemctl restart "$SERVICE_NAME"
   sudo systemctl --no-pager --lines=20 status "$SERVICE_NAME"
 fi
 
 echo "Build frontend: $ROOT_DIR/client/dist"
+echo "Cuponeras privadas: $COUPON_STORAGE_DIR (usuario: $SERVICE_USER)"
 echo "Smoke test sugerido: curl -I $APP_URL && curl -fsS $API_URL/api/health"

@@ -1,6 +1,7 @@
 import { CompanyType, CurrencyType, InteractionChannel, PolicyType, PolicyVigencia, Prisma } from "@prisma/client";
-import { Router, Response } from "express";
+import { Router, Response, NextFunction } from "express";
 import { randomUUID } from "crypto";
+import multer from "multer";
 import prisma from "../lib/prisma.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
 import { checkPlanLimit } from "../middleware/planLimits.js";
@@ -10,9 +11,39 @@ import {
   inferVigenciaFromDates,
   mapRubroToCompanyType,
 } from "../lib/generalPolicies.js";
+import {
+  deleteCouponPdf,
+  getCouponMaxBytes,
+  readCouponPdf,
+  storeCouponPdf,
+  validatePdfUpload,
+} from "../lib/couponStorage.js";
+import {
+  normalizeWhatsAppPhone,
+  sendCouponTemplate,
+  WhatsAppNotConfiguredError,
+} from "../lib/whatsapp.js";
 
 export const policiesRouter = Router();
 policiesRouter.use(authMiddleware);
+
+function couponUploadMiddleware(req: AuthRequest, res: Response, next: NextFunction): void {
+  const couponUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: getCouponMaxBytes() },
+  });
+  couponUpload.single("file")(req, res, (error: any) => {
+    if (!error) {
+      next();
+      return;
+    }
+    if (error?.code === "LIMIT_FILE_SIZE") {
+      res.status(413).json({ error: "pdf_too_large", message: "El PDF supera el tamaño máximo permitido." });
+      return;
+    }
+    res.status(400).json({ error: "invalid_pdf", message: "No se pudo procesar el archivo PDF." });
+  });
+}
 
 const policyInclude = {
   cliente: {
@@ -488,6 +519,62 @@ function buildRenewalBaseData(source: any, groupId: string) {
   };
 }
 
+function getPolicyGroupId(policy: { id: string; groupId: string | null }): string {
+  return policy.groupId || policy.id;
+}
+
+function getPolicyGroupWhere(policy: { id: string; groupId: string | null }, userId: string): Prisma.PolicyWhereInput {
+  return policy.groupId ? { userId, groupId: policy.groupId } : { userId, id: policy.id };
+}
+
+function serializeDelivery(delivery: any) {
+  if (!delivery) return null;
+  return {
+    id: delivery.id,
+    status: delivery.status,
+    recipient: delivery.recipient,
+    errorMessage: delivery.errorMessage,
+    createdAt: delivery.createdAt,
+    updatedAt: delivery.updatedAt,
+  };
+}
+
+function serializeCoupon(coupon: any) {
+  if (!coupon) return null;
+  return {
+    id: coupon.id,
+    originalName: coupon.originalName,
+    mimeType: coupon.mimeType,
+    sizeBytes: coupon.sizeBytes,
+    createdAt: coupon.createdAt,
+    updatedAt: coupon.updatedAt,
+    lastDelivery: serializeDelivery(coupon.deliveries?.[0]),
+  };
+}
+
+async function findOwnedPolicy(policyId: string, userId: string) {
+  return prisma.policy.findFirst({
+    where: { id: policyId, userId },
+    include: {
+      cliente: { select: { telefono: true } },
+      company: { select: { telefono: true } },
+      user: { select: { nombre: true } },
+    },
+  });
+}
+
+async function findCouponForPolicy(policy: { id: string; groupId: string | null; userId: string }) {
+  return prisma.policyCoupon.findUnique({
+    where: {
+      userId_policyGroupId: {
+        userId: policy.userId,
+        policyGroupId: getPolicyGroupId(policy),
+      },
+    },
+    include: { deliveries: { orderBy: { createdAt: "desc" }, take: 1 } },
+  });
+}
+
 // List policies
 policiesRouter.get("/", async (req: AuthRequest, res: Response) => {
   try {
@@ -730,6 +817,228 @@ policiesRouter.patch("/:id/payment", async (req: AuthRequest, res: Response) => 
   }
 });
 
+// Policy coupon metadata
+policiesRouter.get("/:id/coupon", async (req: AuthRequest, res: Response) => {
+  try {
+    const policy = await findOwnedPolicy(req.params.id, req.userId!);
+    if (!policy) {
+      res.status(404).json({ error: "policy_not_found", message: "Póliza no encontrada." });
+      return;
+    }
+    const coupon = await findCouponForPolicy(policy);
+    res.json({ coupon: serializeCoupon(coupon) });
+  } catch (error) {
+    console.error("Get policy coupon error:", error);
+    res.status(500).json({ error: "internal_error", message: "No se pudo consultar la cuponera." });
+  }
+});
+
+// Upload or replace the shared PDF for a policy group
+policiesRouter.post("/:id/coupon", couponUploadMiddleware, async (req: AuthRequest, res: Response) => {
+  let newStorageKey: string | null = null;
+  try {
+    const policy = await findOwnedPolicy(req.params.id, req.userId!);
+    if (!policy) {
+      res.status(404).json({ error: "policy_not_found", message: "Póliza no encontrada." });
+      return;
+    }
+    if (!req.file) {
+      res.status(400).json({ error: "invalid_pdf", message: "Seleccioná un archivo PDF." });
+      return;
+    }
+    validatePdfUpload(req.file);
+
+    const policyGroupId = getPolicyGroupId(policy);
+    const previous = await prisma.policyCoupon.findUnique({
+      where: { userId_policyGroupId: { userId: req.userId!, policyGroupId } },
+    });
+    newStorageKey = await storeCouponPdf(req.file.buffer);
+
+    const coupon = await prisma.policyCoupon.upsert({
+      where: { userId_policyGroupId: { userId: req.userId!, policyGroupId } },
+      create: {
+        userId: req.userId!,
+        policyGroupId,
+        originalName: req.file.originalname.trim().slice(0, 255) || "cuponera.pdf",
+        storageKey: newStorageKey,
+        mimeType: "application/pdf",
+        sizeBytes: req.file.size,
+      },
+      update: {
+        originalName: req.file.originalname.trim().slice(0, 255) || "cuponera.pdf",
+        storageKey: newStorageKey,
+        mimeType: "application/pdf",
+        sizeBytes: req.file.size,
+      },
+      include: { deliveries: { orderBy: { createdAt: "desc" }, take: 1 } },
+    });
+
+    if (previous?.storageKey && previous.storageKey !== newStorageKey) {
+      await deleteCouponPdf(previous.storageKey);
+    }
+    res.status(previous ? 200 : 201).json({ coupon: serializeCoupon(coupon) });
+  } catch (error: any) {
+    if (newStorageKey) await deleteCouponPdf(newStorageKey);
+    const code = error?.message;
+    if (code === "invalid_pdf" || code === "pdf_too_large") {
+      res.status(code === "pdf_too_large" ? 413 : 400).json({
+        error: code,
+        message: code === "pdf_too_large" ? "El PDF supera el tamaño máximo permitido." : "El archivo no es un PDF válido.",
+      });
+      return;
+    }
+    console.error("Upload policy coupon error:", error);
+    res.status(500).json({ error: "internal_error", message: "No se pudo guardar la cuponera." });
+  }
+});
+
+policiesRouter.get("/:id/coupon/download", async (req: AuthRequest, res: Response) => {
+  try {
+    const policy = await findOwnedPolicy(req.params.id, req.userId!);
+    if (!policy) {
+      res.status(404).json({ error: "policy_not_found", message: "Póliza no encontrada." });
+      return;
+    }
+    const coupon = await findCouponForPolicy(policy);
+    if (!coupon) {
+      res.status(404).json({ error: "coupon_not_found", message: "La póliza no tiene una cuponera asociada." });
+      return;
+    }
+    const file = await readCouponPdf(coupon.storageKey);
+    const asciiName = coupon.originalName.replace(/[^a-zA-Z0-9._-]/g, "_") || "cuponera.pdf";
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Length", String(file.length));
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(coupon.originalName)}`
+    );
+    res.send(file);
+  } catch (error: any) {
+    if (error?.code === "ENOENT") {
+      res.status(410).json({ error: "coupon_file_missing", message: "El archivo de la cuponera ya no está disponible." });
+      return;
+    }
+    console.error("Download policy coupon error:", error);
+    res.status(500).json({ error: "internal_error", message: "No se pudo descargar la cuponera." });
+  }
+});
+
+policiesRouter.delete("/:id/coupon", async (req: AuthRequest, res: Response) => {
+  try {
+    const policy = await findOwnedPolicy(req.params.id, req.userId!);
+    if (!policy) {
+      res.status(404).json({ error: "policy_not_found", message: "Póliza no encontrada." });
+      return;
+    }
+    const coupon = await findCouponForPolicy(policy);
+    if (!coupon) {
+      res.status(404).json({ error: "coupon_not_found", message: "La póliza no tiene una cuponera asociada." });
+      return;
+    }
+    await prisma.policyCoupon.delete({ where: { id: coupon.id } });
+    await deleteCouponPdf(coupon.storageKey);
+    res.json({ message: "Cuponera eliminada." });
+  } catch (error) {
+    console.error("Delete policy coupon error:", error);
+    res.status(500).json({ error: "internal_error", message: "No se pudo eliminar la cuponera." });
+  }
+});
+
+policiesRouter.post("/:id/coupon/send-whatsapp", async (req: AuthRequest, res: Response) => {
+  try {
+    const policy = await findOwnedPolicy(req.params.id, req.userId!);
+    if (!policy) {
+      res.status(404).json({ error: "policy_not_found", message: "Póliza no encontrada." });
+      return;
+    }
+    const coupon = await findCouponForPolicy(policy);
+    if (!coupon) {
+      res.status(409).json({ error: "coupon_not_found", message: "Cargá una cuponera antes de enviar por WhatsApp." });
+      return;
+    }
+
+    const rawPhone = policy.clienteTelefono || policy.cliente?.telefono || policy.company?.telefono || "";
+    let recipient: string;
+    try {
+      recipient = normalizeWhatsAppPhone(rawPhone);
+    } catch {
+      await prisma.whatsAppCouponDelivery.create({
+        data: {
+          couponId: coupon.id,
+          userId: req.userId!,
+          policyId: policy.id,
+          recipient: rawPhone.trim(),
+          status: "FAILED",
+          errorCode: "invalid_phone",
+          errorMessage: "El teléfono del cliente no es válido para WhatsApp.",
+        },
+      });
+      res.status(400).json({ error: "invalid_phone", message: "Revisá el teléfono del cliente antes de enviar." });
+      return;
+    }
+
+    try {
+      const document = await readCouponPdf(coupon.storageKey);
+      const dueDate = new Intl.DateTimeFormat("es-AR", { timeZone: "UTC" }).format(policy.fechaVencimiento);
+      const result = await sendCouponTemplate({
+        recipient,
+        document,
+        filename: `cuponera-${policy.numeroPoliza.replace(/[^a-zA-Z0-9._-]/g, "-")}.pdf`,
+        clientName: policy.clienteNombre,
+        policyNumber: policy.numeroPoliza,
+        insurer: policy.aseguradora,
+        dueDate,
+        producerName: policy.user.nombre,
+      });
+
+      const delivery = await prisma.$transaction(async (tx) => {
+        const created = await tx.whatsAppCouponDelivery.create({
+          data: {
+            couponId: coupon.id,
+            userId: req.userId!,
+            policyId: policy.id,
+            recipient,
+            metaMessageId: result.messageId,
+            status: "ACCEPTED",
+          },
+        });
+        await tx.policy.update({
+          where: { id: policy.id },
+          data: {
+            ultimaGestionTipo: "WHATSAPP",
+            ultimaGestionFecha: new Date(),
+            ultimaGestionWhatsappCount: { increment: 1 },
+          },
+        });
+        return created;
+      });
+
+      res.status(202).json({ delivery: serializeDelivery(delivery) });
+    } catch (error: any) {
+      const notConfigured = error instanceof WhatsAppNotConfiguredError;
+      const errorCode = notConfigured ? "whatsapp_not_configured" : String(error?.code || "whatsapp_send_failed");
+      const errorMessage = notConfigured
+        ? "WhatsApp todavía no está configurado en el servidor."
+        : String(error?.message || "Meta rechazó el envío.").slice(0, 1000);
+      await prisma.whatsAppCouponDelivery.create({
+        data: {
+          couponId: coupon.id,
+          userId: req.userId!,
+          policyId: policy.id,
+          recipient,
+          status: "FAILED",
+          errorCode,
+          errorMessage,
+        },
+      });
+      res.status(notConfigured ? 503 : 502).json({ error: errorCode, message: errorMessage });
+    }
+  } catch (error) {
+    console.error("Send coupon WhatsApp error:", error);
+    res.status(500).json({ error: "internal_error", message: "No se pudo iniciar el envío por WhatsApp." });
+  }
+});
+
 // Track WhatsApp / Email interactions
 policiesRouter.post("/:id/interactions", async (req: AuthRequest, res: Response) => {
   try {
@@ -783,8 +1092,16 @@ policiesRouter.delete("/:id", async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    await prisma.policy.delete({ where: { id } });
-    res.json({ message: "Póliza eliminada" });
+    const policyGroupId = getPolicyGroupId(existing);
+    const coupon = await prisma.policyCoupon.findUnique({
+      where: { userId_policyGroupId: { userId: req.userId!, policyGroupId } },
+    });
+    const deleted = await prisma.$transaction(async (tx) => {
+      if (coupon) await tx.policyCoupon.delete({ where: { id: coupon.id } });
+      return tx.policy.deleteMany({ where: getPolicyGroupWhere(existing, req.userId!) });
+    });
+    if (coupon) await deleteCouponPdf(coupon.storageKey);
+    res.json({ message: "Póliza y cuotas asociadas eliminadas", deletedCount: deleted.count });
   } catch (error) {
     console.error("Delete policy error:", error);
     res.status(500).json({ error: "Error interno del servidor" });

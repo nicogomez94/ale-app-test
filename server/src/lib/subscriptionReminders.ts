@@ -1,5 +1,7 @@
 import prisma from "./prisma.js";
 import { sendEmail } from "./email.js";
+import { cleanupOrphanCouponFiles, deleteCouponPdf } from "./couponStorage.js";
+import { getExpiredPolicyGroups } from "./policyCleanup.js";
 
 const INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -48,6 +50,37 @@ async function updatePolicyStatuses(onlyTestUsers = false): Promise<void> {
   } else {
     console.log("[PolicyJob] Sin cambios de estado en pólizas.");
   }
+}
+
+async function deleteExpiredPolicyGroups(onlyTestUsers = false): Promise<void> {
+  const policies = await prisma.policy.findMany({
+    where: onlyTestUsers ? { user: { isTestUser: true } } : undefined,
+    select: { id: true, userId: true, groupId: true, fechaVencimiento: true },
+  });
+  const expiredGroups = getExpiredPolicyGroups(policies);
+  let deletedPolicies = 0;
+  let deletedCoupons = 0;
+
+  for (const group of expiredGroups) {
+    const coupon = await prisma.policyCoupon.findUnique({
+      where: { userId_policyGroupId: { userId: group.userId, policyGroupId: group.policyGroupId } },
+    });
+    const deleted = await prisma.$transaction(async (tx) => {
+      if (coupon) await tx.policyCoupon.delete({ where: { id: coupon.id } });
+      return tx.policy.deleteMany({ where: { id: { in: group.memberIds }, userId: group.userId } });
+    });
+    deletedPolicies += deleted.count;
+    if (coupon) {
+      deletedCoupons++;
+      await deleteCouponPdf(coupon.storageKey);
+    }
+  }
+
+  const activeCoupons = await prisma.policyCoupon.findMany({ select: { storageKey: true } });
+  const orphanFiles = await cleanupOrphanCouponFiles(new Set(activeCoupons.map((coupon) => coupon.storageKey)));
+  console.log(
+    `[PolicyCleanup] ${deletedPolicies} póliza(s), ${deletedCoupons} cuponera(s) y ${orphanFiles} archivo(s) huérfano(s) eliminados.`
+  );
 }
 
 async function sendPolicyExpirationReminders(onlyTestUsers = false): Promise<void> {
@@ -242,6 +275,7 @@ async function sendReminders(onlyTestUsers = false): Promise<void> {
 
 async function runAllJobs(): Promise<void> {
   await updatePolicyStatuses().catch((err) => console.error("[PolicyJob] Error:", err));
+  await deleteExpiredPolicyGroups().catch((err) => console.error("[PolicyCleanup] Error:", err));
   await sendPolicyExpirationReminders().catch((err) => console.error("[PolicyReminders] Error:", err));
   await resetMonthlyReferrals().catch((err) => console.error("[ReferralJob] Error:", err));
   await sendReminders().catch((err) => console.error("[Reminders] Error:", err));
@@ -249,12 +283,17 @@ async function runAllJobs(): Promise<void> {
 
 // Exported for manual trigger (admin endpoint / testing)
 // onlyTestUsers=true: only affects users with isTestUser=true (used from admin panel)
-export async function runJobsNow(onlyTestUsers = false): Promise<{ policies: string; policyReminders: string; referrals: string; reminders: string }> {
-  const results = { policies: "ok", policyReminders: "ok", referrals: "ok", reminders: "ok" };
+export async function runJobsNow(onlyTestUsers = false): Promise<{ policies: string; policyCleanup: string; policyReminders: string; referrals: string; reminders: string }> {
+  const results = { policies: "ok", policyCleanup: "ok", policyReminders: "ok", referrals: "ok", reminders: "ok" };
 
   await updatePolicyStatuses(onlyTestUsers).catch((err) => {
     console.error("[PolicyJob] Error:", err);
     results.policies = String(err?.message || err);
+  });
+
+  await deleteExpiredPolicyGroups(onlyTestUsers).catch((err) => {
+    console.error("[PolicyCleanup] Error:", err);
+    results.policyCleanup = String(err?.message || err);
   });
 
   await sendPolicyExpirationReminders(onlyTestUsers).catch((err) => {
@@ -286,5 +325,5 @@ export function startSubscriptionReminders(): void {
     runAllJobs().catch((err) => console.error("[Jobs] Error en ciclo diario:", err));
   }, INTERVAL_MS);
 
-  console.log("[Jobs] Servicios periódicos iniciados: estados de pólizas, referidos y recordatorios.");
+  console.log("[Jobs] Servicios periódicos iniciados: estados, limpieza de pólizas, referidos y recordatorios.");
 }

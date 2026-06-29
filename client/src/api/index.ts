@@ -4,6 +4,26 @@ const API_BASE = apiUrl ? `${apiUrl}/api` : "/api";
 export type PolicyVigencia = "MENSUAL" | "BIMESTRAL" | "TRIMESTRAL" | "SEMESTRAL" | "ANUAL";
 export type PolicyType = "INDIVIDUAL" | "EMPRESA";
 export type InteractionChannel = "WHATSAPP" | "EMAIL";
+export type CouponDeliveryStatus = "ACCEPTED" | "SENT" | "DELIVERED" | "READ" | "FAILED";
+
+export interface CouponDelivery {
+  id: string;
+  status: CouponDeliveryStatus;
+  recipient: string;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PolicyCoupon {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+  updatedAt: string;
+  lastDelivery: CouponDelivery | null;
+}
 
 export interface DashboardPolicy {
   id: string;
@@ -43,6 +63,7 @@ export interface DashboardPolicy {
   porcentajeComision: number;
   moneda: string;
   comisionCalculada: number;
+  coupon: PolicyCoupon | null;
   ultimaGestion: {
     tipo: InteractionChannel;
     fecha: string;
@@ -177,6 +198,18 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   return res.json();
 }
 
+async function requestBlob(endpoint: string): Promise<Blob> {
+  const token = getToken();
+  const res = await fetch(`${API_BASE}${endpoint}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: "Error del servidor" }));
+    throw new Error(error.message || error.error || "No se pudo descargar el archivo");
+  }
+  return res.blob();
+}
+
 // Auth
 export const api = {
   auth: {
@@ -270,6 +303,18 @@ export const api = {
       request<PolicyPaymentResponse>(`/policies/${id}/payment`, { method: "PATCH", body: JSON.stringify(data) }),
     trackInteraction: (id: string, channel: InteractionChannel) =>
       request<DashboardPolicy>(`/policies/${id}/interactions`, { method: "POST", body: JSON.stringify({ channel }) }),
+    coupon: {
+      get: (id: string) => request<{ coupon: PolicyCoupon | null }>(`/policies/${id}/coupon`),
+      upload: (id: string, file: File) => {
+        const body = new FormData();
+        body.append("file", file);
+        return request<{ coupon: PolicyCoupon }>(`/policies/${id}/coupon`, { method: "POST", body });
+      },
+      download: (id: string) => requestBlob(`/policies/${id}/coupon/download`),
+      delete: (id: string) => request<{ message: string }>(`/policies/${id}/coupon`, { method: "DELETE" }),
+      sendWhatsApp: (id: string) =>
+        request<{ delivery: CouponDelivery }>(`/policies/${id}/coupon/send-whatsapp`, { method: "POST" }),
+    },
     updateStatuses: () =>
       request<any>("/policies/update-statuses", { method: "POST" }),
   },

@@ -445,6 +445,10 @@ export function buildQuotaSeriesData(baseData: any, quotaTotal: number, groupId:
   });
 }
 
+export function buildFirstCascadeQuotaData(baseData: any, quotaTotal: number, groupId: string) {
+  return buildQuotaSeriesData(baseData, quotaTotal, groupId)[0];
+}
+
 function buildNextCascadeQuotaData(source: any, groupStartDate: Date) {
   const nextQuota = Math.min(source.cuotaActual + 1, source.cuotaTotal);
   const fechaInicio = new Date(source.fechaVencimiento);
@@ -615,11 +619,11 @@ policiesRouter.post("/", async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const policies = await prisma.$transaction(async (tx) => {
+    const policy = await prisma.$transaction(async (tx) => {
       const data = await buildPolicyWriteData(tx, req.userId!, input);
       const quotaTotal = getQuotaTotalFromVigencia(data.vigencia);
       const groupId = randomUUID();
-      const quotaRows = buildQuotaSeriesData(
+      const firstQuota = buildFirstCascadeQuotaData(
         {
           ...data,
           cuotaTotal: quotaTotal,
@@ -628,21 +632,16 @@ policiesRouter.post("/", async (req: AuthRequest, res: Response) => {
         quotaTotal,
         groupId
       );
-
-      const created = [];
-      for (const row of quotaRows) {
-        created.push(await tx.policy.create({
-          data: { userId: req.userId!, ...row },
-          include: policyInclude,
-        }));
-      }
-      return created;
+      return tx.policy.create({
+        data: { userId: req.userId!, ...firstQuota },
+        include: policyInclude,
+      });
     });
 
     res.status(201).json({
-      ...policies[0],
-      generatedCount: policies.length,
-      generatedPolicies: policies,
+      ...policy,
+      generatedCount: 1,
+      generatedPolicies: [policy],
     });
   } catch (error) {
     console.error("Create policy error:", error);
@@ -798,13 +797,11 @@ policiesRouter.patch("/:id/payment", async (req: AuthRequest, res: Response) => 
       }
 
       const baseData = buildRenewalBaseData(existing, renewalGroupId);
-      const renewalRows = buildQuotaSeriesData(baseData, baseData.cuotaTotal, renewalGroupId);
-      for (const row of renewalRows) {
-        renewalPolicies.push(await tx.policy.create({
-          data: { userId: req.userId!, ...row },
-          include: policyInclude,
-        }));
-      }
+      const firstRenewalQuota = buildFirstCascadeQuotaData(baseData, baseData.cuotaTotal, renewalGroupId);
+      renewalPolicies.push(await tx.policy.create({
+        data: { userId: req.userId!, ...firstRenewalQuota },
+        include: policyInclude,
+      }));
 
       renewalCreated = renewalPolicies.length > 0;
       return updatedPolicy;

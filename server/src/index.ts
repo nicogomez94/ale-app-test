@@ -24,7 +24,7 @@ import { startSubscriptionReminders } from "./lib/subscriptionReminders.js";
 import { whatsappWebhookRouter } from "./routes/whatsappWebhook.js";
 
 const app = express();
-const PORT = parseInt(process.env.PORT || "3001");
+const PORT = parseInt(process.env.PORT || "3003");
 
 const allowedOrigins = [
   process.env.APP_URL,

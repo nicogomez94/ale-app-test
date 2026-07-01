@@ -41,6 +41,7 @@ import {
   MapPin,
   MessageCircle,
   Phone,
+  Plus,
   Square,
   Users,
   X,
@@ -198,6 +199,53 @@ const getStatusVisual = (policy: DashboardPolicy) => {
   return { label: 'Vigente', color: 'success.main', textColor: 'white', detail: policy.diasRestantes === 0 ? 'Hoy' : `${policy.diasRestantes} dias` };
 };
 
+const getSequentiallyVisiblePolicies = (policies: DashboardPolicy[]) => {
+  const sortedPolicies = [...policies].sort((a, b) => a.cuotaActual - b.cuotaActual);
+  const firstUnpaidIndex = sortedPolicies.findIndex((policy) => !policy.pagada);
+  return firstUnpaidIndex === -1 ? sortedPolicies : sortedPolicies.slice(0, firstUnpaidIndex + 1);
+};
+
+const PaymentStatusControl = ({
+  policy,
+  onTogglePaid,
+  onUpdatePaymentDate,
+}: {
+  policy: DashboardPolicy;
+  onTogglePaid: (policy: DashboardPolicy) => void;
+  onUpdatePaymentDate: (policy: DashboardPolicy, date: string) => void;
+}) => (
+  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <IconButton
+        size="small"
+        onClick={() => onTogglePaid(policy)}
+        aria-label={policy.pagada ? `Marcar cuota ${policy.cuota} como no pagada` : `Marcar cuota ${policy.cuota} como pagada`}
+        sx={{ color: policy.pagada ? 'success.main' : 'text.disabled' }}
+      >
+        {policy.pagada ? <CheckSquare size={22} /> : <Square size={22} />}
+      </IconButton>
+      <Typography variant="body2" sx={{ fontWeight: 700, color: policy.pagada ? 'success.main' : 'text.secondary' }}>
+        {policy.pagada ? 'SI' : 'NO'}
+      </Typography>
+    </Box>
+    {policy.pagada && (
+      <>
+        <TextField
+          type="date"
+          size="small"
+          value={policy.fechaPago || ''}
+          onChange={(event) => onUpdatePaymentDate(policy, event.target.value)}
+          inputProps={{ 'aria-label': `Fecha de pago de la cuota ${policy.cuota}` }}
+          sx={{ '& .MuiInputBase-input': { fontSize: '0.75rem', p: '6px 8px', width: '110px' } }}
+        />
+        <Typography variant="caption" sx={{ fontWeight: 800, color: 'success.dark' }}>
+          Prima: {formatMoney(policy.prima)}
+        </Typography>
+      </>
+    )}
+  </Box>
+);
+
 const PolicyTable = ({
   title,
   policies,
@@ -210,8 +258,8 @@ const PolicyTable = ({
   onUpdatePaymentDate,
   headerColor,
   showAll,
-  totalCount,
   onToggleShowAll,
+  onCreate,
 }: {
   title: string;
   policies: DashboardPolicy[];
@@ -224,21 +272,21 @@ const PolicyTable = ({
   onUpdatePaymentDate: (policy: DashboardPolicy, date: string) => void;
   headerColor: string;
   showAll: boolean;
-  totalCount: number;
   onToggleShowAll: () => void;
+  onCreate: () => void;
 }) => {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const groupedPolicies = useMemo(() => {
     const groups = new Map<string, { key: string; cliente: string; policies: DashboardPolicy[] }>();
     policies.forEach((policy) => {
-      const key = policy.clienteId || policy.companyId || policy.cliente;
+      const key = policy.groupId || policy.id;
       const group = groups.get(key) || { key, cliente: policy.cliente, policies: [] };
       group.policies.push(policy);
       groups.set(key, group);
     });
     return Array.from(groups.values()).map((group) => ({
       ...group,
-      policies: [...group.policies].sort((a, b) => a.vencimiento.localeCompare(b.vencimiento)),
+      policies: getSequentiallyVisiblePolicies(group.policies),
     }));
   }, [policies]);
   const visibleGroups = showAll ? groupedPolicies : groupedPolicies.slice(0, VISIBLE_POLICIES_LIMIT);
@@ -250,17 +298,28 @@ const PolicyTable = ({
       return next;
     });
   };
+  const handleToggleGroupPayment = (policy: DashboardPolicy, groupKey: string) => {
+    if (!policy.pagada) {
+      setExpandedGroups((prev) => new Set(prev).add(groupKey));
+    }
+    onTogglePaid(policy);
+  };
 
   return (
     <Card sx={{ mb: 4, minWidth: 0, maxWidth: '100%' }}>
       <CardContent sx={{ px: { xs: 2, sm: 3 }, '&:last-child': { pb: { xs: 2, sm: 3 } } }}>
         <Box sx={{ mb: 3, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 1.5, minWidth: 0 }}>
           <Typography variant="h6" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{title}</Typography>
-          {groupedPolicies.length > VISIBLE_POLICIES_LIMIT && (
-            <Button size="small" onClick={onToggleShowAll}>
-              {showAll ? 'Ver menos' : 'Ver todas'}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            {groupedPolicies.length > VISIBLE_POLICIES_LIMIT && (
+              <Button size="small" onClick={onToggleShowAll}>
+                {showAll ? 'Ver menos' : 'Ver todas'}
+              </Button>
+            )}
+            <Button variant="contained" size="small" startIcon={<Plus size={18} />} onClick={onCreate} sx={{ borderRadius: 3, px: 2 }}>
+              Nueva Póliza
             </Button>
-          )}
+          </Box>
         </Box>
         <TableContainer component={Paper} elevation={0} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto', border: '1px solid', borderColor: 'divider' }}>
           <Table sx={{ minWidth: 1080 }}>
@@ -302,8 +361,8 @@ const PolicyTable = ({
                             size="small"
                             sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: 700, fontSize: '0.65rem', height: 20, mt: 0.5, borderRadius: 1 }}
                           />
-                          {group.policies.length > 1 && (
-                            <Chip label={`${group.policies.length} en cascada`} size="small" variant="outlined" sx={{ ml: 0.75, height: 20, fontWeight: 700 }} />
+                          {policy.cuotaTotal > 1 && (
+                            <Chip label={`${policy.cuotaTotal} en cascada`} size="small" variant="outlined" sx={{ ml: 0.75, height: 20, fontWeight: 700 }} />
                           )}
                           <Typography variant="caption" display="block" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', mt: 0.5 }}>
                             {policy.tipo === 'EMPRESA' ? 'EMPRESA' : 'INDIVIDUAL'}
@@ -350,30 +409,11 @@ const PolicyTable = ({
                       )}
                     </TableCell>
                     <TableCell sx={{ textAlign: 'center', minWidth: 150 }}>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <IconButton size="small" onClick={() => onTogglePaid(policy)} sx={{ color: policy.pagada ? 'success.main' : 'text.disabled' }}>
-                            {policy.pagada ? <CheckSquare size={22} /> : <Square size={22} />}
-                          </IconButton>
-                          <Typography variant="body2" sx={{ fontWeight: 700, color: policy.pagada ? 'success.main' : 'text.secondary' }}>
-                            {policy.pagada ? 'SI' : 'NO'}
-                          </Typography>
-                        </Box>
-                        {policy.pagada && (
-                          <>
-                            <TextField
-                              type="date"
-                              size="small"
-                              value={policy.fechaPago || ''}
-                              onChange={(event) => onUpdatePaymentDate(policy, event.target.value)}
-                              sx={{ '& .MuiInputBase-input': { fontSize: '0.75rem', p: '6px 8px', width: '110px' } }}
-                            />
-                            <Typography variant="caption" sx={{ fontWeight: 800, color: 'success.dark' }}>
-                              Prima: {formatMoney(policy.prima)}
-                            </Typography>
-                          </>
-                        )}
-                      </Box>
+                      <PaymentStatusControl
+                        policy={policy}
+                        onTogglePaid={(selectedPolicy) => handleToggleGroupPayment(selectedPolicy, group.key)}
+                        onUpdatePaymentDate={onUpdatePaymentDate}
+                      />
                     </TableCell>
                     <TableCell sx={{ textAlign: 'center', minWidth: 150 }}>
                       {policy.ultimaGestion ? (
@@ -431,7 +471,13 @@ const PolicyTable = ({
                                       <TableCell align="center">{format(parseISO(policy.vencimiento), 'dd/MM/yyyy')}</TableCell>
                                       <TableCell align="center"><Chip label={status.label} size="small" sx={{ bgcolor: status.color, color: status.textColor, fontWeight: 700 }} /></TableCell>
                                       <TableCell align="center">{policy.cuota}</TableCell>
-                                      <TableCell align="center">{policy.pagada ? `SI · ${formatMoney(policy.prima)}` : 'NO'}</TableCell>
+                                      <TableCell align="center" sx={{ minWidth: 150 }}>
+                                        <PaymentStatusControl
+                                          policy={policy}
+                                          onTogglePaid={(selectedPolicy) => handleToggleGroupPayment(selectedPolicy, group.key)}
+                                          onUpdatePaymentDate={onUpdatePaymentDate}
+                                        />
+                                      </TableCell>
                                       <TableCell align="right">
                                         <ListingActions
                                           onCoupon={() => onCoupon(policy)}
@@ -696,6 +742,14 @@ export const Dashboard: React.FC = () => {
 
   const individualPolicies = useMemo(() => policies.filter((policy) => policy.tipo === 'INDIVIDUAL'), [policies]);
   const companyPolicies = useMemo(() => policies.filter((policy) => policy.tipo === 'EMPRESA'), [policies]);
+  const individualPolicyCount = useMemo(
+    () => new Set(individualPolicies.map((policy) => policy.groupId || policy.id)).size,
+    [individualPolicies]
+  );
+  const companyPolicyCount = useMemo(
+    () => new Set(companyPolicies.map((policy) => policy.groupId || policy.id)).size,
+    [companyPolicies]
+  );
 
   const applyFilter = (newFilter: string | null) => {
     navigate(newFilter ? `/dashboard?filter=${newFilter}` : '/dashboard');
@@ -943,7 +997,7 @@ export const Dashboard: React.FC = () => {
 
       <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
           <PolicyTable
-            title={`Gestion de Polizas de Clientes (Total: ${individualPolicies.length})`}
+            title={`Gestion de Polizas de Clientes (Total: ${individualPolicyCount})`}
             policies={individualPolicies}
             onWhatsApp={handleWhatsApp}
             onCoupon={handleCoupon}
@@ -954,11 +1008,11 @@ export const Dashboard: React.FC = () => {
             onUpdatePaymentDate={handleUpdatePaymentDate}
             headerColor="primary.main"
             showAll={showAll.clients}
-            totalCount={individualPolicies.length}
             onToggleShowAll={() => setShowAll((prev) => ({ ...prev, clients: !prev.clients }))}
+            onCreate={() => navigate('/polizas', { state: { policyMode: 'CLIENTE', lockPolicyMode: true } })}
           />
           <PolicyTable
-            title={`Gestion de Polizas de Empresas (Total: ${companyPolicies.length})`}
+            title={`Gestion de Polizas de Empresas (Total: ${companyPolicyCount})`}
             policies={companyPolicies}
             onWhatsApp={handleWhatsApp}
             onCoupon={handleCoupon}
@@ -969,8 +1023,8 @@ export const Dashboard: React.FC = () => {
             onUpdatePaymentDate={handleUpdatePaymentDate}
             headerColor="secondary.main"
             showAll={showAll.companies}
-            totalCount={companyPolicies.length}
             onToggleShowAll={() => setShowAll((prev) => ({ ...prev, companies: !prev.companies }))}
+            onCreate={() => navigate('/polizas', { state: { policyMode: 'EMPRESA', lockPolicyMode: true } })}
           />
           {/* La gestión de Vida y Retiro queda en su módulo específico para reducir densidad del dashboard. */}
           {false && <LifeFinanceTable

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildQuotaSeriesData } from "../routes/policies.js";
+import { buildFirstCascadeQuotaData, buildQuotaSeriesData } from "../routes/policies.js";
 import { countPolicyGroups } from "../middleware/planLimits.js";
 
 const base = {
@@ -24,6 +24,16 @@ test("respeta fin de mes al calcular cuotas intermedias", () => {
   const rows = buildQuotaSeriesData(base, 3, "group-2");
   assert.equal(rows[0].fechaVencimiento.toISOString().slice(0, 10), "2026-02-28");
   assert.equal(rows[1].fechaVencimiento.toISOString().slice(0, 10), "2026-03-31");
+});
+
+test("la cascada comienza solamente con la primera cuota", () => {
+  const row = buildFirstCascadeQuotaData(base, 12, "group-cascade");
+
+  assert.equal(row.cuotaActual, 1);
+  assert.equal(row.cuotaTotal, 12);
+  assert.equal(row.groupId, "group-cascade");
+  assert.equal(row.pagada, false);
+  assert.equal(row.fechaVencimiento.toISOString().slice(0, 10), "2026-02-28");
 });
 
 test("el limite cuenta contratos y no filas de cuotas", () => {

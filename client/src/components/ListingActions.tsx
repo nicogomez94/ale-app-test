@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Button, Tooltip } from '@mui/material';
-import { Edit2, FileText, Mail, MessageCircle, Trash2 } from 'lucide-react';
+import { Edit2, FileDown, FileText, Mail, MessageCircle, Trash2 } from 'lucide-react';
 
 type ListingActionsProps = {
   onWhatsApp: () => void;
@@ -8,7 +8,9 @@ type ListingActionsProps = {
   onEdit: () => void;
   onDelete: () => void;
   onCoupon?: () => void;
+  onDocument?: () => void;
   hasCoupon?: boolean;
+  hasDocument?: boolean;
   disableWhatsApp?: boolean;
   disableEmail?: boolean;
   whatsappTitle?: string;
@@ -38,7 +40,9 @@ export const ListingActions: React.FC<ListingActionsProps> = ({
   onEdit,
   onDelete,
   onCoupon,
+  onDocument,
   hasCoupon = false,
+  hasDocument = false,
   disableWhatsApp = false,
   disableEmail = false,
   whatsappTitle,
@@ -69,6 +73,22 @@ export const ListingActions: React.FC<ListingActionsProps> = ({
         sx={{ ...ACTION_BUTTON_SX, gridColumn: '1 / -1' }}
       >
         {hasCoupon ? 'Cuponera cargada' : 'Cargar cuponera'}
+      </Button>
+    )}
+    {onDocument && hasDocument && (
+      <Button
+        fullWidth
+        size="small"
+        variant="outlined"
+        color="primary"
+        startIcon={<FileDown size={14} />}
+        onClick={(event) => {
+          event.stopPropagation();
+          onDocument();
+        }}
+        sx={{ ...ACTION_BUTTON_SX, gridColumn: '1 / -1' }}
+      >
+        PDF original
       </Button>
     )}
     <Tooltip title={whatsappTitle || ''}>

@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, CreditCard, Bell, LogOut,
   Menu as MenuIcon, UserCircle, BarChart3, Sun, Moon, Building2, HeartPulse,
   Calendar, Clock, Shield, AlertTriangle, MessageSquare,
-  PanelLeftClose, PanelLeftOpen, ShieldCheck, ChevronDown, ChevronRight
+  PanelLeftClose, PanelLeftOpen, ShieldCheck, ChevronDown, ChevronRight, FileSearch
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -86,6 +86,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
     { text: 'Clientes', icon: <UserCircle size={20} color="#0ea5e9" />, path: '/clientes', badge: menuCounts.clientes },
     { text: 'Empresas', icon: <Building2 size={20} color="#8b5cf6" />, path: '/empresas', badge: menuCounts.empresas },
     { text: 'Vida y Retiro', icon: <HeartPulse size={20} color="#ef4444" />, path: '/vida-y-retiro', badge: menuCounts.vidaRetiro },
+    { text: 'Importar PDF', icon: <FileSearch size={20} color="#f59e0b" />, path: '/polizas/importar' },
     { text: 'Cotizaciones', icon: <MessageSquare size={20} color="#10b981" />, path: '/cotizaciones', badge: menuCounts.cotizaciones },
     { text: 'Siniestros', icon: <AlertTriangle size={20} color="#f43f5e" />, path: '/siniestros' },
     { text: 'Comisiones', icon: <BarChart3 size={20} color="#10b981" />, path: '/comisiones' },

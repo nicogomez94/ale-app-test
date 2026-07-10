@@ -25,6 +25,15 @@ export interface PolicyCoupon {
   lastDelivery: CouponDelivery | null;
 }
 
+export interface PolicyOriginalDocument {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DashboardPolicy {
   id: string;
   clienteId: string | null;
@@ -60,10 +69,18 @@ export interface DashboardPolicy {
   pagada: boolean;
   fechaPago: string;
   prima: number;
+  premioTotal?: number | null;
+  cobertura?: string | null;
+  endoso?: string | null;
+  patente?: string | null;
+  chasis?: string | null;
+  motor?: string | null;
+  direccionRiesgo?: string | null;
   porcentajeComision: number;
   moneda: string;
   comisionCalculada: number;
   coupon: PolicyCoupon | null;
+  policyDocument: PolicyOriginalDocument | null;
   ultimaGestion: {
     tipo: InteractionChannel;
     fecha: string;
@@ -97,6 +114,13 @@ export interface PolicyPayload {
   pagada?: boolean;
   fechaPago?: string;
   prima: number;
+  premioTotal?: number | null;
+  cobertura?: string | null;
+  endoso?: string | null;
+  patente?: string | null;
+  chasis?: string | null;
+  motor?: string | null;
+  direccionRiesgo?: string | null;
   porcentajeComision: number;
   moneda?: string;
   tipo: PolicyType;
@@ -108,6 +132,54 @@ export interface PolicyPaymentResponse {
   renewalPolicies: DashboardPolicy[];
   nextQuotaCreated?: boolean;
   nextQuotaPolicies?: DashboardPolicy[];
+}
+
+export type PolicyImportStatus = "PROCESSING" | "READY" | "INCOMPLETE" | "CONFIRMED" | "FAILED";
+
+export interface PolicyImportData extends Partial<PolicyPayload> {
+  premioTotal?: number | null;
+  cobertura?: string | null;
+  endoso?: string | null;
+  patente?: string | null;
+  chasis?: string | null;
+  motor?: string | null;
+  direccionRiesgo?: string | null;
+  cuotas?: Array<{ numero?: number; vencimiento?: string; importe?: number }>;
+}
+
+export interface PolicyImportDocument {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  status: PolicyImportStatus;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PolicyImportCandidate {
+  id: string;
+  batchId: string;
+  documentId: string;
+  status: PolicyImportStatus;
+  data: PolicyImportData;
+  foundFields: string[];
+  missingFields: string[];
+  warnings: string[];
+  policyId: string | null;
+  policyGroupId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PolicyImportBatch {
+  id: string;
+  status: PolicyImportStatus;
+  createdAt: string;
+  updatedAt: string;
+  documents: PolicyImportDocument[];
+  candidates: PolicyImportCandidate[];
 }
 
 export interface PolicyListItem {
@@ -317,6 +389,25 @@ export const api = {
     },
     updateStatuses: () =>
       request<any>("/policies/update-statuses", { method: "POST" }),
+  },
+
+  policyImports: {
+    create: (files: File[]) => {
+      const body = new FormData();
+      files.forEach((file) => body.append("files", file));
+      return request<{ batch: PolicyImportBatch }>("/policy-imports", { method: "POST", body });
+    },
+    get: (batchId: string) =>
+      request<{ batch: PolicyImportBatch }>(`/policy-imports/${batchId}`),
+    confirm: (candidateId: string, data: PolicyImportData) =>
+      request<{ policy: DashboardPolicy; candidate: PolicyImportCandidate }>(`/policy-imports/candidates/${candidateId}/confirm`, {
+        method: "POST",
+        body: JSON.stringify({ data }),
+      }),
+  },
+
+  policyDocuments: {
+    download: (policyGroupId: string) => requestBlob(`/policy-documents/${policyGroupId}/download`),
   },
 
   // Life & Finance

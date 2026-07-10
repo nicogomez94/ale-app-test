@@ -1,6 +1,7 @@
 import prisma from "./prisma.js";
 import { sendEmail } from "./email.js";
 import { cleanupOrphanCouponFiles, deleteCouponPdf } from "./couponStorage.js";
+import { deletePolicyDocumentPdf } from "./policyDocumentStorage.js";
 import { getExpiredPolicyGroups } from "./policyCleanup.js";
 import { runWeeklySummaryJob } from "./weeklySummaryJob.js";
 
@@ -62,13 +63,18 @@ async function deleteExpiredPolicyGroups(onlyTestUsers = false): Promise<void> {
   const expiredGroups = getExpiredPolicyGroups(policies);
   let deletedPolicies = 0;
   let deletedCoupons = 0;
+  let deletedDocuments = 0;
 
   for (const group of expiredGroups) {
     const coupon = await prisma.policyCoupon.findUnique({
       where: { userId_policyGroupId: { userId: group.userId, policyGroupId: group.policyGroupId } },
     });
+    const policyDocument = await prisma.policyDocument.findUnique({
+      where: { userId_policyGroupId: { userId: group.userId, policyGroupId: group.policyGroupId } },
+    });
     const deleted = await prisma.$transaction(async (tx) => {
       if (coupon) await tx.policyCoupon.delete({ where: { id: coupon.id } });
+      if (policyDocument) await tx.policyDocument.delete({ where: { id: policyDocument.id } });
       return tx.policy.deleteMany({ where: { id: { in: group.memberIds }, userId: group.userId } });
     });
     deletedPolicies += deleted.count;
@@ -76,12 +82,16 @@ async function deleteExpiredPolicyGroups(onlyTestUsers = false): Promise<void> {
       deletedCoupons++;
       await deleteCouponPdf(coupon.storageKey);
     }
+    if (policyDocument) {
+      deletedDocuments++;
+      await deletePolicyDocumentPdf(policyDocument.storageKey);
+    }
   }
 
   const activeCoupons = await prisma.policyCoupon.findMany({ select: { storageKey: true } });
   const orphanFiles = await cleanupOrphanCouponFiles(new Set(activeCoupons.map((coupon) => coupon.storageKey)));
   console.log(
-    `[PolicyCleanup] ${deletedPolicies} póliza(s), ${deletedCoupons} cuponera(s) y ${orphanFiles} archivo(s) huérfano(s) eliminados.`
+    `[PolicyCleanup] ${deletedPolicies} póliza(s), ${deletedCoupons} cuponera(s), ${deletedDocuments} documento(s) y ${orphanFiles} archivo(s) huérfano(s) eliminados.`
   );
 }
 

@@ -130,6 +130,12 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
         })
       : [];
     const couponsByGroup = new Map(coupons.map((coupon) => [coupon.policyGroupId, coupon]));
+    const policyDocuments = policyGroupIds.length
+      ? await prisma.policyDocument.findMany({
+          where: { userId: req.userId!, policyGroupId: { in: policyGroupIds } },
+        })
+      : [];
+    const policyDocumentsByGroup = new Map(policyDocuments.map((document) => [document.policyGroupId, document]));
 
     // Map to frontend format
     const mapped = policies.map((p: any) => {
@@ -141,6 +147,7 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
       if (daysLeft < 0) estadoLabel = "Vencida";
       else if (daysLeft <= 30) estadoLabel = "Vence pronto";
       const coupon = couponsByGroup.get(p.groupId || p.id);
+      const policyDocument = policyDocumentsByGroup.get(p.groupId || p.id);
       const lastDelivery = coupon?.deliveries[0];
 
       return {
@@ -178,6 +185,13 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
         pagada: p.pagada,
         fechaPago: p.fechaPago ? p.fechaPago.toISOString().split("T")[0] : "",
         prima: p.prima,
+        premioTotal: p.premioTotal,
+        cobertura: p.cobertura,
+        endoso: p.endoso,
+        patente: p.patente,
+        chasis: p.chasis,
+        motor: p.motor,
+        direccionRiesgo: p.direccionRiesgo,
         porcentajeComision: p.porcentajeComision,
         moneda: (p as any).moneda ?? "ARS",
         comisionCalculada: p.comisionCalculada,
@@ -199,6 +213,16 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
                     updatedAt: lastDelivery.updatedAt,
                   }
                 : null,
+            }
+          : null,
+        policyDocument: policyDocument
+          ? {
+              id: policyDocument.id,
+              originalName: policyDocument.originalName,
+              mimeType: policyDocument.mimeType,
+              sizeBytes: policyDocument.sizeBytes,
+              createdAt: policyDocument.createdAt,
+              updatedAt: policyDocument.updatedAt,
             }
           : null,
         ultimaGestion:

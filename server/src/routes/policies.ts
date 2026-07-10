@@ -18,6 +18,7 @@ import {
   storeCouponPdf,
   validatePdfUpload,
 } from "../lib/couponStorage.js";
+import { deletePolicyDocumentPdf } from "../lib/policyDocumentStorage.js";
 import {
   normalizeWhatsAppPhone,
   sendCouponTemplate,
@@ -77,7 +78,7 @@ const policyInclude = {
   },
 } satisfies Prisma.PolicyInclude;
 
-type PolicyPayload = {
+export type PolicyPayload = {
   clienteId?: string | null;
   companyId?: string | null;
   clienteNombre?: string;
@@ -102,6 +103,13 @@ type PolicyPayload = {
   pagada?: boolean;
   fechaPago?: string | null;
   prima?: number | string;
+  premioTotal?: number | string | null;
+  cobertura?: string | null;
+  endoso?: string | null;
+  patente?: string | null;
+  chasis?: string | null;
+  motor?: string | null;
+  direccionRiesgo?: string | null;
   porcentajeComision?: number | string;
   moneda?: string | null;
   tipo?: PolicyType | string | null;
@@ -315,7 +323,7 @@ async function ensureCompanyLink(
   return { clienteId: null, companyId: created.id };
 }
 
-async function buildPolicyWriteData(
+export async function buildPolicyWriteData(
   tx: Prisma.TransactionClient,
   userId: string,
   input: PolicyPayload,
@@ -336,7 +344,7 @@ async function buildPolicyWriteData(
   const clienteNombre = asTrimmedString(input.clienteNombre);
   const clienteDni = asNullableString(input.clienteDni);
   const clienteTelefono = asNullableString(input.clienteTelefono);
-  const clienteEmail = asTrimmedString(input.clienteEmail);
+  const clienteEmail = asTrimmedString(input.clienteEmail) || "";
   const rubro = asTrimmedString(input.rubro);
   const aseguradora = asTrimmedString(input.aseguradora);
   const numeroPoliza = asTrimmedString(input.numeroPoliza);
@@ -348,8 +356,6 @@ async function buildPolicyWriteData(
   if (
     !clienteNombre ||
     !clienteDni ||
-    !clienteTelefono ||
-    !clienteEmail ||
     !rubro ||
     !aseguradora ||
     !numeroPoliza ||
@@ -405,6 +411,13 @@ async function buildPolicyWriteData(
         }
       : {}),
     prima,
+    premioTotal: asNumber(input.premioTotal) ?? null,
+    cobertura: asNullableString(input.cobertura),
+    endoso: asNullableString(input.endoso),
+    patente: asNullableString(input.patente),
+    chasis: asNullableString(input.chasis),
+    motor: asNullableString(input.motor),
+    direccionRiesgo: asNullableString(input.direccionRiesgo),
     porcentajeComision,
     moneda: (input.moneda === "USD" || input.moneda === "EUR" || input.moneda === "BRL") ? input.moneda as CurrencyType : CurrencyType.ARS,
     comisionCalculada,
@@ -474,6 +487,13 @@ function buildNextCascadeQuotaData(source: any, groupStartDate: Date) {
     pagada: false,
     fechaPago: null,
     prima: source.prima,
+    premioTotal: source.premioTotal,
+    cobertura: source.cobertura,
+    endoso: source.endoso,
+    patente: source.patente,
+    chasis: source.chasis,
+    motor: source.motor,
+    direccionRiesgo: source.direccionRiesgo,
     porcentajeComision: source.porcentajeComision,
     moneda: source.moneda,
     comisionCalculada: source.comisionCalculada,
@@ -515,6 +535,13 @@ function buildRenewalBaseData(source: any, groupId: string) {
     pagada: false,
     fechaPago: null,
     prima: source.prima,
+    premioTotal: source.premioTotal,
+    cobertura: source.cobertura,
+    endoso: source.endoso,
+    patente: source.patente,
+    chasis: source.chasis,
+    motor: source.motor,
+    direccionRiesgo: source.direccionRiesgo,
     porcentajeComision: source.porcentajeComision,
     moneda: source.moneda,
     comisionCalculada: source.comisionCalculada,
@@ -1093,11 +1120,16 @@ policiesRouter.delete("/:id", async (req: AuthRequest, res: Response) => {
     const coupon = await prisma.policyCoupon.findUnique({
       where: { userId_policyGroupId: { userId: req.userId!, policyGroupId } },
     });
+    const policyDocument = await prisma.policyDocument.findUnique({
+      where: { userId_policyGroupId: { userId: req.userId!, policyGroupId } },
+    });
     const deleted = await prisma.$transaction(async (tx) => {
       if (coupon) await tx.policyCoupon.delete({ where: { id: coupon.id } });
+      if (policyDocument) await tx.policyDocument.delete({ where: { id: policyDocument.id } });
       return tx.policy.deleteMany({ where: getPolicyGroupWhere(existing, req.userId!) });
     });
     if (coupon) await deleteCouponPdf(coupon.storageKey);
+    if (policyDocument) await deletePolicyDocumentPdf(policyDocument.storageKey);
     res.json({ message: "Póliza y cuotas asociadas eliminadas", deletedCount: deleted.count });
   } catch (error) {
     console.error("Delete policy error:", error);

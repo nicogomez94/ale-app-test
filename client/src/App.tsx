@@ -10,6 +10,7 @@ import { Layout } from './components/Layout';
 import { LoginPage } from './pages/LoginPage';
 import { Dashboard } from './pages/DashboardPage';
 import { PolicyForm } from './pages/PolicyForm';
+import { PolicyImportPage } from './pages/PolicyImportPage';
 import { ReferralPage } from './pages/ReferralPage';
 import { PaymentPage } from './pages/PaymentPage';
 import { ClientsPage } from './pages/ClientsPage';
@@ -135,6 +136,7 @@ function AppSystem() {
             <Route path="/vida-y-retiro" element={<LifeAndFinancePage />} />
             <Route path="/vida-finanzas" element={<Navigate to="/vida-y-retiro" replace />} />
             <Route path="/polizas" element={<PolicyForm />} />
+            <Route path="/polizas/importar" element={<PolicyImportPage />} />
             <Route path="/siniestros" element={<SiniestrosPage />} />
             <Route path="/cotizaciones" element={<CotizacionesPage />} />
             <Route path="/directorio" element={<DirectoryPage />} />

@@ -251,6 +251,7 @@ const PolicyTable = ({
   policies,
   onWhatsApp,
   onCoupon,
+  onDocument,
   onEmail,
   onDelete,
   onEdit,
@@ -265,6 +266,7 @@ const PolicyTable = ({
   policies: DashboardPolicy[];
   onWhatsApp: (policy: DashboardPolicy) => void;
   onCoupon: (policy: DashboardPolicy) => void;
+  onDocument: (policy: DashboardPolicy) => void;
   onEmail: (policy: DashboardPolicy) => void;
   onDelete: (policy: DashboardPolicy) => void;
   onEdit: (policy: DashboardPolicy) => void;
@@ -438,6 +440,8 @@ const PolicyTable = ({
                       <ListingActions
                         onCoupon={() => onCoupon(policy)}
                         hasCoupon={Boolean(policy.coupon)}
+                        onDocument={() => onDocument(policy)}
+                        hasDocument={Boolean(policy.policyDocument)}
                         onWhatsApp={() => onWhatsApp(policy)}
                         onEmail={() => onEmail(policy)}
                         onEdit={() => onEdit(policy)}
@@ -482,6 +486,8 @@ const PolicyTable = ({
                                         <ListingActions
                                           onCoupon={() => onCoupon(policy)}
                                           hasCoupon={Boolean(policy.coupon)}
+                                          onDocument={() => onDocument(policy)}
+                                          hasDocument={Boolean(policy.policyDocument)}
                                           onWhatsApp={() => onWhatsApp(policy)}
                                           onEmail={() => onEmail(policy)}
                                           onEdit={() => onEdit(policy)}
@@ -646,6 +652,13 @@ function buildPolicyPayload(policy: DashboardPolicy, values: EditFormValues): Po
     cuotaTotal: policy.cuotaTotal || getQuotaTotalFromVigencia(values.vigencia),
     groupId: policy.groupId || policy.id,
     prima: Number(values.prima || 0),
+    premioTotal: policy.premioTotal ?? null,
+    cobertura: policy.cobertura ?? null,
+    endoso: policy.endoso ?? null,
+    patente: policy.patente ?? null,
+    chasis: policy.chasis ?? null,
+    motor: policy.motor ?? null,
+    direccionRiesgo: policy.direccionRiesgo ?? null,
     porcentajeComision: Number(values.porcentajeComision || 0),
     moneda: values.moneda || 'ARS',
     tipo,
@@ -765,6 +778,22 @@ export const Dashboard: React.FC = () => {
   const handleCoupon = (policy: DashboardPolicy, promptSend = false) => {
     setCouponPromptSend(promptSend);
     setCouponPolicy(policy);
+  };
+
+  const handlePolicyDocumentDownload = async (policy: DashboardPolicy) => {
+    try {
+      const blob = await api.policyDocuments.download(policy.groupId || policy.id);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = policy.policyDocument?.originalName || `poliza-${policy.poliza}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setSnack({ open: true, severity: 'error', message: err.message || 'No se pudo descargar el PDF original.' });
+    }
   };
 
   const handleWhatsApp = (policy: DashboardPolicy) => {
@@ -1001,6 +1030,7 @@ export const Dashboard: React.FC = () => {
             policies={individualPolicies}
             onWhatsApp={handleWhatsApp}
             onCoupon={handleCoupon}
+            onDocument={handlePolicyDocumentDownload}
             onEmail={handleEmail}
             onDelete={handleDelete}
             onEdit={handleEdit}
@@ -1016,6 +1046,7 @@ export const Dashboard: React.FC = () => {
             policies={companyPolicies}
             onWhatsApp={handleWhatsApp}
             onCoupon={handleCoupon}
+            onDocument={handlePolicyDocumentDownload}
             onEmail={handleEmail}
             onDelete={handleDelete}
             onEdit={handleEdit}

@@ -123,6 +123,14 @@ enum WeeklySummaryStatus {
   FAILED
 }
 
+enum PolicyImportStatus {
+  PROCESSING
+  READY
+  INCOMPLETE
+  CONFIRMED
+  FAILED
+}
+
 // ─── Models ──────────────────────────────────────────────
 
 model User {
@@ -164,6 +172,10 @@ model User {
   brokers          Broker[]
   commissionInvoices CommissionInvoice[]
   policyCoupons      PolicyCoupon[]
+  policyDocuments    PolicyDocument[]
+  policyImportBatches PolicyImportBatch[]
+  policyImportDocuments PolicyImportDocument[]
+  policyImportCandidates PolicyImportCandidate[]
   couponDeliveries   WhatsAppCouponDelivery[]
   weeklySummaryDispatches WeeklySummaryDispatch[]
 }
@@ -245,6 +257,13 @@ model Policy {
   ultimaGestionWhatsappCount Int               @default(0)
   ultimaGestionMailCount   Int                 @default(0)
   prima                    Float
+  premioTotal              Float?
+  cobertura                String?
+  endoso                   String?
+  patente                  String?
+  chasis                   String?
+  motor                    String?
+  direccionRiesgo          String?
   moneda                   CurrencyType        @default(ARS)
   porcentajeComision       Float
   comisionCalculada        Float
@@ -262,6 +281,87 @@ model Policy {
   @@index([estado])
   @@index([fechaVencimiento])
   @@index([groupId])
+}
+
+model PolicyDocument {
+  id            String   @id @default(uuid())
+  userId        String
+  policyGroupId String
+  originalName  String
+  storageKey    String   @unique
+  mimeType      String
+  sizeBytes     Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, policyGroupId])
+  @@index([userId])
+  @@index([policyGroupId])
+}
+
+model PolicyImportBatch {
+  id        String             @id @default(uuid())
+  userId    String
+  status    PolicyImportStatus @default(PROCESSING)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents  PolicyImportDocument[]
+  candidates PolicyImportCandidate[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model PolicyImportDocument {
+  id           String             @id @default(uuid())
+  batchId      String
+  userId       String
+  originalName String
+  storageKey   String             @unique
+  mimeType     String
+  sizeBytes    Int
+  status       PolicyImportStatus @default(PROCESSING)
+  extractedText String?
+  error        String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  batch      PolicyImportBatch       @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  user       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  candidates PolicyImportCandidate[]
+
+  @@index([batchId])
+  @@index([userId])
+  @@index([status])
+}
+
+model PolicyImportCandidate {
+  id            String             @id @default(uuid())
+  batchId       String
+  documentId    String
+  userId        String
+  status        PolicyImportStatus @default(INCOMPLETE)
+  data          Json
+  foundFields   Json
+  missingFields Json
+  warnings      Json
+  policyId      String?
+  policyGroupId String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  batch    PolicyImportBatch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  document PolicyImportDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([documentId])
+  @@index([userId])
+  @@index([status])
 }
 
 model PolicyCoupon {

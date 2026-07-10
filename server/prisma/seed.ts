@@ -66,12 +66,7 @@ async function seedProviderPlans() {
   await Promise.all(
     plans.map((plan) =>
       prisma.subscriptionProviderPlan.upsert({
-        where: {
-          plan_billingCycle: {
-            plan: plan.plan,
-            billingCycle: plan.billingCycle,
-          },
-        },
+        where: { mpPreapprovalPlanId: plan.mpPreapprovalPlanId },
         update: plan,
         create: plan,
       })

@@ -406,11 +406,12 @@ export const api = {
 
   // Subscriptions
   subscriptions: {
+    plans: () => request<any[]>("/subscriptions/plans"),
     current: () => request<any>("/subscriptions/current"),
-    createPreapproval: (planKey: string) =>
+    createPreapproval: (planKey: string, billingCycle: "MONTHLY" | "ANNUAL") =>
       request<{ init_point: string; subscriptionId?: string; providerStatus?: string }>("/subscriptions/create-preapproval", {
         method: "POST",
-        body: JSON.stringify({ planKey }),
+        body: JSON.stringify({ planKey, billingCycle }),
       }),
     cancel: () =>
       request<{ message: string; providerStatus: string; planVencimiento?: string }>("/subscriptions/cancel", {
@@ -433,6 +434,9 @@ export const api = {
 
   // Admin
   admin: {
+    plans: () => request<any[]>("/admin/plans"),
+    updatePlan: (plan: string, data: { name: string; monthlyPrice: number; isVisible: boolean; annualEnabled: boolean; features: string[] }) =>
+      request<any>(`/admin/plans/${plan}`, { method: "PUT", body: JSON.stringify(data) }),
     stats: () => request<any>("/admin/stats"),
     weeklySummaries: () => request<any>("/admin/weekly-summaries"),
     users: (search?: string) =>

@@ -3,6 +3,7 @@ import prisma from "../lib/prisma.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
 import { runJobsNow } from "../lib/subscriptionReminders.js";
 import { getWeekStartForBuenosAires } from "../lib/weeklySummary.js";
+import { getPlanConfigurations, serializePlanConfiguration } from "../lib/planCatalog.js";
 
 export const adminRouter = Router();
 
@@ -28,6 +29,62 @@ async function adminGuard(req: AuthRequest, res: Response, next: () => void) {
 
 // All admin routes require auth + admin
 adminRouter.use(authMiddleware, adminGuard);
+
+adminRouter.get("/plans", async (_req: AuthRequest, res: Response) => {
+  try {
+    const plans = await getPlanConfigurations();
+    res.json(plans.map(serializePlanConfiguration));
+  } catch (error) {
+    console.error("Admin plans list error:", error);
+    res.status(500).json({ error: "No se pudieron cargar los planes" });
+  }
+});
+
+adminRouter.put("/plans/:plan", async (req: AuthRequest, res: Response) => {
+  try {
+    const plan = String(req.params.plan || "").toUpperCase();
+    if (!["EMPRENDEDOR", "PROFESIONAL", "AGENCIA"].includes(plan)) {
+      res.status(400).json({ error: "Plan no soportado" });
+      return;
+    }
+
+    const name = String(req.body?.name || "").trim();
+    const monthlyPrice = Number(req.body?.monthlyPrice);
+    const features = Array.isArray(req.body?.features)
+      ? req.body.features.map((item: unknown) => String(item).trim()).filter(Boolean)
+      : [];
+
+    if (name.length < 2 || name.length > 50) {
+      res.status(400).json({ error: "El nombre debe tener entre 2 y 50 caracteres" });
+      return;
+    }
+    if (!Number.isFinite(monthlyPrice) || monthlyPrice <= 0 || monthlyPrice > 100_000_000) {
+      res.status(400).json({ error: "Ingresá un precio mensual válido" });
+      return;
+    }
+    if (features.length === 0 || features.length > 20) {
+      res.status(400).json({ error: "Ingresá entre 1 y 20 características" });
+      return;
+    }
+
+    const updated = await prisma.planConfiguration.update({
+      where: { plan: plan as "EMPRENDEDOR" | "PROFESIONAL" | "AGENCIA" },
+      data: {
+        name,
+        monthlyPrice: Math.round(monthlyPrice * 100) / 100,
+        isVisible: Boolean(req.body?.isVisible),
+        annualEnabled: Boolean(req.body?.annualEnabled),
+        annualDiscountMonths: 2,
+        features,
+      },
+    });
+
+    res.json(serializePlanConfiguration(updated));
+  } catch (error) {
+    console.error("Admin plan update error:", error);
+    res.status(500).json({ error: "No se pudo actualizar el plan" });
+  }
+});
 
 // GET /api/admin/stats — platform-wide stats
 adminRouter.get("/stats", async (req: AuthRequest, res: Response) => {

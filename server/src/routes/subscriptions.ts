@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import crypto from "crypto";
-import { BillingCycle, PlanType } from "../../node_modules/.prisma/client/default.js";
+import { BillingCycle } from "../../node_modules/.prisma/client/default.js";
 import prisma from "../lib/prisma.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
 import {
@@ -13,28 +13,16 @@ import {
   searchPreapprovalPlans,
   searchPreapprovals,
 } from "../lib/mercadopago.js";
+import {
+  getCyclePrice,
+  getPlanConfiguration,
+  getPlanConfigurations,
+  serializePlanConfiguration,
+} from "../lib/planCatalog.js";
 
 export const subscriptionsRouter = Router();
 
-const KNOWN_PLANS = {
-  EMPRENDEDOR: {
-    plan: PlanType.EMPRENDEDOR,
-    label: "Starter",
-    monthlyPrice: 6900,
-  },
-  PROFESIONAL: {
-    plan: PlanType.PROFESIONAL,
-    label: "Profesional",
-    monthlyPrice: 14900,
-  },
-  AGENCIA: {
-    plan: PlanType.AGENCIA,
-    label: "Agencia",
-    monthlyPrice: 39900,
-  },
-} as const;
-
-type PlanKey = keyof typeof KNOWN_PLANS;
+type PlanKey = "EMPRENDEDOR" | "PROFESIONAL" | "AGENCIA";
 
 function getHeaderValue(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] || "";
@@ -81,20 +69,15 @@ function validateWebhookSignature(req: Request): boolean {
   }
 }
 
-function getPlanDefinition(planKey?: string) {
-  if (!planKey) return null;
-  const normalized = planKey.toUpperCase() as PlanKey;
-  return KNOWN_PLANS[normalized] || null;
-}
-
 function normalizeProviderStatus(value?: string | null): string | null {
   if (!value) return null;
   const normalized = value.toLowerCase();
   return normalized === "cancelled" ? "canceled" : normalized;
 }
 
-function getPlanReason(planKey: PlanKey): string {
-  return `PAS Alert - ${KNOWN_PLANS[planKey].label} Mensual`;
+function getPlanReason(name: string, cycle: BillingCycle, price: number): string {
+  const cycleLabel = cycle === BillingCycle.ANNUAL ? "Anual" : "Mensual";
+  return `PAS Alert - ${name} ${cycleLabel} - ARS ${price}`;
 }
 
 function parseOptionalDate(value?: string | number | Date | null): Date | null {
@@ -107,14 +90,6 @@ function addMonths(date: Date, months: number): Date {
   const next = new Date(date);
   next.setMonth(next.getMonth() + months);
   return next;
-}
-
-function inferPlanKeyFromAmount(amount?: number | null): PlanKey | null {
-  const paid = Number(amount || 0);
-  for (const [planKey, plan] of Object.entries(KNOWN_PLANS) as [PlanKey, (typeof KNOWN_PLANS)[PlanKey]][]) {
-    if (Math.abs(paid - plan.monthlyPrice) <= 1) return planKey;
-  }
-  return null;
 }
 
 function inferPlanKeyFromText(value?: string | null): PlanKey | null {
@@ -150,34 +125,37 @@ function getLatestAccessDate(user: { planVencimiento: Date | null; trialFin: Dat
   return now;
 }
 
-async function ensureProviderPlan(planKey: PlanKey) {
-  const definition = KNOWN_PLANS[planKey];
-  const existing = await prisma.subscriptionProviderPlan.findUnique({
+async function ensureProviderPlan(config: Awaited<ReturnType<typeof getPlanConfiguration>>, cycle: BillingCycle) {
+  if (!config) throw new Error("Plan no soportado");
+  const price = getCyclePrice(config, cycle);
+  const existing = await prisma.subscriptionProviderPlan.findFirst({
     where: {
-      plan_billingCycle: {
-        plan: definition.plan,
-        billingCycle: BillingCycle.MONTHLY,
-      },
+      plan: config.plan,
+      billingCycle: cycle,
+      price,
+      status: { notIn: ["canceled", "cancelled"] },
     },
+    orderBy: { createdAt: "desc" },
   });
 
   if (existing) return existing;
 
-  const reason = getPlanReason(planKey);
+  const reason = getPlanReason(config.name, cycle, price);
+  const frequency = cycle === BillingCycle.ANNUAL ? 12 : 1;
   const remoteSearch = await searchPreapprovalPlans(reason);
   const matchingRemotePlan = remoteSearch.results?.find((item: any) => (
     item.reason === reason &&
     normalizeProviderStatus(item.status) !== "canceled" &&
-    Number(item.auto_recurring?.transaction_amount || 0) === definition.monthlyPrice &&
-    Number(item.auto_recurring?.frequency || 0) === 1 &&
+    Number(item.auto_recurring?.transaction_amount || 0) === price &&
+    Number(item.auto_recurring?.frequency || 0) === frequency &&
     item.auto_recurring?.frequency_type === "months"
   ));
 
   const remotePlan = matchingRemotePlan || await createPreapprovalPlan({
     reason,
-    frequency: 1,
+    frequency,
     frequencyType: "months",
-    transactionAmount: definition.monthlyPrice,
+    transactionAmount: price,
     currencyId: "ARS",
   });
 
@@ -187,9 +165,9 @@ async function ensureProviderPlan(planKey: PlanKey) {
 
   return prisma.subscriptionProviderPlan.create({
     data: {
-      plan: definition.plan,
-      billingCycle: BillingCycle.MONTHLY,
-      price: definition.monthlyPrice,
+      plan: config.plan,
+      billingCycle: cycle,
+      price,
       reason,
       status: normalizeProviderStatus(remotePlan.status) || "active",
       mpPreapprovalPlanId: String(remotePlan.id),
@@ -241,11 +219,13 @@ async function syncSubscriptionFromRemote(preapprovalRaw: any) {
     : null;
 
   if (!providerPlan) {
-    const inferredPlanKey =
-      inferPlanKeyFromText(preapproval.reason) ||
-      inferPlanKeyFromAmount(preapproval.auto_recurring?.transaction_amount);
+    const inferredPlanKey = inferPlanKeyFromText(preapproval.reason);
     if (inferredPlanKey) {
-      providerPlan = await ensureProviderPlan(inferredPlanKey);
+      const config = await getPlanConfiguration(inferredPlanKey);
+      const cycle = Number(preapproval.auto_recurring?.frequency || 1) === 12
+        ? BillingCycle.ANNUAL
+        : BillingCycle.MONTHLY;
+      providerPlan = await ensureProviderPlan(config, cycle);
     }
   }
 
@@ -302,19 +282,8 @@ async function syncSubscriptionFromRemote(preapprovalRaw: any) {
   });
 }
 
-async function resolveSubscriptionForPayment(userId: string, planKey: PlanKey, payerEmail?: string | null) {
-  const local = await prisma.subscription.findFirst({
-    where: {
-      userId,
-      plan: KNOWN_PLANS[planKey].plan,
-      billingCycle: BillingCycle.MONTHLY,
-      mpPreapprovalId: { not: null },
-    },
-    orderBy: [
-      { createdAt: "desc" },
-      { updatedAt: "desc" },
-    ],
-  });
+async function resolveSubscriptionForPayment(userId: string, payerEmail?: string | null) {
+  const local = await findLatestLocalRecurringSubscription(userId);
 
   if (local) return local;
 
@@ -346,11 +315,6 @@ async function applyApprovedRecurringPayment(paymentRaw: any) {
     return { applied: false, status: "already_processed" };
   }
 
-  const planKey = inferPlanKeyFromAmount(payment.transaction_amount);
-  if (!planKey) {
-    return { applied: false, status: "ignored_unknown_amount" };
-  }
-
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -363,16 +327,29 @@ async function applyApprovedRecurringPayment(paymentRaw: any) {
     throw new Error("Usuario no encontrado para registrar el cobro recurrente");
   }
 
-  const subscription = await resolveSubscriptionForPayment(userId, planKey, payment.payer?.email);
+  const subscription = await resolveSubscriptionForPayment(userId, payment.payer?.email);
+  let providerPlan = subscription?.mpPreapprovalPlanId
+    ? await prisma.subscriptionProviderPlan.findUnique({ where: { mpPreapprovalPlanId: subscription.mpPreapprovalPlanId } })
+    : null;
+
+  if (!providerPlan) {
+    providerPlan = await prisma.subscriptionProviderPlan.findFirst({
+      where: { price: { gte: Number(payment.transaction_amount || 0) - 1, lte: Number(payment.transaction_amount || 0) + 1 } },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  if (!providerPlan) return { applied: false, status: "ignored_unknown_plan" };
+
   const now = new Date();
   const baseDate = getLatestAccessDate(user, now);
-  const nextAccessEnd = addMonths(baseDate, 1);
+  const nextAccessEnd = addMonths(baseDate, providerPlan.billingCycle === BillingCycle.ANNUAL ? 12 : 1);
 
   await prisma.$transaction([
     prisma.user.update({
       where: { id: userId },
       data: {
-        plan: KNOWN_PLANS[planKey].plan,
+        plan: providerPlan.plan,
         estado: "ACTIVO",
         planVencimiento: nextAccessEnd,
       },
@@ -380,8 +357,8 @@ async function applyApprovedRecurringPayment(paymentRaw: any) {
     prisma.payment.create({
       data: {
         userId,
-        monto: Number(payment.transaction_amount || KNOWN_PLANS[planKey].monthlyPrice),
-        plan: KNOWN_PLANS[planKey].plan,
+        monto: Number(payment.transaction_amount || providerPlan.price),
+        plan: providerPlan.plan,
         metodoPago: payment.payment_method_id || null,
         mpPaymentId,
         mpPreapprovalId: subscription?.mpPreapprovalId || null,
@@ -392,9 +369,9 @@ async function applyApprovedRecurringPayment(paymentRaw: any) {
       prisma.subscription.update({
         where: { id: subscription.id },
         data: {
-          plan: KNOWN_PLANS[planKey].plan,
-          billingCycle: BillingCycle.MONTHLY,
-          precio: Number(payment.transaction_amount || KNOWN_PLANS[planKey].monthlyPrice),
+          plan: providerPlan.plan,
+          billingCycle: providerPlan.billingCycle,
+          precio: Number(payment.transaction_amount || providerPlan.price),
           fin: nextAccessEnd,
           estado: getSubscriptionState(subscription.providerStatus),
         },
@@ -405,7 +382,7 @@ async function applyApprovedRecurringPayment(paymentRaw: any) {
   return {
     applied: true,
     status: paymentStatus,
-    plan: KNOWN_PLANS[planKey].plan,
+    plan: providerPlan.plan,
     planVencimiento: nextAccessEnd,
   };
 }
@@ -421,13 +398,30 @@ function normalizeAuthorizedPayment(raw: any) {
   };
 }
 
+subscriptionsRouter.get("/plans", async (_req: Request, res: Response) => {
+  try {
+    const plans = await getPlanConfigurations({ visibleOnly: true });
+    res.json(plans.map(serializePlanConfiguration));
+  } catch (error) {
+    console.error("Plans catalog error:", error);
+    res.status(500).json({ error: "No se pudieron cargar los planes" });
+  }
+});
+
 subscriptionsRouter.post("/create-preapproval", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const planKey = String(req.body?.planKey || "").toUpperCase() as PlanKey;
-    const definition = getPlanDefinition(planKey);
+    const requestedCycle = String(req.body?.billingCycle || "MONTHLY").toUpperCase();
+    const billingCycle = requestedCycle === "ANNUAL" ? BillingCycle.ANNUAL : BillingCycle.MONTHLY;
+    const definition = await getPlanConfiguration(planKey);
 
-    if (!definition) {
-      res.status(400).json({ error: "Plan no soportado" });
+    if (!definition || !definition.isVisible) {
+      res.status(400).json({ error: "El plan seleccionado no está disponible" });
+      return;
+    }
+
+    if (billingCycle === BillingCycle.ANNUAL && !definition.annualEnabled) {
+      res.status(400).json({ error: "La opción anual no está disponible para este plan" });
       return;
     }
 
@@ -474,7 +468,7 @@ subscriptionsRouter.post("/create-preapproval", authMiddleware, async (req: Auth
       return;
     }
 
-    const providerPlan = await ensureProviderPlan(planKey);
+    const providerPlan = await ensureProviderPlan(definition, billingCycle);
     const preapproval = await createPreapprovalSubscription({
       preapprovalPlanId: providerPlan.mpPreapprovalPlanId,
       payerEmail: user.email,
@@ -492,7 +486,7 @@ subscriptionsRouter.post("/create-preapproval", authMiddleware, async (req: Auth
       where: { mpPreapprovalId: String(preapproval.id) },
       update: {
         plan: definition.plan,
-        billingCycle: BillingCycle.MONTHLY,
+        billingCycle,
         precio: providerPlan.price,
         fin: accessEnd,
         estado: getSubscriptionState(preapproval.status),
@@ -504,7 +498,7 @@ subscriptionsRouter.post("/create-preapproval", authMiddleware, async (req: Auth
       create: {
         userId: user.id,
         plan: definition.plan,
-        billingCycle: BillingCycle.MONTHLY,
+        billingCycle,
         precio: providerPlan.price,
         inicio: now,
         fin: accessEnd,

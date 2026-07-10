@@ -5,8 +5,9 @@ import {
   Chip, IconButton, Select, MenuItem, Dialog, DialogTitle, DialogContent,
   DialogContentText, DialogActions, Button, Snackbar, Alert, CircularProgress,
   Divider, Tooltip,
+  FormControlLabel, Switch,
 } from '@mui/material';
-import { Search, Users, Shield, FileText, Building2, Trash2, FlaskConical, Play, CalendarPlus, MessageCircle } from 'lucide-react';
+import { Search, Users, Shield, FileText, Building2, Trash2, FlaskConical, Play, CalendarPlus, MessageCircle, Save, SlidersHorizontal } from 'lucide-react';
 import { api } from '../api';
 
 interface AdminStats {
@@ -57,6 +58,17 @@ interface WeeklySummaryAudit {
   }>;
 }
 
+interface AdminPlan {
+  key: string;
+  name: string;
+  monthlyPrice: number;
+  annualPrice: number;
+  annualEnabled: boolean;
+  annualDiscountMonths: number;
+  isVisible: boolean;
+  features: string[];
+}
+
 const planColors: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'info'> = {
   TRIAL: 'default',
   EMPRENDEDOR: 'info',
@@ -73,6 +85,8 @@ export const AdminPage = () => {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [weeklyAudit, setWeeklyAudit] = useState<WeeklySummaryAudit | null>(null);
+  const [plans, setPlans] = useState<AdminPlan[]>([]);
+  const [savingPlan, setSavingPlan] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [deleteDialog, setDeleteDialog] = useState<AdminUser | null>(null);
@@ -89,14 +103,16 @@ export const AdminPage = () => {
 
   const loadData = useCallback(async () => {
     try {
-      const [statsData, usersData, weeklyData] = await Promise.all([
+      const [statsData, usersData, weeklyData, plansData] = await Promise.all([
         api.admin.stats(),
         api.admin.users(search || undefined),
         api.admin.weeklySummaries(),
+        api.admin.plans(),
       ]);
       setStats(statsData);
       setUsers(usersData);
       setWeeklyAudit(weeklyData);
+      setPlans(plansData);
     } catch (err: any) {
       setSnackbar({ open: true, message: err.message, severity: 'error' });
     } finally {
@@ -115,6 +131,29 @@ export const AdminPage = () => {
       loadData();
     } catch (err: any) {
       setSnackbar({ open: true, message: err.message, severity: 'error' });
+    }
+  };
+
+  const updatePlanDraft = (key: string, changes: Partial<AdminPlan>) => {
+    setPlans((current) => current.map((plan) => plan.key === key ? { ...plan, ...changes } : plan));
+  };
+
+  const handleSavePlan = async (plan: AdminPlan) => {
+    setSavingPlan(plan.key);
+    try {
+      const updated = await api.admin.updatePlan(plan.key, {
+        name: plan.name,
+        monthlyPrice: Number(plan.monthlyPrice),
+        isVisible: plan.isVisible,
+        annualEnabled: plan.annualEnabled,
+        features: plan.features,
+      });
+      updatePlanDraft(plan.key, updated);
+      setSnackbar({ open: true, message: `${updated.name} actualizado`, severity: 'success' });
+    } catch (err: any) {
+      setSnackbar({ open: true, message: err.message, severity: 'error' });
+    } finally {
+      setSavingPlan(null);
     }
   };
 
@@ -274,6 +313,88 @@ export const AdminPage = () => {
           ))}
         </Box>
       )}
+
+      <Card sx={{ borderRadius: 3, mb: 4, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ bgcolor: '#0d3b2a', color: 'white', px: 3, py: 2.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <SlidersHorizontal size={24} />
+          <Box>
+            <Typography variant="h6" fontWeight={900}>Configuración de planes</Typography>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,.75)' }}>
+              Precio, publicación y beneficios visibles en la pantalla de pagos
+            </Typography>
+          </Box>
+        </Box>
+        <CardContent sx={{ bgcolor: '#f6faf7' }}>
+          <Alert severity="info" sx={{ mb: 2.5 }}>
+            El plan anual cobra 10 meses y brinda 12 meses de acceso. Los cambios aplican a nuevas suscripciones; las existentes conservan su importe.
+          </Alert>
+          <Grid container spacing={2.5}>
+            {plans.map((plan) => (
+              <Grid key={plan.key} size={{ xs: 12, lg: 4 }}>
+                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2.5, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                    <Chip label={plan.key} size="small" color={plan.isVisible ? 'success' : 'default'} />
+                    <FormControlLabel
+                      label={plan.isVisible ? 'Publicado' : 'Oculto'}
+                      labelPlacement="start"
+                      control={<Switch checked={plan.isVisible} onChange={(event) => updatePlanDraft(plan.key, { isVisible: event.target.checked })} />}
+                      sx={{ m: 0 }}
+                    />
+                  </Box>
+                  <TextField
+                    label="Nombre del plan"
+                    value={plan.name}
+                    onChange={(event) => updatePlanDraft(plan.key, { name: event.target.value })}
+                    fullWidth
+                    size="small"
+                    sx={{ mb: 2 }}
+                  />
+                  <TextField
+                    label="Precio mensual"
+                    value={plan.monthlyPrice}
+                    onChange={(event) => updatePlanDraft(plan.key, { monthlyPrice: Number(event.target.value) })}
+                    type="number"
+                    fullWidth
+                    size="small"
+                    inputProps={{ min: 1, step: 100 }}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                    sx={{ mb: 1 }}
+                  />
+                  <FormControlLabel
+                    control={<Switch checked={plan.annualEnabled} onChange={(event) => updatePlanDraft(plan.key, { annualEnabled: event.target.checked })} />}
+                    label="Ofrecer opción anual"
+                    sx={{ mb: 0.5 }}
+                  />
+                  {plan.annualEnabled && (
+                    <Typography variant="caption" color="success.main" fontWeight={800} sx={{ mb: 2 }}>
+                      Total anual: ${new Intl.NumberFormat('es-AR').format(Number(plan.monthlyPrice || 0) * 10)} · ahorro de 2 meses
+                    </Typography>
+                  )}
+                  <TextField
+                    label="Beneficios (uno por línea)"
+                    value={plan.features.join('\n')}
+                    onChange={(event) => updatePlanDraft(plan.key, { features: event.target.value.split('\n') })}
+                    multiline
+                    minRows={5}
+                    fullWidth
+                    size="small"
+                    sx={{ mb: 2, flexGrow: 1 }}
+                  />
+                  <Button
+                    variant="contained"
+                    startIcon={savingPlan === plan.key ? <CircularProgress size={16} color="inherit" /> : <Save size={16} />}
+                    disabled={savingPlan === plan.key}
+                    onClick={() => handleSavePlan(plan)}
+                    sx={{ bgcolor: '#0d3b2a', '&:hover': { bgcolor: '#08291d' }, textTransform: 'none', fontWeight: 800 }}
+                  >
+                    Guardar plan
+                  </Button>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+        </CardContent>
+      </Card>
 
       <Card sx={{ borderRadius: 3, mb: 4, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
         <Box sx={{ bgcolor: '#111936', color: 'white', px: 3, py: 2.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>

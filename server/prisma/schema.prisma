@@ -456,8 +456,22 @@ model SubscriptionProviderPlan {
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
-  @@unique([plan, billingCycle])
+  @@index([plan, billingCycle])
   @@index([status])
+}
+
+model PlanConfiguration {
+  id                   String   @id @default(uuid())
+  plan                 PlanType @unique
+  name                 String
+  monthlyPrice         Float
+  isVisible            Boolean  @default(true)
+  annualEnabled        Boolean  @default(true)
+  annualDiscountMonths Int      @default(2)
+  features             Json
+  sortOrder             Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
 
 model Siniestro {

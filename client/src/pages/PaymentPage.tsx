@@ -20,6 +20,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import { CheckCircle2, CreditCard, Shield, Clock, RefreshCcw, Ban } from 'lucide-react';
@@ -31,13 +33,10 @@ type PlanDefinition = {
   key: string;
   name: string;
   monthlyPrice: number;
-  oldMonthlyPrice?: number;
-  badge?: string;
-  buttonLabel: string;
-  accentColor: string;
-  buttonColor: string;
+  annualPrice: number;
+  annualEnabled: boolean;
+  annualDiscountMonths: number;
   features: string[];
-  available?: boolean;
 };
 
 const PRICE_FORMATTER = new Intl.NumberFormat('es-AR');
@@ -49,73 +48,11 @@ const PLAN_LABELS: Record<string, string> = {
   AGENCIA: 'Agencia',
 };
 
-const PLANS: PlanDefinition[] = [
-  {
-    key: 'EMPRENDEDOR',
-    name: 'Starter',
-    monthlyPrice: 6900,
-    buttonLabel: 'Suscribirme',
-    accentColor: '#2e9b4b',
-    buttonColor: '#2e9b4b',
-    features: [
-      'Hasta 30 pólizas',
-      'Hasta 30 clientes',
-      'Hasta 30 empresas',
-      'CRM completo',
-      'Alertas de vencimiento',
-      'WhatsApp + Email',
-      'Exportación a Excel',
-    ],
-  },
-  {
-    key: 'PROFESIONAL',
-    name: 'Profesional',
-    monthlyPrice: 14900,
-    oldMonthlyPrice: 19900,
-    badge: 'Más Popular',
-    buttonLabel: 'Suscribirme',
-    accentColor: '#1f67bd',
-    buttonColor: '#1f67bd',
-    features: [
-      'Todo Starter',
-      'Hasta 150 pólizas',
-      'Análisis de comisiones',
-      'Cierre mensual',
-      'Reportes avanzados',
-      'Soporte prioritario',
-    ],
-  },
-  {
-    key: 'PRO_PLUS',
-    name: 'Pro+',
-    monthlyPrice: 22900,
-    buttonLabel: 'Próximamente',
-    accentColor: '#6f42c1',
-    buttonColor: '#6f42c1',
-    available: false,
-    features: [
-      'Todo Profesional',
-      'Hasta 300 pólizas',
-      'Automatizaciones',
-      'Métricas de crecimiento',
-    ],
-  },
-  {
-    key: 'AGENCIA',
-    name: 'Agencia',
-    monthlyPrice: 39900,
-    buttonLabel: 'Suscribirme',
-    accentColor: '#cf3d3d',
-    buttonColor: '#cf3d3d',
-    features: [
-      'Todo Pro+',
-      '500+ pólizas',
-      'Multiusuario',
-      'Roles y permisos',
-      'Reportes por productor',
-    ],
-  },
-];
+const PLAN_COLORS: Record<string, string> = {
+  EMPRENDEDOR: '#2e9b4b',
+  PROFESIONAL: '#1f67bd',
+  AGENCIA: '#cf3d3d',
+};
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -157,6 +94,8 @@ export const PaymentPage: React.FC = () => {
   const location = useLocation();
   const { updateUser, user } = useAuth();
   const isAdmin = !!user?.isAdmin;
+  const [plans, setPlans] = useState<PlanDefinition[]>([]);
+  const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'ANNUAL'>('MONTHLY');
   const [loading, setLoading] = useState<string | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [subscription, setSubscription] = useState<any>(null);
@@ -172,14 +111,16 @@ export const PaymentPage: React.FC = () => {
   const providerStatusColor = getProviderStatusColor(subscription?.providerStatus);
 
   const loadSubscriptionState = useCallback(async () => {
-    const [sub, pay, me] = await Promise.all([
+    const [sub, pay, me, planData] = await Promise.all([
       api.subscriptions.current(),
       api.subscriptions.payments(),
       api.auth.me().catch(() => null),
+      api.subscriptions.plans(),
     ]);
 
     setSubscription(sub);
     setPayments(pay);
+    setPlans(planData);
 
     if (me) {
       updateUser({
@@ -258,11 +199,10 @@ export const PaymentPage: React.FC = () => {
 
   const activeRecurringPlan = useMemo(() => {
     if (!subscription?.providerStatus || currentPlan === 'TRIAL') return null;
-    return PLANS.find((plan) => plan.key === currentPlan) || null;
-  }, [currentPlan, subscription?.providerStatus]);
+    return plans.find((plan) => plan.key === currentPlan) || null;
+  }, [currentPlan, plans, subscription?.providerStatus]);
 
   const handleSubscribe = async (plan: PlanDefinition) => {
-    if (plan.available === false) return;
     if (isAdmin) {
       setSubscribeError('Los administradores no pueden suscribirse.');
       return;
@@ -273,7 +213,7 @@ export const PaymentPage: React.FC = () => {
     setLoading(plan.key);
 
     try {
-      const data = await api.subscriptions.createPreapproval(plan.key);
+      const data = await api.subscriptions.createPreapproval(plan.key, billingCycle);
       if (data.init_point) {
         window.location.href = data.init_point;
       }
@@ -313,11 +253,23 @@ export const PaymentPage: React.FC = () => {
     <Box>
       <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>Suscripción y Pagos</Typography>
       <Typography variant="h3" sx={{ fontWeight: 800, mb: 2, textAlign: 'center', fontSize: { xs: '2rem', md: '2.3rem' } }}>
-        Planes mensuales con renovación automática
+        Elegí el plan que acompaña tu crecimiento
       </Typography>
 
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
-        <Chip label="Solo mensual en esta versión" color="primary" variant="outlined" />
+        <ToggleButtonGroup
+          exclusive
+          value={billingCycle}
+          onChange={(_, value) => value && setBillingCycle(value)}
+          color="primary"
+          aria-label="Frecuencia de facturación"
+          sx={{ bgcolor: 'background.paper', boxShadow: '0 6px 20px rgba(16,24,40,.08)' }}
+        >
+          <ToggleButton value="MONTHLY" sx={{ px: 3, fontWeight: 800 }}>Mensual</ToggleButton>
+          <ToggleButton value="ANNUAL" sx={{ px: 3, fontWeight: 800 }}>
+            Anual · 2 meses gratis
+          </ToggleButton>
+        </ToggleButtonGroup>
       </Box>
 
       {isAdmin && (
@@ -343,13 +295,16 @@ export const PaymentPage: React.FC = () => {
       )}
 
       <Grid container spacing={3} sx={{ mb: 6 }}>
-        {PLANS.map((plan) => {
+        {plans.map((plan) => {
           const isCurrent = plan.key === currentPlan && currentPlan !== 'TRIAL';
           const isPopular = plan.key === 'PROFESIONAL';
-          const isDisabled = isAdmin || isCurrent || loading === plan.key || plan.available === false || !!subscription?.canCancel;
+          const annualUnavailable = billingCycle === 'ANNUAL' && !plan.annualEnabled;
+          const isDisabled = isAdmin || isCurrent || loading === plan.key || annualUnavailable || !!subscription?.canCancel;
+          const accentColor = PLAN_COLORS[plan.key] || '#1f67bd';
+          const displayedPrice = billingCycle === 'ANNUAL' ? plan.annualPrice : plan.monthlyPrice;
 
           return (
-            <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={plan.name}>
+            <Grid size={{ xs: 12, md: 4 }} key={plan.key}>
               <Card sx={{
                 height: '100%',
                 display: 'flex',
@@ -376,7 +331,7 @@ export const PaymentPage: React.FC = () => {
                     fontWeight: 700,
                     zIndex: 1,
                   }}>
-                    {plan.badge}
+                    Más elegido
                   </Box>
                 )}
                 <CardContent sx={{ p: 3, flexGrow: 1 }}>
@@ -385,7 +340,7 @@ export const PaymentPage: React.FC = () => {
                       width: 52,
                       height: 52,
                       borderRadius: '50%',
-                      bgcolor: plan.accentColor,
+                      bgcolor: accentColor,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -398,25 +353,31 @@ export const PaymentPage: React.FC = () => {
                     {plan.name}
                   </Typography>
 
-                  {plan.oldMonthlyPrice && (
+                  {billingCycle === 'ANNUAL' && plan.annualEnabled && (
                     <Typography sx={{ textAlign: 'center', color: 'text.secondary', textDecoration: 'line-through', mb: 0.5, fontSize: '1.05rem' }}>
-                      Antes ${PRICE_FORMATTER.format(plan.oldMonthlyPrice)}
+                      ${PRICE_FORMATTER.format(plan.monthlyPrice * 12)} por año
                     </Typography>
                   )}
 
                   <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0.5, mb: 2 }}>
-                    <Typography variant="h3" sx={{ fontWeight: 800, color: plan.accentColor, fontSize: '2rem' }}>
-                      ${PRICE_FORMATTER.format(plan.monthlyPrice)}
+                    <Typography variant="h3" sx={{ fontWeight: 800, color: accentColor, fontSize: '2rem' }}>
+                      ${PRICE_FORMATTER.format(displayedPrice)}
                     </Typography>
-                    <Typography variant="h6" color="text.secondary">/mes</Typography>
+                    <Typography variant="h6" color="text.secondary">/{billingCycle === 'ANNUAL' ? 'año' : 'mes'}</Typography>
                   </Box>
+
+                  {billingCycle === 'ANNUAL' && plan.annualEnabled && (
+                    <Typography variant="body2" color="success.main" fontWeight={800} textAlign="center" sx={{ mt: -1, mb: 2 }}>
+                      Ahorrás ${PRICE_FORMATTER.format(plan.monthlyPrice * plan.annualDiscountMonths)}
+                    </Typography>
+                  )}
 
                   <Divider sx={{ mb: 3 }} />
 
                   <List sx={{ mb: 3 }}>
                     {plan.features.map((feature, idx) => (
                       <ListItem key={idx} sx={{ px: 0, py: 0.5 }}>
-                        <ListItemIcon sx={{ minWidth: 28, color: plan.accentColor }}>
+                        <ListItemIcon sx={{ minWidth: 28, color: accentColor }}>
                           <CheckCircle2 size={16} />
                         </ListItemIcon>
                         <ListItemText primary={feature} primaryTypographyProps={{ variant: 'body2' }} />
@@ -435,14 +396,14 @@ export const PaymentPage: React.FC = () => {
                       borderRadius: 2,
                       fontWeight: 700,
                       textTransform: 'none',
-                      bgcolor: plan.buttonColor,
+                      bgcolor: accentColor,
                       '&:hover': {
-                        bgcolor: plan.buttonColor,
+                        bgcolor: accentColor,
                         opacity: 0.92,
                       },
                     }}
                   >
-                    {isAdmin ? 'No disponible para admins' : isCurrent ? 'Plan actual' : loading === plan.key ? 'Redirigiendo...' : plan.buttonLabel}
+                    {isAdmin ? 'No disponible para admins' : isCurrent ? 'Plan actual' : annualUnavailable ? 'Anual no disponible' : loading === plan.key ? 'Redirigiendo...' : 'Suscribirme'}
                   </Button>
                 </Box>
               </Card>
@@ -453,7 +414,7 @@ export const PaymentPage: React.FC = () => {
 
       <Box sx={{ textAlign: 'center', mb: 5 }}>
         <Typography sx={{ fontSize: '1.05rem', mb: 1 }}>
-          La renovación automática se cobra mes a mes desde Mercado Pago.
+          La renovación automática se cobra {billingCycle === 'ANNUAL' ? 'una vez por año' : 'mes a mes'} desde Mercado Pago.
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Si cancelás, se frena la próxima renovación pero mantenés acceso hasta la fecha ya paga.
@@ -486,7 +447,7 @@ export const PaymentPage: React.FC = () => {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="body2">Suscripción recurrente:</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {activeRecurringPlan.name} mensual
+                    {activeRecurringPlan.name} {subscription?.billingCycle === 'ANNUAL' ? 'anual' : 'mensual'}
                   </Typography>
                 </Box>
               )}

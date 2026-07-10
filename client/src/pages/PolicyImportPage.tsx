@@ -349,12 +349,6 @@ export const PolicyImportPage: React.FC = () => {
         />
       ))}
 
-      {!batch && (
-        <Alert severity="info">
-          El lector no usa IA ni OCR. Si el PDF es una imagen escaneada, el sistema lo va a marcar para completar manualmente.
-        </Alert>
-      )}
-
       <Snackbar open={Boolean(snack)} autoHideDuration={3500} onClose={() => setSnack('')}>
         <Alert severity="success" onClose={() => setSnack('')} sx={{ width: '100%' }}>
           {snack}

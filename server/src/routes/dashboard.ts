@@ -2,6 +2,7 @@ import { Router, Response } from "express";
 import prisma from "../lib/prisma.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
 import { getVigenciaLabel } from "../lib/generalPolicies.js";
+import { countPolicyGroups } from "../middleware/planLimits.js";
 
 export const dashboardRouter = Router();
 dashboardRouter.use(authMiddleware);
@@ -46,47 +47,63 @@ dashboardRouter.get("/stats", async (req: AuthRequest, res: Response) => {
     const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     const [
-      totalPolicies,
-      activePolicies,
-      expiredPolicies,
+      totalPolicyRows,
+      activePolicyRows,
+      expiredPolicyRows,
+      expiringPolicyRows,
       totalClients,
       totalCompanies,
-      clientPolicyCount,
-      companyPolicyCount,
+      clientPolicyRows,
+      companyPolicyRows,
       lifePolicyCount,
       unseenCotizaciones,
+      pendingClaims,
+      pendingCommissionInvoices,
+      pendingImports,
+      insurerCount,
+      currentUser,
     ] = await Promise.all([
-      prisma.policy.count({ where: { userId } }),
-      prisma.policy.count({ where: { userId, estado: "ACTIVA" } }),
-      prisma.policy.count({ where: { userId, estado: "VENCIDA" } }),
+      prisma.policy.findMany({ where: { userId }, select: { id: true, groupId: true } }),
+      prisma.policy.findMany({ where: { userId, estado: "ACTIVA", pagada: false }, select: { id: true, groupId: true } }),
+      prisma.policy.findMany({ where: { userId, estado: "VENCIDA", pagada: false }, select: { id: true, groupId: true } }),
+      prisma.policy.findMany({
+        where: { userId, pagada: false, fechaVencimiento: { gte: now, lte: in7Days } },
+        select: { id: true, groupId: true },
+      }),
       prisma.client.count({ where: { userId } }),
       prisma.company.count({ where: { userId } }),
-      prisma.policy.count({ where: { userId, tipo: "INDIVIDUAL", estado: { not: "VENCIDA" } } }),
-      prisma.policy.count({ where: { userId, tipo: "EMPRESA", estado: { not: "VENCIDA" } } }),
+      prisma.policy.findMany({
+        where: { userId, tipo: "INDIVIDUAL", estado: { not: "VENCIDA" } },
+        select: { id: true, groupId: true },
+      }),
+      prisma.policy.findMany({
+        where: { userId, tipo: "EMPRESA", estado: { not: "VENCIDA" } },
+        select: { id: true, groupId: true },
+      }),
       prisma.lifePolicy.count({ where: { userId } }),
       prisma.cotizacion.count({ where: { userId, viewedAt: null } }),
+      prisma.siniestro.count({ where: { userId, estado: { notIn: ["PAGADO", "RECHAZADO"] } } }),
+      prisma.commissionInvoice.count({ where: { userId, estado: { not: "COBRADA" } } }),
+      prisma.policyImportCandidate.count({ where: { userId, status: { in: ["PROCESSING", "INCOMPLETE", "READY"] } } }),
+      prisma.insuranceCompany.count({ where: { userId } }),
+      prisma.user.findUnique({ where: { id: userId }, select: { referidosMes: true } }),
     ]);
 
-    const expiringCount = await prisma.policy.count({
-      where: {
-        userId,
-        fechaVencimiento: {
-          gte: now,
-          lte: in7Days,
-        },
-      },
-    });
-
     res.json({
-      polizasActivas: activePolicies,
-      vencen7Dias: expiringCount,
-      polizasVencidas: expiredPolicies,
+      polizasActivas: countPolicyGroups(activePolicyRows),
+      vencen7Dias: countPolicyGroups(expiringPolicyRows),
+      polizasVencidas: countPolicyGroups(expiredPolicyRows),
       clientesTotales: totalClients + totalCompanies,
-      totalPolizas: totalPolicies,
-      polizasClientes: clientPolicyCount,
-      polizasEmpresas: companyPolicyCount,
+      totalPolizas: countPolicyGroups(totalPolicyRows),
+      polizasClientes: countPolicyGroups(clientPolicyRows),
+      polizasEmpresas: countPolicyGroups(companyPolicyRows),
       polizasVidaRetiro: lifePolicyCount,
       cotizacionesSinVer: unseenCotizaciones,
+      siniestrosPendientes: pendingClaims,
+      comisionesPendientes: pendingCommissionInvoices,
+      importacionesPendientes: pendingImports,
+      aseguradorasTotal: insurerCount,
+      referidosMes: currentUser?.referidosMes || 0,
     });
   } catch (error) {
     console.error("Dashboard stats error:", error);

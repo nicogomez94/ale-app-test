@@ -13,6 +13,7 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  Drawer,
   Grid,
   IconButton,
   InputAdornment,
@@ -31,17 +32,22 @@ import {
 } from '@mui/material';
 import {
   AlertCircle,
+  Banknote,
   ChevronDown,
   ChevronUp,
   CheckSquare,
   Clock,
+  CreditCard,
   FileCheck,
+  Filter,
   Hash,
+  Landmark,
   Mail,
   MapPin,
   MessageCircle,
   Phone,
   Plus,
+  Search,
   Square,
   Users,
   X,
@@ -151,6 +157,17 @@ const StatCard = ({ title, value, icon, color, subtitle, onClick, active }: any)
   </Card>
 );
 
+const DetailField = ({ label, value }: { label: string; value?: React.ReactNode }) => (
+  <Box sx={{ minWidth: 0 }}>
+    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 800, textTransform: 'uppercase', letterSpacing: .55 }}>
+      {label}
+    </Typography>
+    <Typography variant="body2" sx={{ mt: .35, fontWeight: 650, overflowWrap: 'anywhere' }}>
+      {value || '-'}
+    </Typography>
+  </Box>
+);
+
 const formatMoney = (value?: number | null) => {
   if (value == null) return '$0';
   return `$ ${value.toLocaleString('es-AR')}`;
@@ -199,6 +216,43 @@ const getStatusVisual = (policy: DashboardPolicy) => {
   return { label: 'Vigente', color: 'success.main', textColor: 'white', detail: policy.diasRestantes === 0 ? 'Hoy' : `${policy.diasRestantes} dias` };
 };
 
+type PaymentFilter = 'ALL' | 'CASH' | 'BANK' | 'CARD';
+
+const normalizeFilterText = (value?: string | null) => (value || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .trim();
+
+const matchesPaymentFilter = (policy: DashboardPolicy, paymentFilter: PaymentFilter) => {
+  if (paymentFilter === 'ALL') return true;
+  const paymentMethod = normalizeFilterText(policy.medioPago);
+  if (paymentFilter === 'CASH') return paymentMethod.includes('cupon') || paymentMethod.includes('efectivo');
+  if (paymentFilter === 'BANK') return paymentMethod.includes('cbu') || paymentMethod.includes('debito') || paymentMethod.includes('bancario');
+  return paymentMethod.includes('tarjeta') || paymentMethod.includes('credito');
+};
+
+const getPolicyRowSx = (policy: DashboardPolicy, accentColor?: string) => {
+  const backgroundColor = policy.pagada
+    ? 'rgba(46, 125, 50, 0.09)'
+    : policy.estado === 'VENCIDA'
+      ? 'rgba(211, 47, 47, 0.09)'
+      : 'transparent';
+  const hoverColor = policy.pagada
+    ? 'rgba(46, 125, 50, 0.15)'
+    : policy.estado === 'VENCIDA'
+      ? 'rgba(211, 47, 47, 0.15)'
+      : 'action.hover';
+
+  return {
+    cursor: 'pointer',
+    borderLeft: '4px solid',
+    borderLeftColor: policy.pagada ? 'success.main' : policy.estado === 'VENCIDA' ? 'error.main' : accentColor || 'transparent',
+    '& > td': { bgcolor: backgroundColor, transition: 'background-color .18s ease' },
+    '&:hover > td': { bgcolor: hoverColor },
+  };
+};
+
 const getSequentiallyVisiblePolicies = (policies: DashboardPolicy[]) => {
   const sortedPolicies = [...policies].sort((a, b) => a.cuotaActual - b.cuotaActual);
   const firstUnpaidIndex = sortedPolicies.findIndex((policy) => !policy.pagada);
@@ -218,7 +272,10 @@ const PaymentStatusControl = ({
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       <IconButton
         size="small"
-        onClick={() => onTogglePaid(policy)}
+        onClick={(event) => {
+          event.stopPropagation();
+          onTogglePaid(policy);
+        }}
         aria-label={policy.pagada ? `Marcar cuota ${policy.cuota} como no pagada` : `Marcar cuota ${policy.cuota} como pagada`}
         sx={{ color: policy.pagada ? 'success.main' : 'text.disabled' }}
       >
@@ -235,6 +292,7 @@ const PaymentStatusControl = ({
           size="small"
           value={policy.fechaPago || ''}
           onChange={(event) => onUpdatePaymentDate(policy, event.target.value)}
+          onClick={(event) => event.stopPropagation()}
           inputProps={{ 'aria-label': `Fecha de pago de la cuota ${policy.cuota}` }}
           sx={{ '& .MuiInputBase-input': { fontSize: '0.75rem', p: '6px 8px', width: '110px' } }}
         />
@@ -257,6 +315,7 @@ const PolicyTable = ({
   onEdit,
   onTogglePaid,
   onUpdatePaymentDate,
+  onView,
   headerColor,
   showAll,
   onToggleShowAll,
@@ -272,12 +331,14 @@ const PolicyTable = ({
   onEdit: (policy: DashboardPolicy) => void;
   onTogglePaid: (policy: DashboardPolicy) => void;
   onUpdatePaymentDate: (policy: DashboardPolicy, date: string) => void;
+  onView: (policy: DashboardPolicy) => void;
   headerColor: string;
   showAll: boolean;
   onToggleShowAll: () => void;
   onCreate: () => void;
 }) => {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [sectionOpen, setSectionOpen] = useState(true);
   const groupedPolicies = useMemo(() => {
     const groups = new Map<string, { key: string; cliente: string; policies: DashboardPolicy[] }>();
     policies.forEach((policy) => {
@@ -311,18 +372,31 @@ const PolicyTable = ({
     <Card sx={{ mb: 4, minWidth: 0, maxWidth: '100%' }}>
       <CardContent sx={{ px: { xs: 2, sm: 3 }, '&:last-child': { pb: { xs: 2, sm: 3 } } }}>
         <Box sx={{ mb: 3, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 1.5, minWidth: 0 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{title}</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, overflowWrap: 'anywhere' }}>{title}</Typography>
+            <Chip label={`${groupedPolicies.length} pólizas`} size="small" sx={{ fontWeight: 800 }} />
+            <Button variant="contained" size="small" startIcon={<Plus size={18} />} onClick={onCreate} sx={{ borderRadius: 3, px: 2 }}>
+              Nueva Póliza
+            </Button>
+          </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={sectionOpen ? <ChevronUp size={17} /> : <ChevronDown size={17} />}
+              onClick={() => setSectionOpen((open) => !open)}
+              sx={{ borderRadius: 3, fontWeight: 800 }}
+            >
+              {sectionOpen ? `Esconder (${groupedPolicies.length})` : `Desplegar (${groupedPolicies.length})`}
+            </Button>
             {groupedPolicies.length > VISIBLE_POLICIES_LIMIT && (
               <Button size="small" onClick={onToggleShowAll}>
                 {showAll ? 'Ver menos' : 'Ver todas'}
               </Button>
             )}
-            <Button variant="contained" size="small" startIcon={<Plus size={18} />} onClick={onCreate} sx={{ borderRadius: 3, px: 2 }}>
-              Nueva Póliza
-            </Button>
           </Box>
         </Box>
+        <Collapse in={sectionOpen} timeout="auto">
         <TableContainer component={Paper} elevation={0} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto', border: '1px solid', borderColor: 'divider' }}>
           <Table sx={{ minWidth: 1080 }}>
             <TableHead sx={{ bgcolor: headerColor }}>
@@ -345,11 +419,11 @@ const PolicyTable = ({
                     const status = getStatusVisual(policy);
                     const isExpanded = expandedGroups.has(group.key);
                     return (
-                  <TableRow key={policy.id} hover sx={{ bgcolor: group.policies.length > 1 ? 'action.hover' : 'inherit', borderLeft: group.policies.length > 1 ? '4px solid' : 'none', borderLeftColor: headerColor }}>
+                  <TableRow key={policy.id} hover onClick={() => onView(policy)} sx={getPolicyRowSx(policy, headerColor)}>
                     <TableCell sx={{ fontWeight: 600, minWidth: 220 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {group.policies.length > 1 && (
-                          <IconButton size="small" onClick={() => toggleGroup(group.key)}>
+                          <IconButton size="small" onClick={(event) => { event.stopPropagation(); toggleGroup(group.key); }}>
                             {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                           </IconButton>
                         )}
@@ -466,7 +540,7 @@ const PolicyTable = ({
                                 {group.policies.slice(1).map((policy) => {
                                   const status = getStatusVisual(policy);
                                   return (
-                                    <TableRow key={policy.id} hover>
+                                    <TableRow key={policy.id} hover onClick={() => onView(policy)} sx={getPolicyRowSx(policy)}>
                                       <TableCell sx={{ minWidth: 220 }}>
                                         <Typography variant="body2" fontWeight={800}>{policy.poliza}</Typography>
                                         <Typography variant="caption" color="text.secondary">{policy.aseguradora} · {policy.rubro}</Typography>
@@ -519,6 +593,7 @@ const PolicyTable = ({
             </TableBody>
           </Table>
         </TableContainer>
+        </Collapse>
       </CardContent>
     </Card>
   );
@@ -528,6 +603,8 @@ const LifeFinanceTable = ({
   policies,
   showAll,
   onToggleShowAll,
+  onCreate,
+  onView,
   onWhatsApp,
   onEmail,
   onEdit,
@@ -536,24 +613,44 @@ const LifeFinanceTable = ({
   policies: any[];
   showAll: boolean;
   onToggleShowAll: () => void;
+  onCreate: () => void;
+  onView: (policy: any) => void;
   onWhatsApp: (policy: any) => void;
   onEmail: (policy: any) => void;
   onEdit: (policy: any) => void;
   onDelete: (policy: any) => void;
-}) => (
-  <Card sx={{ mb: 4, minWidth: 0, maxWidth: '100%' }}>
-    <CardContent sx={{ px: { xs: 2, sm: 3 }, '&:last-child': { pb: { xs: 2, sm: 3 } } }}>
-      <Box sx={{ mb: 3, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 1.5, minWidth: 0 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>
-          Pólizas de Vida y Retiro (Total: {policies.length})
-        </Typography>
-        {policies.length > VISIBLE_POLICIES_LIMIT && (
-          <Button size="small" onClick={onToggleShowAll}>
-            {showAll ? 'Ver menos' : 'Ver todas'}
-          </Button>
-        )}
-      </Box>
-      <TableContainer component={Paper} elevation={0} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto', border: '1px solid', borderColor: 'divider' }}>
+}) => {
+  const [sectionOpen, setSectionOpen] = useState(true);
+
+  return (
+    <Card sx={{ mb: 4, minWidth: 0, maxWidth: '100%' }}>
+      <CardContent sx={{ px: { xs: 2, sm: 3 }, '&:last-child': { pb: { xs: 2, sm: 3 } } }}>
+        <Box sx={{ mb: 3, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 1.5, minWidth: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, overflowWrap: 'anywhere' }}>Gestión de Pólizas de Vida y Retiro</Typography>
+            <Chip label={`${policies.length} pólizas`} size="small" sx={{ fontWeight: 800 }} />
+            <Button variant="contained" color="error" size="small" startIcon={<Plus size={18} />} onClick={onCreate} sx={{ borderRadius: 3, px: 2 }}>
+              Nueva Póliza
+            </Button>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Button
+              size="small"
+              color="error"
+              variant="outlined"
+              startIcon={sectionOpen ? <ChevronUp size={17} /> : <ChevronDown size={17} />}
+              onClick={() => setSectionOpen((open) => !open)}
+              sx={{ borderRadius: 3, fontWeight: 800 }}
+            >
+              {sectionOpen ? `Esconder (${policies.length})` : `Desplegar (${policies.length})`}
+            </Button>
+            {policies.length > VISIBLE_POLICIES_LIMIT && (
+              <Button size="small" onClick={onToggleShowAll}>{showAll ? 'Ver menos' : 'Ver todas'}</Button>
+            )}
+          </Box>
+        </Box>
+        <Collapse in={sectionOpen} timeout="auto">
+          <TableContainer component={Paper} elevation={0} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto', border: '1px solid', borderColor: 'divider' }}>
         <Table sx={{ minWidth: 980 }}>
           <TableHead sx={{ bgcolor: 'error.main' }}>
             <TableRow>
@@ -567,7 +664,7 @@ const LifeFinanceTable = ({
           </TableHead>
           <TableBody>
             {(showAll ? policies : policies.slice(0, VISIBLE_POLICIES_LIMIT)).map((policy: any) => (
-              <TableRow key={policy.id} hover>
+              <TableRow key={policy.id} hover onClick={() => onView(policy)} sx={{ cursor: 'pointer' }}>
                 <TableCell sx={{ fontWeight: 600 }}>{policy.cliente}</TableCell>
                 <TableCell>{policy.tipo === 'VIDA' ? 'Vida' : 'Retiro'}</TableCell>
                 <TableCell>{policy.aseguradora}</TableCell>
@@ -596,10 +693,12 @@ const LifeFinanceTable = ({
             )}
           </TableBody>
         </Table>
-      </TableContainer>
-    </CardContent>
-  </Card>
-);
+          </TableContainer>
+        </Collapse>
+      </CardContent>
+    </Card>
+  );
+};
 
 function getEditValues(policy: DashboardPolicy): EditFormValues {
   return {
@@ -677,6 +776,10 @@ export const Dashboard: React.FC = () => {
   const [lifePolicies, setLifePolicies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState({ clients: false, companies: false, lifeFinance: false });
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('ALL');
+  const [policySearch, setPolicySearch] = useState('');
+  const [detailPolicy, setDetailPolicy] = useState<DashboardPolicy | null>(null);
+  const [detailLifePolicy, setDetailLifePolicy] = useState<any | null>(null);
   const [editingPolicy, setEditingPolicy] = useState<DashboardPolicy | null>(null);
   const [editValues, setEditValues] = useState<EditFormValues | null>(null);
   const [manualVencimiento, setManualVencimiento] = useState(false);
@@ -740,6 +843,7 @@ export const Dashboard: React.FC = () => {
     }
 
     if (withLoading) setLoading(false);
+    else window.dispatchEvent(new Event('pas-alert:refresh-counts'));
   }, [filter]);
 
   useEffect(() => {
@@ -753,16 +857,44 @@ export const Dashboard: React.FC = () => {
     }
   }, [editValues?.fechaInicio, editValues?.vigencia, manualVencimiento]);
 
-  const individualPolicies = useMemo(() => policies.filter((policy) => policy.tipo === 'INDIVIDUAL'), [policies]);
-  const companyPolicies = useMemo(() => policies.filter((policy) => policy.tipo === 'EMPRESA'), [policies]);
-  const individualPolicyCount = useMemo(
-    () => new Set(individualPolicies.map((policy) => policy.groupId || policy.id)).size,
-    [individualPolicies]
-  );
-  const companyPolicyCount = useMemo(
-    () => new Set(companyPolicies.map((policy) => policy.groupId || policy.id)).size,
-    [companyPolicies]
-  );
+  const countPolicyGroups = useCallback((items: DashboardPolicy[]) => (
+    new Set(items.map((policy) => policy.groupId || policy.id)).size
+  ), []);
+  const paymentCounts = useMemo(() => ({
+    ALL: countPolicyGroups(policies),
+    CASH: countPolicyGroups(policies.filter((policy) => matchesPaymentFilter(policy, 'CASH'))),
+    BANK: countPolicyGroups(policies.filter((policy) => matchesPaymentFilter(policy, 'BANK'))),
+    CARD: countPolicyGroups(policies.filter((policy) => matchesPaymentFilter(policy, 'CARD'))),
+  }), [countPolicyGroups, policies]);
+  const filteredPolicies = useMemo(() => {
+    const search = normalizeFilterText(policySearch);
+    return policies.filter((policy) => {
+      if (!matchesPaymentFilter(policy, paymentFilter)) return false;
+      if (!search) return true;
+      const searchableText = normalizeFilterText([
+        policy.cliente,
+        policy.poliza,
+        policy.cp,
+        policy.aseguradora,
+        policy.clienteDni,
+        policy.rubro,
+      ].join(' '));
+      return searchableText.includes(search);
+    });
+  }, [paymentFilter, policies, policySearch]);
+  const filteredLifePolicies = useMemo(() => {
+    const search = normalizeFilterText(policySearch);
+    if (!search) return lifePolicies;
+    return lifePolicies.filter((policy) => normalizeFilterText([
+      policy.cliente,
+      policy.cuit,
+      policy.aseguradora,
+      policy.tipo,
+      policy.cp,
+    ].join(' ')).includes(search));
+  }, [lifePolicies, policySearch]);
+  const individualPolicies = useMemo(() => filteredPolicies.filter((policy) => policy.tipo === 'INDIVIDUAL'), [filteredPolicies]);
+  const companyPolicies = useMemo(() => filteredPolicies.filter((policy) => policy.tipo === 'EMPRESA'), [filteredPolicies]);
 
   const applyFilter = (newFilter: string | null) => {
     navigate(newFilter ? `/dashboard?filter=${newFilter}` : '/dashboard');
@@ -773,6 +905,12 @@ export const Dashboard: React.FC = () => {
     { title: 'Vencen en 7 dias', value: stats.vencen7Dias, icon: <Clock size={20} />, color: 'warning', subtitle: 'Requieren atencion', onClick: () => applyFilter(filter === 'expiring' ? null : 'expiring'), active: filter === 'expiring' },
     { title: 'Polizas Vencidas', value: stats.polizasVencidas, icon: <AlertCircle size={20} />, color: 'error', subtitle: 'Accion inmediata', onClick: () => applyFilter(filter === 'expired' ? null : 'expired'), active: filter === 'expired' },
     { title: 'Clientes Totales', value: stats.clientesTotales, icon: <Users size={20} />, color: 'info', subtitle: 'Cartera activa' },
+  ];
+  const paymentFilterOptions: Array<{ value: PaymentFilter; label: string; icon: React.ReactNode }> = [
+    { value: 'ALL', label: 'Todas', icon: <FileCheck size={16} /> },
+    { value: 'CASH', label: 'Cupón / Efectivo', icon: <Banknote size={16} /> },
+    { value: 'BANK', label: 'Débito CBU / Bancario', icon: <Landmark size={16} /> },
+    { value: 'CARD', label: 'Tarjeta de Crédito', icon: <CreditCard size={16} /> },
   ];
 
   const handleCoupon = (policy: DashboardPolicy, promptSend = false) => {
@@ -1024,9 +1162,52 @@ export const Dashboard: React.FC = () => {
         ))}
       </Box>
 
+      <Card sx={{ mb: 3, borderRadius: 4 }}>
+        <CardContent sx={{ p: { xs: 2, md: 2.5 }, '&:last-child': { pb: { xs: 2, md: 2.5 } } }}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, alignItems: { xs: 'stretch', lg: 'center' }, justifyContent: 'space-between', gap: 2 }}>
+            <Box sx={{ minWidth: 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.25 }}>
+                <Filter size={20} color="#1a237e" />
+                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Filtrar por forma de pago</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {paymentFilterOptions.map((option) => (
+                  <Button
+                    key={option.value}
+                    size="small"
+                    variant={paymentFilter === option.value ? 'contained' : 'outlined'}
+                    startIcon={option.icon}
+                    onClick={() => setPaymentFilter(option.value)}
+                    sx={{ borderRadius: 999, fontWeight: 800, textTransform: 'none' }}
+                  >
+                    {option.label} ({paymentCounts[option.value]})
+                  </Button>
+                ))}
+              </Box>
+            </Box>
+            <TextField
+              size="small"
+              value={policySearch}
+              onChange={(event) => setPolicySearch(event.target.value)}
+              placeholder="Buscar cliente, N° póliza, C.P...."
+              inputProps={{ 'aria-label': 'Buscar pólizas en el dashboard' }}
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><Search size={19} /></InputAdornment>,
+                endAdornment: policySearch ? (
+                  <InputAdornment position="end">
+                    <IconButton size="small" aria-label="Limpiar búsqueda" onClick={() => setPolicySearch('')}><X size={16} /></IconButton>
+                  </InputAdornment>
+                ) : undefined,
+              }}
+              sx={{ width: { xs: '100%', lg: 390 }, '& .MuiOutlinedInput-root': { borderRadius: 999 } }}
+            />
+          </Box>
+        </CardContent>
+      </Card>
+
       <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
           <PolicyTable
-            title={`Gestion de Polizas de Clientes (Total: ${individualPolicyCount})`}
+            title="Gestión de Pólizas de Clientes"
             policies={individualPolicies}
             onWhatsApp={handleWhatsApp}
             onCoupon={handleCoupon}
@@ -1036,13 +1217,14 @@ export const Dashboard: React.FC = () => {
             onEdit={handleEdit}
             onTogglePaid={handleTogglePaid}
             onUpdatePaymentDate={handleUpdatePaymentDate}
+            onView={setDetailPolicy}
             headerColor="primary.main"
             showAll={showAll.clients}
             onToggleShowAll={() => setShowAll((prev) => ({ ...prev, clients: !prev.clients }))}
             onCreate={() => navigate('/polizas', { state: { policyMode: 'CLIENTE', lockPolicyMode: true } })}
           />
           <PolicyTable
-            title={`Gestion de Polizas de Empresas (Total: ${companyPolicyCount})`}
+            title="Gestión de Pólizas de Empresas"
             policies={companyPolicies}
             onWhatsApp={handleWhatsApp}
             onCoupon={handleCoupon}
@@ -1052,22 +1234,120 @@ export const Dashboard: React.FC = () => {
             onEdit={handleEdit}
             onTogglePaid={handleTogglePaid}
             onUpdatePaymentDate={handleUpdatePaymentDate}
+            onView={setDetailPolicy}
             headerColor="secondary.main"
             showAll={showAll.companies}
             onToggleShowAll={() => setShowAll((prev) => ({ ...prev, companies: !prev.companies }))}
             onCreate={() => navigate('/polizas', { state: { policyMode: 'EMPRESA', lockPolicyMode: true } })}
           />
-          {/* La gestión de Vida y Retiro queda en su módulo específico para reducir densidad del dashboard. */}
-          {false && <LifeFinanceTable
-            policies={lifePolicies}
+          <LifeFinanceTable
+            policies={filteredLifePolicies}
             showAll={showAll.lifeFinance}
             onToggleShowAll={() => setShowAll((prev) => ({ ...prev, lifeFinance: !prev.lifeFinance }))}
+            onCreate={() => navigate('/vida-y-retiro')}
+            onView={setDetailLifePolicy}
             onWhatsApp={handleLifeWhatsApp}
             onEmail={handleLifeEmail}
             onEdit={handleLifeEdit}
             onDelete={handleLifeDelete}
-          />}
+          />
       </Box>
+
+      <Drawer
+        anchor="right"
+        open={Boolean(detailPolicy)}
+        onClose={() => setDetailPolicy(null)}
+        PaperProps={{ sx: { width: { xs: '100%', sm: 460 }, maxWidth: '100%', p: 0 } }}
+      >
+        {detailPolicy && (
+          <Box sx={{ minHeight: '100%', bgcolor: 'background.default' }}>
+            <Box sx={{ p: 3, bgcolor: 'primary.main', color: 'white', position: 'relative' }}>
+              <IconButton aria-label="Cerrar detalle" onClick={() => setDetailPolicy(null)} sx={{ position: 'absolute', right: 14, top: 14, color: 'white' }}>
+                <X size={21} />
+              </IconButton>
+              <Typography variant="overline" sx={{ opacity: .78, fontWeight: 800 }}>Detalle de póliza</Typography>
+              <Typography variant="h5" sx={{ mt: .5, pr: 5, fontWeight: 850 }}>{detailPolicy.cliente}</Typography>
+              <Typography variant="body2" sx={{ mt: .5, opacity: .88 }}>N° {detailPolicy.poliza}</Typography>
+            </Box>
+            <Box sx={{ p: 3 }}>
+              <Chip
+                label={getStatusVisual(detailPolicy).label}
+                sx={{ mb: 3, bgcolor: getStatusVisual(detailPolicy).color, color: getStatusVisual(detailPolicy).textColor, fontWeight: 850 }}
+              />
+              <Typography variant="subtitle1" sx={{ mb: 1.5, fontWeight: 850 }}>Datos principales</Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 2 }}>
+                <DetailField label="Tipo" value={detailPolicy.tipo === 'EMPRESA' ? 'Empresa' : 'Cliente'} />
+                <DetailField label="DNI / CUIT" value={detailPolicy.clienteDni} />
+                <DetailField label="Aseguradora" value={detailPolicy.aseguradora} />
+                <DetailField label="Rubro" value={detailPolicy.rubro} />
+                <DetailField label="Inicio" value={detailPolicy.inicio ? format(parseISO(detailPolicy.inicio), 'dd/MM/yyyy') : '-'} />
+                <DetailField label="Vencimiento" value={format(parseISO(detailPolicy.vencimiento), 'dd/MM/yyyy')} />
+                <DetailField label="Vigencia" value={detailPolicy.vigenciaLabel} />
+                <DetailField label="Cuota" value={`${detailPolicy.cuota} · ${detailPolicy.medioPago || 'Sin informar'}`} />
+                <DetailField label="Pago" value={detailPolicy.pagada ? `Pagada${detailPolicy.fechaPago ? ` el ${format(parseISO(detailPolicy.fechaPago), 'dd/MM/yyyy')}` : ''}` : 'Pendiente'} />
+                <DetailField label="Prima" value={`${detailPolicy.moneda || 'ARS'} ${formatMoney(detailPolicy.prima)}`} />
+                <DetailField label="Comisión" value={`${detailPolicy.porcentajeComision || 0}% · ${formatMoney(detailPolicy.comisionCalculada)}`} />
+                <DetailField label="Última gestión" value={detailPolicy.ultimaGestion ? `${detailPolicy.ultimaGestion.tipo} · ${format(parseISO(detailPolicy.ultimaGestion.fecha), 'dd/MM/yyyy')}` : 'Sin gestiones'} />
+              </Box>
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="subtitle1" sx={{ mb: 1.5, fontWeight: 850 }}>Contacto y riesgo</Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 2 }}>
+                <DetailField label="Teléfono" value={detailPolicy.telefono} />
+                <DetailField label="Email" value={detailPolicy.email} />
+                <DetailField label="Dirección" value={[detailPolicy.direccion, detailPolicy.altura].filter(Boolean).join(' ')} />
+                <DetailField label="Localidad" value={[detailPolicy.cp, detailPolicy.localidad, detailPolicy.provincia].filter(Boolean).join(' · ')} />
+                <DetailField label="Patente" value={detailPolicy.patente} />
+                <DetailField label="Endoso" value={detailPolicy.endoso} />
+                <DetailField label="Chasis" value={detailPolicy.chasis} />
+                <DetailField label="Motor" value={detailPolicy.motor} />
+                <DetailField label="Cobertura" value={detailPolicy.cobertura} />
+                <DetailField label="Dirección del riesgo" value={detailPolicy.direccionRiesgo} />
+              </Box>
+              <Box sx={{ mt: 3, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Button variant="contained" onClick={() => { const policy = detailPolicy; setDetailPolicy(null); handleEdit(policy); }}>Modificar</Button>
+                <Button variant="outlined" onClick={() => { const policy = detailPolicy; setDetailPolicy(null); handleCoupon(policy); }}>
+                  {detailPolicy.coupon ? 'Ver cuponera' : 'Cargar cuponera'}
+                </Button>
+              </Box>
+            </Box>
+          </Box>
+        )}
+      </Drawer>
+
+      <Drawer
+        anchor="right"
+        open={Boolean(detailLifePolicy)}
+        onClose={() => setDetailLifePolicy(null)}
+        PaperProps={{ sx: { width: { xs: '100%', sm: 440 }, maxWidth: '100%', p: 0 } }}
+      >
+        {detailLifePolicy && (
+          <Box sx={{ minHeight: '100%', bgcolor: 'background.default' }}>
+            <Box sx={{ p: 3, bgcolor: 'error.main', color: 'white', position: 'relative' }}>
+              <IconButton aria-label="Cerrar detalle" onClick={() => setDetailLifePolicy(null)} sx={{ position: 'absolute', right: 14, top: 14, color: 'white' }}><X size={21} /></IconButton>
+              <Typography variant="overline" sx={{ opacity: .8, fontWeight: 800 }}>Vida y Retiro</Typography>
+              <Typography variant="h5" sx={{ mt: .5, pr: 5, fontWeight: 850 }}>{detailLifePolicy.cliente}</Typography>
+              <Typography variant="body2" sx={{ mt: .5, opacity: .88 }}>{detailLifePolicy.tipo === 'VIDA' ? 'Seguro de Vida' : 'Seguro de Retiro'}</Typography>
+            </Box>
+            <Box sx={{ p: 3 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 2 }}>
+                <DetailField label="CUIT" value={detailLifePolicy.cuit} />
+                <DetailField label="Aseguradora" value={detailLifePolicy.aseguradora} />
+                <DetailField label="Suma asegurada" value={formatMoney(detailLifePolicy.sumaAsegurada)} />
+                <DetailField label="Prima" value={formatMoney(detailLifePolicy.prima)} />
+                <DetailField label="Aporte mensual" value={formatMoney(detailLifePolicy.aporteMensual)} />
+                <DetailField label="Fondo acumulado" value={formatMoney(detailLifePolicy.fondoAcumulado)} />
+                <DetailField label="Teléfono" value={detailLifePolicy.telefono} />
+                <DetailField label="Email" value={detailLifePolicy.email} />
+                <DetailField label="Dirección" value={detailLifePolicy.direccion} />
+                <DetailField label="Localidad" value={[detailLifePolicy.cp, detailLifePolicy.localidad, detailLifePolicy.provincia].filter(Boolean).join(' · ')} />
+              </Box>
+              <Button sx={{ mt: 3 }} variant="contained" color="error" onClick={() => { const policy = detailLifePolicy; setDetailLifePolicy(null); handleLifeEdit(policy); }}>
+                Modificar
+              </Button>
+            </Box>
+          </Box>
+        )}
+      </Drawer>
 
 
       <Dialog open={!!editingPolicy && !!editValues} onClose={() => { setEditingPolicy(null); setEditValues(null); }} maxWidth="md" fullWidth>

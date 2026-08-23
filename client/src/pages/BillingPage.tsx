@@ -5,9 +5,10 @@ import {
   InputAdornment, Link, MenuItem, Paper, Snackbar, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, TextField, Tooltip, Typography,
 } from '@mui/material';
-import { CheckCircle2, ChevronDown, ChevronUp, CreditCard, Download, Edit, ExternalLink, Eye, Layers, Plus, Search, Trash2, TrendingUp } from 'lucide-react';
-import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from 'recharts';
+import { CheckCircle2, ChevronDown, ChevronUp, CreditCard, Download, Edit, ExternalLink, Eye, FileDown, Layers, Plus, ReceiptText, Search, Trash2, TrendingUp } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from 'recharts';
 import { api } from '../api';
+import { printTableReport } from '../utils/reportExports';
 
 type Currency = 'ARS' | 'USD';
 type InvoiceStatus = 'PENDIENTE' | 'FACTURADA' | 'COBRADA' | 'PARCIAL' | 'VENCIDA';
@@ -31,6 +32,7 @@ type Invoice = {
   insuranceCompany?: Insurer;
   periodo: string;
   numeroFactura: string;
+  numeroLiquidacion?: string;
   fechaEmision: string;
   fechaVencimiento: string;
   estado: InvoiceStatus;
@@ -50,8 +52,8 @@ type Invoice = {
 const today = () => new Date().toISOString().split('T')[0];
 const currentPeriod = () => today().slice(0, 7);
 const emptyInvoice = {
-  insuranceCompanyId: '', periodo: currentPeriod(), numeroFactura: '', fechaEmision: today(),
-  fechaVencimiento: '', estado: 'PENDIENTE' as InvoiceStatus, monto: '', moneda: 'ARS' as Currency,
+  insuranceCompanyId: '', periodo: currentPeriod(), numeroFactura: '', numeroLiquidacion: '', fechaEmision: today(),
+  fechaVencimiento: '', estado: 'PENDIENTE' as InvoiceStatus, monto: '', montoCobradoInicial: '', moneda: 'ARS' as Currency,
   comprobanteUrl: '', notes: '', policyIds: [] as string[],
 };
 const emptyPayment = { fechaPago: today(), monto: '', medioPago: 'Transferencia', comprobanteUrl: '' };
@@ -93,6 +95,8 @@ export const BillingPage: React.FC = () => {
   const [payment, setPayment] = useState(emptyPayment);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'individual' | 'consolidated'>('individual');
+  const [chartRange, setChartRange] = useState<6 | 12>(12);
+  const [chartType, setChartType] = useState<'line' | 'bar'>('line');
   const [expandedPeriods, setExpandedPeriods] = useState<Record<string, boolean>>({});
   const [snack, setSnack] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
 
@@ -137,20 +141,29 @@ export const BillingPage: React.FC = () => {
   }, { ars: { facturado: 0, cobrado: 0 }, usd: { facturado: 0, cobrado: 0 } }), [invoices]);
 
   const chartData = useMemo(() => {
-    const periods = new Map<string, { periodo: string; FacturadoARS: number; CobradoARS: number; FacturadoUSD: number; CobradoUSD: number }>();
+    const periods = new Map<string, { periodo: string; FacturadoARS: number; CobradoARS: number; RetencionesARS: number; FacturadoUSD: number; CobradoUSD: number; RetencionesUSD: number }>();
     invoices.forEach((invoice) => {
-      const current = periods.get(invoice.periodo) || { periodo: invoice.periodo, FacturadoARS: 0, CobradoARS: 0, FacturadoUSD: 0, CobradoUSD: 0 };
+      const current = periods.get(invoice.periodo) || { periodo: invoice.periodo, FacturadoARS: 0, CobradoARS: 0, RetencionesARS: 0, FacturadoUSD: 0, CobradoUSD: 0, RetencionesUSD: 0 };
       if (invoice.moneda === 'USD') {
         current.FacturadoUSD += Number(invoice.monto || 0);
         current.CobradoUSD += Number(invoice.montoCobrado || 0);
+        current.RetencionesUSD += Math.max(0, Number(invoice.monto || 0) - Number(invoice.montoCobrado || 0));
       } else {
         current.FacturadoARS += Number(invoice.monto || 0);
         current.CobradoARS += Number(invoice.montoCobrado || 0);
+        current.RetencionesARS += Math.max(0, Number(invoice.monto || 0) - Number(invoice.montoCobrado || 0));
       }
       periods.set(invoice.periodo, current);
     });
-    return Array.from(periods.values()).sort((a, b) => a.periodo.localeCompare(b.periodo)).slice(-12);
-  }, [invoices]);
+    return Array.from(periods.values()).sort((a, b) => a.periodo.localeCompare(b.periodo)).slice(-chartRange);
+  }, [invoices, chartRange]);
+  const projectionData = useMemo(() => chartData.slice(-6).map((row) => ({
+    periodo: row.periodo,
+    ProyectadoARS: row.FacturadoARS,
+    PercibidoARS: row.CobradoARS,
+    ProyectadoUSD: row.FacturadoUSD,
+    PercibidoUSD: row.CobradoUSD,
+  })), [chartData]);
 
   const groupedByPeriod = useMemo(() => {
     const groups = new Map<string, { periodo: string; invoices: Invoice[]; facturado: { ars: number; usd: number }; cobrado: { ars: number; usd: number }; companies: Set<string> }>();
@@ -169,9 +182,9 @@ export const BillingPage: React.FC = () => {
   const openForm = (invoice?: Invoice) => {
     setEditing(invoice || null);
     setForm(invoice ? {
-      insuranceCompanyId: invoice.insuranceCompanyId || '', periodo: invoice.periodo, numeroFactura: invoice.numeroFactura,
+      insuranceCompanyId: invoice.insuranceCompanyId || '', periodo: invoice.periodo, numeroFactura: invoice.numeroFactura, numeroLiquidacion: invoice.numeroLiquidacion || '',
       fechaEmision: invoice.fechaEmision, fechaVencimiento: invoice.fechaVencimiento || '', estado: invoice.estado,
-      monto: String(invoice.monto), moneda: invoice.moneda, comprobanteUrl: invoice.comprobanteUrl || '',
+      monto: String(invoice.monto), montoCobradoInicial: '', moneda: invoice.moneda, comprobanteUrl: invoice.comprobanteUrl || '',
       notes: invoice.notes || '', policyIds: invoice.policies.map((policy) => policy.id),
     } : { ...emptyInvoice, periodo: currentPeriod(), fechaEmision: today(), policyIds: [] });
     setFormOpen(true);
@@ -182,7 +195,11 @@ export const BillingPage: React.FC = () => {
     try {
       const payload = { ...form, monto: Number(form.monto) };
       if (editing) await api.commissions.invoices.update(editing.id, payload);
-      else await api.commissions.invoices.create(payload);
+      else {
+        const created: any = await api.commissions.invoices.create(payload);
+        const initialCollected = Number(form.montoCobradoInicial || 0);
+        if (initialCollected > 0 && created?.id) await api.commissions.invoices.addPayment(created.id, { fechaPago: today(), monto: initialCollected, medioPago: 'Transferencia' });
+      }
       setFormOpen(false);
       setSnack({ open: true, message: 'Factura guardada.', severity: 'success' });
       await loadData();
@@ -224,15 +241,20 @@ export const BillingPage: React.FC = () => {
     try { downloadBlob(await api.commissions.invoices.export(), 'Facturas_Comisiones_PAS_Alert.xlsx'); }
     catch (error: any) { setSnack({ open: true, message: error.message || 'No se pudo exportar.', severity: 'error' }); }
   };
+  const exportPdf = () => printTableReport('Control de Comisiones', invoices, [
+    { label: 'Aseguradora', value: (i) => i.insuranceCompany?.razonSocial }, { label: 'Período', value: (i) => i.periodo }, { label: 'Factura', value: (i) => i.numeroFactura },
+    { label: 'Liquidación', value: (i) => i.numeroLiquidacion }, { label: 'Facturado', value: (i) => money(i.monto, i.moneda) }, { label: 'Cobrado', value: (i) => money(i.montoCobrado, i.moneda) }, { label: 'Retenciones', value: (i) => money(Math.max(0, i.monto - i.montoCobrado), i.moneda) },
+  ]);
 
   return (
     <Box sx={{ minWidth: 0 }}>
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-        <Box><Typography variant="h4" sx={{ fontWeight: 800, color: 'primary.main' }}>Comisiones</Typography><Typography color="text.secondary">Facturado, cobrado y detalle histórico por período.</Typography></Box>
-        <Box sx={{ display: 'flex', gap: 1 }}><Button variant="outlined" startIcon={<Download size={18} />} onClick={exportInvoices}>Exportar</Button><Button variant="contained" startIcon={<Plus size={18} />} onClick={() => openForm()}>Nueva factura</Button></Box>
+        <Box><Typography variant="h4" sx={{ fontWeight: 900, color: 'primary.main' }}>Control de Comisiones</Typography><Typography color="text.secondary">Visualizá y conciliá las liquidaciones de comisión que te envían las aseguradoras y brokers.</Typography></Box>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}><Button variant="outlined" color="success" startIcon={<Download size={18} />} onClick={exportInvoices}>Exportar Excel</Button><Button variant="outlined" color="error" startIcon={<FileDown size={18} />} onClick={exportPdf}>Exportar PDF</Button><Button variant="contained" startIcon={<Plus size={18} />} onClick={() => openForm()}>Cargar Liquidación / Comisión</Button></Box>
       </Box>
+      <Alert severity="info" sx={{ mb: 3 }}><strong>Conciliación de Comisiones e Impuestos:</strong> la diferencia entre el monto facturado y el monto cobrado corresponde a retenciones de Ingresos Brutos (IIBB) e impuestos. El sistema calcula automáticamente esos importes.</Alert>
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, md: 6 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card><CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <Layers size={18} color="#1a237e" />
@@ -241,7 +263,10 @@ export const BillingPage: React.FC = () => {
             <Typography variant="h4" fontWeight={900}>{moneyPair({ ars: totals.ars.facturado, usd: totals.usd.facturado })}</Typography>
           </CardContent></Card>
         </Grid>
-        <Grid size={{ xs: 12, md: 6 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Card sx={{ bgcolor: '#fffdf4', border: '1px solid #f4e499' }}><CardContent><Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}><ReceiptText size={18} color="#d98a00" /><Typography variant="caption" color="#a36700" fontWeight={800}>Impuestos IIBB / Retenciones</Typography></Box><Typography variant="h4" fontWeight={900} color="#d98a00">{moneyPair({ ars: Math.max(0, totals.ars.facturado - totals.ars.cobrado), usd: Math.max(0, totals.usd.facturado - totals.usd.cobrado) })}</Typography></CardContent></Card>
+        </Grid>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card><CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <CheckCircle2 size={18} color="#0f9f6e" />
@@ -253,33 +278,69 @@ export const BillingPage: React.FC = () => {
       </Grid>
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-            <TrendingUp size={18} color="#1a237e" />
-            <Typography variant="h6" fontWeight={900}>Histórico mensual</Typography>
+          <Box sx={{ display: 'flex', alignItems: { xs: 'flex-start', md: 'center' }, justifyContent: 'space-between', gap: 2, mb: 2, flexDirection: { xs: 'column', md: 'row' } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <TrendingUp size={18} color="#1a237e" />
+              <Typography variant="h6" fontWeight={900}>Evolución de Comisiones e Impuestos Recibidos</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button size="small" variant={chartRange === 6 ? 'contained' : 'outlined'} onClick={() => setChartRange(6)}>6 meses</Button>
+              <Button size="small" variant={chartRange === 12 ? 'contained' : 'outlined'} onClick={() => setChartRange(12)}>12 meses</Button>
+              <Button size="small" variant={chartType === 'line' ? 'contained' : 'outlined'} color="secondary" onClick={() => setChartType('line')}>Líneas</Button>
+              <Button size="small" variant={chartType === 'bar' ? 'contained' : 'outlined'} color="secondary" onClick={() => setChartType('bar')}>Barras</Button>
+            </Box>
           </Box>
           <Box sx={{ width: '100%', height: 260 }}>
             <ResponsiveContainer>
-              <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="facturadoFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#1a237e" stopOpacity={0.28} />
-                    <stop offset="95%" stopColor="#1a237e" stopOpacity={0.02} />
-                  </linearGradient>
-                  <linearGradient id="cobradoFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0f9f6e" stopOpacity={0.28} />
-                    <stop offset="95%" stopColor="#0f9f6e" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
+              {chartType === 'line' ? (
+                <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="periodo" tickLine={false} axisLine={false} />
+                  <YAxis tickLine={false} axisLine={false} />
+                  <ChartTooltip formatter={(value, name) => [money(Number(value || 0), String(name).includes('USD') ? 'USD' : 'ARS'), String(name)]} />
+                  <Legend />
+                  <Line type="monotone" dataKey="FacturadoARS" name="Facturado ARS" stroke="#2563eb" strokeWidth={3} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="CobradoARS" name="Cobrado ARS" stroke="#0f9f6e" strokeWidth={3} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="RetencionesARS" name="IIBB / Retenciones ARS" stroke="#e9ad25" strokeWidth={3} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="FacturadoUSD" name="Facturado USD" stroke="#6d28d9" strokeDasharray="5 4" dot={false} />
+                  <Line type="monotone" dataKey="CobradoUSD" name="Cobrado USD" stroke="#06b6d4" strokeDasharray="5 4" dot={false} />
+                  <Line type="monotone" dataKey="RetencionesUSD" name="IIBB / Retenciones USD" stroke="#d97706" strokeDasharray="5 4" dot={false} />
+                </LineChart>
+              ) : (
+                <BarChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="periodo" tickLine={false} axisLine={false} />
+                  <YAxis tickLine={false} axisLine={false} />
+                  <ChartTooltip formatter={(value, name) => [money(Number(value || 0), String(name).includes('USD') ? 'USD' : 'ARS'), String(name)]} />
+                  <Legend />
+                  <Bar dataKey="FacturadoARS" name="Facturado ARS" fill="#2563eb" radius={[5, 5, 0, 0]} />
+                  <Bar dataKey="CobradoARS" name="Cobrado ARS" fill="#0f9f6e" radius={[5, 5, 0, 0]} />
+                  <Bar dataKey="RetencionesARS" name="IIBB / Retenciones ARS" fill="#e9ad25" radius={[5, 5, 0, 0]} />
+                </BarChart>
+              )}
+            </ResponsiveContainer>
+          </Box>
+        </CardContent>
+      </Card>
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="h6" fontWeight={900}>Ingreso Mensual: Proyectado vs Percibido</Typography>
+            <Typography variant="body2" color="text.secondary">Comparativa de las comisiones esperadas y las efectivamente cobradas durante los últimos 6 meses.</Typography>
+          </Box>
+          <Box sx={{ width: '100%', height: 280 }}>
+            <ResponsiveContainer>
+              <BarChart data={projectionData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="periodo" tickLine={false} axisLine={false} />
                 <YAxis tickLine={false} axisLine={false} />
                 <ChartTooltip formatter={(value, name) => [money(Number(value || 0), String(name).includes('USD') ? 'USD' : 'ARS'), String(name)]} />
                 <Legend />
-                <Area type="monotone" dataKey="FacturadoARS" name="Facturado ARS" stroke="#1a237e" fill="url(#facturadoFill)" strokeWidth={2} />
-                <Area type="monotone" dataKey="CobradoARS" name="Cobrado ARS" stroke="#0f9f6e" fill="url(#cobradoFill)" strokeWidth={2} />
-                <Area type="monotone" dataKey="FacturadoUSD" name="Facturado USD" stroke="#6d28d9" fill="transparent" strokeWidth={2} />
-                <Area type="monotone" dataKey="CobradoUSD" name="Cobrado USD" stroke="#d97706" fill="transparent" strokeWidth={2} />
-              </AreaChart>
+                <Bar dataKey="ProyectadoARS" name="Proyectado ARS" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="PercibidoARS" name="Percibido ARS" fill="#12b886" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="ProyectadoUSD" name="Proyectado USD" fill="#c4b5fd" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="PercibidoUSD" name="Percibido USD" fill="#67e8c3" radius={[6, 6, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
           </Box>
         </CardContent>
@@ -355,14 +416,17 @@ export const BillingPage: React.FC = () => {
       )}
 
       <Dialog open={formOpen} onClose={() => setFormOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>{editing ? 'Editar factura' : 'Nueva factura de comisión'}</DialogTitle><DialogContent dividers><Grid container spacing={2}>
+        <DialogTitle sx={{ fontWeight: 900 }}>{editing ? 'Editar liquidación' : 'Cargar Nueva Comisión / Liquidación'}</DialogTitle><DialogContent dividers><Grid container spacing={2}>
           <Grid size={{ xs: 12, md: 6 }}><TextField select fullWidth required label="Aseguradora" value={form.insuranceCompanyId} onChange={(e) => setForm((s) => ({ ...s, insuranceCompanyId: e.target.value, policyIds: [] }))}>{insurers.map((item) => <MenuItem key={item.id} value={item.id}>{item.razonSocial}</MenuItem>)}</TextField></Grid>
           <Grid size={{ xs: 12, md: 3 }}><TextField fullWidth required type="month" label="Período" InputLabelProps={{ shrink: true }} value={form.periodo} onChange={(e) => setForm((s) => ({ ...s, periodo: e.target.value }))} /></Grid>
           <Grid size={{ xs: 12, md: 3 }}><TextField select fullWidth label="Estado inicial" value={form.estado} onChange={(e) => setForm((s) => ({ ...s, estado: e.target.value as InvoiceStatus }))}><MenuItem value="PENDIENTE">Pendiente</MenuItem><MenuItem value="FACTURADA">Facturada</MenuItem></TextField></Grid>
           <Grid size={{ xs: 12, md: 4 }}><TextField fullWidth required label="Número de factura" value={form.numeroFactura} onChange={(e) => setForm((s) => ({ ...s, numeroFactura: e.target.value }))} /></Grid>
+          <Grid size={{ xs: 12, md: 4 }}><TextField fullWidth label="Nro Liquidación Compañía" value={form.numeroLiquidacion} onChange={(e) => setForm((s) => ({ ...s, numeroLiquidacion: e.target.value }))} /></Grid>
           <Grid size={{ xs: 6, md: 4 }}><TextField fullWidth required type="date" label="Emisión" InputLabelProps={{ shrink: true }} value={form.fechaEmision} onChange={(e) => setForm((s) => ({ ...s, fechaEmision: e.target.value }))} /></Grid>
           <Grid size={{ xs: 6, md: 4 }}><TextField fullWidth type="date" label="Vencimiento" InputLabelProps={{ shrink: true }} value={form.fechaVencimiento} onChange={(e) => setForm((s) => ({ ...s, fechaVencimiento: e.target.value }))} /></Grid>
-          <Grid size={{ xs: 6, md: 4 }}><TextField fullWidth required type="number" label="Monto" value={form.monto} onChange={(e) => setForm((s) => ({ ...s, monto: e.target.value }))} /></Grid>
+          <Grid size={{ xs: 6, md: 4 }}><TextField fullWidth required type="number" label="Comisión Facturada" value={form.monto} onChange={(e) => setForm((s) => ({ ...s, monto: e.target.value }))} /></Grid>
+          {!editing && <Grid size={{ xs: 6, md: 4 }}><TextField fullWidth type="number" label="Comisión Cobrada" value={form.montoCobradoInicial} onChange={(e) => setForm((s) => ({ ...s, montoCobradoInicial: e.target.value }))} /></Grid>}
+          <Grid size={12}><Alert severity="warning">Impuestos / IIBB calculados: <strong>{money(Math.max(0, Number(form.monto || 0) - Number(form.montoCobradoInicial || 0)), form.moneda)}</strong></Alert></Grid>
           <Grid size={{ xs: 6, md: 4 }}><TextField select fullWidth label="Moneda" value={form.moneda} onChange={(e) => setForm((s) => ({ ...s, moneda: e.target.value as Currency, policyIds: [] }))}><MenuItem value="ARS">ARS</MenuItem><MenuItem value="USD">USD</MenuItem></TextField></Grid>
           <Grid size={{ xs: 12, md: 4 }}><TextField fullWidth label="URL del comprobante" value={form.comprobanteUrl} onChange={(e) => setForm((s) => ({ ...s, comprobanteUrl: e.target.value }))} /></Grid>
           <Grid size={12}><Autocomplete multiple options={eligiblePolicies} value={eligiblePolicies.filter((p) => form.policyIds.includes(p.id))} getOptionLabel={(p) => `${p.numeroPoliza} · ${p.clienteNombre} · ${money(p.comisionCalculada, form.moneda)}`} onChange={(_, values) => setForm((s) => ({ ...s, policyIds: values.map((p) => p.id) }))} renderInput={(params) => <TextField {...params} label="Pólizas vinculadas" helperText="Se muestran pólizas de la aseguradora y moneda elegidas." />} /></Grid>

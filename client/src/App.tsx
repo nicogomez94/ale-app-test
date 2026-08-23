@@ -23,6 +23,8 @@ import { SiniestrosPage } from './pages/SiniestrosPage';
 import { CotizacionesPage } from './pages/CotizacionesPage';
 import { CotizacionPublicaPage } from './pages/CotizacionPublicaPage';
 import { DirectoryPage } from './pages/DirectoryPage';
+import { ToolsPage } from './pages/ToolsPage';
+import { SuggestionsPage } from './pages/SuggestionsPage';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -144,6 +146,8 @@ function AppSystem() {
             <Route path="/facturacion" element={<Navigate to="/comisiones" replace />} />
             <Route path="/comisiones" element={<BillingPage />} />
             <Route path="/referidos" element={<ReferralPage />} />
+            <Route path="/herramientas" element={<ToolsPage />} />
+            <Route path="/sugerencias" element={<SuggestionsPage />} />
             <Route path="/pagos" element={<PaymentPage />} />
             <Route path="/perfil" element={<ProfilePage />} />
             {user?.isAdmin && <Route path="/admin" element={<AdminPage />} />}

@@ -5,11 +5,12 @@ import {
   TextField, InputAdornment, Dialog, DialogTitle, DialogContent,
   DialogActions, Grid, Tabs, Tab, Chip, CircularProgress
 } from '@mui/material';
-import { Plus, Search, Building2, Download, Users, Truck, Shield, Briefcase, Home, Store } from 'lucide-react';
+import { Plus, Search, Building2, Download, FileDown, Users, Truck, Shield, Briefcase, Home, Store } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { DEBUG, debugData } from '../data/debugData';
 import { ListingActions } from '../components/ListingActions';
+import { printTableReport } from '../utils/reportExports';
 
 const COMPANY_TYPES = [
   { label: 'ART', icon: <Shield size={18} />, value: 'ART' },
@@ -97,6 +98,9 @@ export const CompaniesPage: React.FC = () => {
       URL.revokeObjectURL(url);
     } catch (err: any) { alert(err.message); }
   };
+  const handleExportPdf = () => printTableReport(`Empresas · ${COMPANY_TYPES[tab].label}`, companies, [
+    { label: 'Razón Social', value: (c) => c.razonSocial }, { label: 'CUIT', value: (c) => c.cuit }, { label: 'Ramo', value: (c) => c.ramo }, { label: 'Aseguradora', value: (c) => c.aseguradora }, { label: 'Contacto', value: (c) => `${c.telefono} ${c.email}` }, { label: 'Localidad', value: (c) => c.localidad },
+  ]);
 
   return (
     <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
@@ -115,6 +119,7 @@ export const CompaniesPage: React.FC = () => {
         </Box>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, max-content)' }, gap: 1.5, justifyContent: { xs: 'stretch', md: 'flex-end' }, minWidth: 0 }}>
           <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleExport} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25 }}>Exportar Excel</Button>
+          <Button variant="outlined" color="error" startIcon={<FileDown size={20} />} onClick={handleExportPdf}>Exportar PDF</Button>
           <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => navigate('/polizas', { state: { policyMode: 'EMPRESA', lockPolicyMode: true } })} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25, borderRadius: 3 }}>Nueva Póliza</Button>
           <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => handleOpen()} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25, borderRadius: 3 }}>Nueva Empresa</Button>
         </Box>

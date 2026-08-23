@@ -285,7 +285,7 @@ export const DirectoryPage: React.FC = () => {
         </Box>
       </Box>
 
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+      <Grid container spacing={2} sx={{ mb: 3, display: tab === 0 ? 'flex' : 'none' }}>
         {[
           { label: 'Total facturado ARS', value: formatMoney(financialTotals.ars, 'ARS'), icon: <Banknote size={22} />, color: '#2563eb' },
           { label: 'Total facturado USD', value: formatMoney(financialTotals.usd, 'USD'), icon: <Banknote size={22} />, color: '#16a34a' },

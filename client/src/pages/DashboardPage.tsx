@@ -39,6 +39,7 @@ import {
   Clock,
   CreditCard,
   FileCheck,
+  FileDown,
   Filter,
   Hash,
   Landmark,
@@ -69,6 +70,8 @@ import {
 } from '../data/policyCatalogs';
 import { ListingActions } from '../components/ListingActions';
 import { PolicyCouponDialog } from '../components/PolicyCouponDialog';
+import { PolicyFormDialog } from '../components/PolicyFormDialog';
+import { printTableReport } from '../utils/reportExports';
 
 const VISIBLE_POLICIES_LIMIT = 5;
 
@@ -443,6 +446,24 @@ const PolicyTable = ({
                           <Typography variant="caption" display="block" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', mt: 0.5 }}>
                             {policy.tipo === 'EMPRESA' ? 'EMPRESA' : 'INDIVIDUAL'}
                           </Typography>
+                          {normalizeFilterText(policy.medioPago).includes('cupon') && (
+                            <Box sx={{ mt: .8, display: 'flex', alignItems: 'center', gap: .7, flexWrap: 'wrap' }}>
+                              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: policy.coupon ? 'success.main' : 'warning.main' }} />
+                              <Typography variant="caption" sx={{ color: policy.coupon ? 'success.dark' : 'warning.dark', fontWeight: 900 }}>
+                                {policy.coupon ? 'Cupón cargado' : 'Cupón pendiente'}
+                              </Typography>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color={policy.coupon ? 'success' : 'primary'}
+                                startIcon={<MessageCircle size={13} />}
+                                onClick={(event) => { event.stopPropagation(); onWhatsApp(policy); }}
+                                sx={{ minHeight: 24, py: .15, px: 1, fontSize: '.67rem' }}
+                              >
+                                {policy.coupon ? 'Enviar cupón' : 'Cargar y enviar'}
+                              </Button>
+                            </Box>
+                          )}
                         </Box>
                       </Box>
                     </TableCell>
@@ -789,6 +810,7 @@ export const Dashboard: React.FC = () => {
   const [savingLifeEdit, setSavingLifeEdit] = useState(false);
   const [couponPolicy, setCouponPolicy] = useState<DashboardPolicy | null>(null);
   const [couponPromptSend, setCouponPromptSend] = useState(false);
+  const [createPolicy, setCreatePolicy] = useState<{ mode: 'CLIENTE' | 'EMPRESA' | 'VIDA_RETIRO' } | null>(null);
   const [snack, setSnack] = useState<{ open: boolean; severity: 'success' | 'error'; message: string }>({
     open: false,
     severity: 'success',
@@ -1108,6 +1130,11 @@ export const Dashboard: React.FC = () => {
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>;
   }
 
+  const exportPdf = () => printTableReport('Panel de Control · Pólizas', policies, [
+    { label: 'Cliente / Empresa', value: (p) => p.cliente }, { label: 'Póliza', value: (p) => p.poliza }, { label: 'Aseguradora', value: (p) => p.aseguradora },
+    { label: 'Rubro', value: (p) => p.rubro }, { label: 'Vencimiento', value: (p) => p.vencimiento }, { label: 'Estado', value: (p) => p.pagada ? 'Pagada' : p.estadoLabel }, { label: 'Pago', value: (p) => p.medioPago },
+  ]);
+
   return (
     <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
       <Box sx={{ mb: 4, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2, minWidth: 0 }}>
@@ -1116,6 +1143,7 @@ export const Dashboard: React.FC = () => {
           <Typography variant="body1" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>Bienvenido de nuevo. Aqui tienes un resumen de tu actividad.</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap', width: { xs: '100%', md: 'auto' } }}>
+          <Button variant="outlined" color="error" startIcon={<FileDown size={19} />} onClick={exportPdf}>Exportar PDF</Button>
           {filter && (
             <Button variant="outlined" color="error" startIcon={<X size={20} />} onClick={() => navigate('/dashboard')}>
               Quitar Filtro
@@ -1221,7 +1249,7 @@ export const Dashboard: React.FC = () => {
             headerColor="primary.main"
             showAll={showAll.clients}
             onToggleShowAll={() => setShowAll((prev) => ({ ...prev, clients: !prev.clients }))}
-            onCreate={() => navigate('/polizas', { state: { policyMode: 'CLIENTE', lockPolicyMode: true } })}
+            onCreate={() => setCreatePolicy({ mode: 'CLIENTE' })}
           />
           <PolicyTable
             title="Gestión de Pólizas de Empresas"
@@ -1238,13 +1266,13 @@ export const Dashboard: React.FC = () => {
             headerColor="secondary.main"
             showAll={showAll.companies}
             onToggleShowAll={() => setShowAll((prev) => ({ ...prev, companies: !prev.companies }))}
-            onCreate={() => navigate('/polizas', { state: { policyMode: 'EMPRESA', lockPolicyMode: true } })}
+            onCreate={() => setCreatePolicy({ mode: 'EMPRESA' })}
           />
           <LifeFinanceTable
             policies={filteredLifePolicies}
             showAll={showAll.lifeFinance}
             onToggleShowAll={() => setShowAll((prev) => ({ ...prev, lifeFinance: !prev.lifeFinance }))}
-            onCreate={() => navigate('/vida-y-retiro')}
+            onCreate={() => setCreatePolicy({ mode: 'VIDA_RETIRO' })}
             onView={setDetailLifePolicy}
             onWhatsApp={handleLifeWhatsApp}
             onEmail={handleLifeEmail}
@@ -1547,6 +1575,17 @@ export const Dashboard: React.FC = () => {
         }}
         onChanged={() => loadDashboardData(false)}
         onNotify={(severity, message) => setSnack({ open: true, severity, message })}
+      />
+
+      <PolicyFormDialog
+        open={Boolean(createPolicy)}
+        mode={createPolicy?.mode}
+        onClose={() => setCreatePolicy(null)}
+        onSaved={async () => {
+          setCreatePolicy(null);
+          await loadDashboardData(false);
+          setSnack({ open: true, severity: 'success', message: 'Póliza guardada correctamente.' });
+        }}
       />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((prev) => ({ ...prev, open: false }))}>

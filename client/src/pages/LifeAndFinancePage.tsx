@@ -5,10 +5,12 @@ import {
   TextField, InputAdornment, Dialog, DialogTitle, DialogContent,
   DialogActions, Grid, Tabs, Tab, CircularProgress
 } from '@mui/material';
-import { Plus, Search, HeartPulse, Download, Coins } from 'lucide-react';
+import { Plus, Search, HeartPulse, Download, FileDown, Coins } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { api } from '../api';
 import { DEBUG, debugData } from '../data/debugData';
 import { ListingActions } from '../components/ListingActions';
+import { printTableReport } from '../utils/reportExports';
 
 const LIFE_TYPES = [
   { label: 'Seguros de Vida', icon: <HeartPulse size={18} />, value: 'VIDA' },
@@ -16,6 +18,7 @@ const LIFE_TYPES = [
 ];
 
 export const LifeAndFinancePage: React.FC = () => {
+  const location = useLocation();
   const [tab, setTab] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [open, setOpen] = useState(false);
@@ -25,6 +28,12 @@ export const LifeAndFinancePage: React.FC = () => {
   const formRef = useRef<Record<string, any>>({});
 
   const currentType = LIFE_TYPES[tab].value;
+
+  useEffect(() => {
+    const type = new URLSearchParams(location.search).get('tipo');
+    if (type === 'VIDA') setTab(0);
+    if (type === 'RETIRO') setTab(1);
+  }, [location.search]);
 
   const loadPolicies = async () => {
     try {
@@ -84,6 +93,9 @@ export const LifeAndFinancePage: React.FC = () => {
       URL.revokeObjectURL(url);
     } catch (err: any) { alert(err.message); }
   };
+  const handleExportPdf = () => printTableReport(LIFE_TYPES[tab].label, policies, [
+    { label: 'Cliente', value: (p) => p.cliente }, { label: 'CUIT', value: (p) => p.cuit }, { label: 'Aseguradora', value: (p) => p.aseguradora }, { label: 'Tipo', value: (p) => p.tipo }, { label: 'Email', value: (p) => p.email }, { label: 'Teléfono', value: (p) => p.telefono },
+  ]);
 
   return (
     <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
@@ -102,6 +114,7 @@ export const LifeAndFinancePage: React.FC = () => {
         </Box>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(2, max-content)' }, gap: 1.5, justifyContent: { xs: 'stretch', md: 'flex-end' }, minWidth: 0 }}>
           <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleExport} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25 }}>Exportar Excel</Button>
+          <Button variant="outlined" color="error" startIcon={<FileDown size={20} />} onClick={handleExportPdf}>Exportar PDF</Button>
           <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => handleOpen()} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25, borderRadius: 3, bgcolor: 'error.main', '&:hover': { bgcolor: 'error.dark' } }}>Nueva Póliza</Button>
         </Box>
       </Box>

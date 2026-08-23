@@ -16,12 +16,12 @@ export const getTheme = (mode: 'light' | 'dark'): ThemeOptions => {
         main: '#1A96D4',
       },
       background: {
-        default: mode === 'light' ? '#f4f6f8' : '#0a0a0a',
+        default: mode === 'light' ? '#f5f7fb' : '#0a0a0a',
         paper: mode === 'light' ? '#ffffff' : '#121212',
       },
     },
     typography: {
-      fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+      fontFamily: '"Manrope", sans-serif',
       h1: { fontWeight: 700 },
       h2: { fontWeight: 700 },
       h3: { fontWeight: 600 },
@@ -37,7 +37,10 @@ export const getTheme = (mode: 'light' | 'dark'): ThemeOptions => {
         styleOverrides: {
           root: {
             textTransform: 'none',
-            fontWeight: 600,
+            fontWeight: 800,
+            borderRadius: 999,
+            paddingLeft: 18,
+            paddingRight: 18,
           },
         },
       },
@@ -51,7 +54,7 @@ export const getTheme = (mode: 'light' | 'dark'): ThemeOptions => {
       MuiCard: {
         styleOverrides: {
           root: {
-            boxShadow: mode === 'light' ? '0 4px 12px rgba(0,0,0,0.05)' : '0 4px 12px rgba(0,0,0,0.5)',
+            boxShadow: mode === 'light' ? '0 8px 24px rgba(27,37,91,0.06)' : '0 4px 12px rgba(0,0,0,0.5)',
           },
         },
       },

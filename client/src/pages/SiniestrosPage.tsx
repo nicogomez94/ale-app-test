@@ -4,16 +4,17 @@ import {
   TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
   TextField, InputAdornment, Dialog, DialogTitle, DialogContent,
   DialogActions, Grid, Chip, CircularProgress, Select, MenuItem,
-  FormControl, InputLabel, Drawer, Divider,
+  FormControl, InputLabel, Divider,
   LinearProgress
 } from '@mui/material';
 import {
-  Plus, Search, Edit2, Download, AlertTriangle, CheckCircle,
-  XCircle, Clock, FileText, X, ChevronRight, Notebook
+  Plus, Search, Edit2, Download, AlertTriangle, CheckCircle, FileDown,
+  XCircle, Clock, FileText, X, ChevronRight, Notebook, Mail, MessageCircle
 } from 'lucide-react';
 import { api } from '../api';
 import { DEBUG, debugData } from '../data/debugData';
 import { ListingActions } from '../components/ListingActions';
+import { printTableReport } from '../utils/reportExports';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type SiniestroEstado =
@@ -103,7 +104,7 @@ const EMPTY_FORM = {
 
 export const SiniestrosPage: React.FC = () => {
   const [siniestros, setSiniestros] = useState<Siniestro[]>([]);
-  const [kpis, setKpis] = useState({ total: 0, activos: 0, montoReclamadoTotal: 0, montoPagadoTotal: 0 });
+  const [kpis, setKpis] = useState({ total: 0, activos: 0, enGestion: 0, criticos: 0, tiempoPromedioDias: 0, montoReclamadoTotal: 0, montoPagadoTotal: 0 });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
@@ -222,6 +223,11 @@ export const SiniestrosPage: React.FC = () => {
     } catch (err: any) { alert(err.message); }
   };
 
+  const handleExportPdf = () => printTableReport('Centro de Siniestros', siniestros, [
+    { label: 'Siniestro', value: (s) => s.numeroSiniestro }, { label: 'Cliente', value: (s) => s.clienteNombre }, { label: 'Póliza', value: (s) => s.numeroPoliza },
+    { label: 'Tipo', value: (s) => s.tipoSeguro }, { label: 'Estado', value: (s) => estadoInfo(s.estado).label }, { label: 'Prioridad', value: (s) => s.prioridad }, { label: 'Reclamado', value: (s) => fmt(s.importeReclamado) },
+  ]);
+
   const buildContactMessage = (s: Siniestro) =>
     `Hola ${s.clienteNombre}, te contactamos por el siniestro N° ${s.numeroSiniestro} de tu póliza ${s.numeroPoliza} con ${s.aseguradora}. Queríamos darte seguimiento al estado del reclamo: ${estadoInfo(s.estado).label}. Saludos, PAS Alert.`;
 
@@ -276,15 +282,16 @@ export const SiniestrosPage: React.FC = () => {
         gap: 2,
       }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800 }}>Módulo de Siniestros</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 900 }}>Centro de Siniestros</Typography>
           <Typography variant="body1" color="text.secondary">
-            Registrá, seguí y cerrá todos los reclamos de tus clientes.
+            Gestión inteligente, seguimiento activo y control de tiempos.
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
           <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleExport}>
-            Exportar Excel
+            Exportar
           </Button>
+          <Button variant="outlined" color="error" startIcon={<FileDown size={20} />} onClick={handleExportPdf}>Exportar PDF</Button>
           <Button variant="contained" startIcon={<Plus size={20} />} onClick={openCreate} sx={{ borderRadius: 3 }}>
             Nuevo Siniestro
           </Button>
@@ -294,10 +301,10 @@ export const SiniestrosPage: React.FC = () => {
       {/* KPI Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {[
-          { label: 'Total Siniestros', value: kpis.total, icon: <FileText size={24} />, color: '#6366f1' },
-          { label: 'Siniestros Activos', value: kpis.activos, icon: <Clock size={24} />, color: '#f59e0b' },
-          { label: 'Monto Reclamado', value: fmt(kpis.montoReclamadoTotal), icon: <AlertTriangle size={24} />, color: '#ef4444' },
-          { label: 'Monto Pagado', value: fmt(kpis.montoPagadoTotal), icon: <CheckCircle size={24} />, color: '#10b981' },
+          { label: 'Siniestros Activos', value: kpis.activos, icon: <FileText size={24} />, color: '#4f8ee8' },
+          { label: 'En Gestión', value: kpis.enGestion, icon: <Clock size={24} />, color: '#e9ad25' },
+          { label: 'Siniestros Críticos', value: kpis.criticos, icon: <AlertTriangle size={24} />, color: '#ef5260' },
+          { label: 'Tiempo Promedio', value: `${kpis.tiempoPromedioDias} días`, icon: <Clock size={24} />, color: '#8e66db' },
         ].map(kpi => (
           <Grid size={{ xs: 12, sm: 6, md: 3 }} key={kpi.label}>
             <Card sx={{ borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
@@ -410,6 +417,7 @@ export const SiniestrosPage: React.FC = () => {
                   <TableCell onClick={() => openDetail(s)}>{fmt(s.importeReclamado)}</TableCell>
                   <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
                     <ListingActions
+                      onView={() => openDetail(s)}
                       onWhatsApp={() => handleWhatsApp(s)}
                       onEmail={() => handleEmailClick(s)}
                       onEdit={() => openEdit(s)}
@@ -603,12 +611,13 @@ export const SiniestrosPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* ─── Detail Drawer ───────────────────────────────────────────────────── */}
-      <Drawer
-        anchor="right"
+      {/* ─── Detail Modal ────────────────────────────────────────────────────── */}
+      <Dialog
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
-        PaperProps={{ sx: { width: { xs: '100%', sm: 520 }, p: 3 } }}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{ sx: { width: 'min(1180px, 96vw)', maxHeight: '92vh', p: { xs: 2, md: 3 }, borderRadius: 4, overflowY: 'auto' } }}
       >
         {selectedSiniestro && (() => {
           const s = selectedSiniestro;
@@ -616,10 +625,14 @@ export const SiniestrosPage: React.FC = () => {
           const pri = PRIORIDADES.find(p => p.value === s.prioridad) ?? PRIORIDADES[2];
           return (
             <>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                <Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, gap: 2, flexWrap: 'wrap' }}>
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                  <Box sx={{ width: 58, height: 58, borderRadius: '50%', bgcolor: '#eef5ff', color: '#4f8ee8', display: 'grid', placeItems: 'center' }}><AlertTriangle size={25} /></Box>
+                  <Box>
                   <Typography variant="h6" fontWeight={700}>{s.numeroSiniestro}</Typography>
                   <Typography variant="body2" color="text.secondary">{s.clienteNombre}</Typography>
+                    <Box sx={{ display: 'flex', gap: 1, mt: 1 }}><Button size="small" color="success" variant="outlined" startIcon={<MessageCircle size={15} />} disabled={!s.clienteTelefono} onClick={() => handleWhatsApp(s)}>WhatsApp</Button><Button size="small" variant="outlined" startIcon={<Mail size={15} />} disabled={!s.clienteEmail} onClick={() => handleEmailClick(s)}>Email</Button></Box>
+                  </Box>
                 </Box>
                 <IconButton onClick={() => setDetailOpen(false)}><X size={20} /></IconButton>
               </Box>
@@ -768,7 +781,7 @@ export const SiniestrosPage: React.FC = () => {
             </>
           );
         })()}
-      </Drawer>
+      </Dialog>
     </Box>
   );
 };

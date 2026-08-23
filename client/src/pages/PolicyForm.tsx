@@ -16,7 +16,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import { Building2, Hash, HeartPulse, Mail, MapPin, Phone, Save, Shield, User } from 'lucide-react';
+import { Building2, Hash, HeartPulse, Mail, MapPin, Phone, Save, Shield, Sparkles, Upload, User } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -119,10 +119,21 @@ function createGroupId(): string {
   return `group-${Date.now()}`;
 }
 
-export const PolicyForm: React.FC = () => {
+export type PolicyFormProps = {
+  embedded?: boolean;
+  initialMode?: 'CLIENTE' | 'EMPRESA' | 'VIDA_RETIRO';
+  lockMode?: boolean;
+  initialClient?: any;
+  onSaved?: () => void;
+};
+
+export const PolicyForm: React.FC<PolicyFormProps> = ({ embedded = false, initialMode, lockMode, initialClient, onSaved }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const routeState = (location.state || {}) as { policyMode?: 'CLIENTE' | 'EMPRESA' | 'VIDA_RETIRO'; lockPolicyMode?: boolean };
+  const locationState = (location.state || {}) as { policyMode?: 'CLIENTE' | 'EMPRESA' | 'VIDA_RETIRO'; lockPolicyMode?: boolean; client?: any };
+  const routeState = embedded
+    ? { policyMode: initialMode || 'CLIENTE', lockPolicyMode: lockMode ?? false, client: initialClient }
+    : locationState;
   const initialPolicyMode = routeState.policyMode || 'CLIENTE';
   const lockPolicyMode = !!routeState.lockPolicyMode;
   const [snackOpen, setSnackOpen] = useState(false);
@@ -130,6 +141,7 @@ export const PolicyForm: React.FC = () => {
   const [error, setError] = useState('');
   const [manualVencimiento, setManualVencimiento] = useState(false);
   const [directoryInsurers, setDirectoryInsurers] = useState<string[]>([]);
+  const [couponFile, setCouponFile] = useState<File | null>(null);
 
   const defaultFechaInicio = new Date().toISOString().split('T')[0];
 
@@ -145,15 +157,15 @@ export const PolicyForm: React.FC = () => {
     return {
       policyMode: initialPolicyMode,
       vidaRetiroTipo: 'VIDA',
-      clienteNombre: '',
-      clienteDni: '',
-      clienteTelefono: '',
-      clienteEmail: '',
-      clienteDireccion: '',
-      clienteAltura: '',
-      clienteCp: '',
-      clienteProvincia: '',
-      clienteLocalidad: '',
+      clienteNombre: routeState.client?.nombre || '',
+      clienteDni: routeState.client?.dni || '',
+      clienteTelefono: routeState.client?.telefono || '',
+      clienteEmail: routeState.client?.email || '',
+      clienteDireccion: routeState.client?.direccion || '',
+      clienteAltura: routeState.client?.altura || '',
+      clienteCp: routeState.client?.cp || '',
+      clienteProvincia: routeState.client?.provincia || '',
+      clienteLocalidad: routeState.client?.localidad || '',
       aseguradora: '',
       rubro: '',
       numeroPoliza: '',
@@ -168,7 +180,7 @@ export const PolicyForm: React.FC = () => {
       aporteMensual: undefined,
       fondoAcumulado: undefined,
     };
-  }, [defaultFechaInicio, initialPolicyMode]);
+  }, [defaultFechaInicio, initialPolicyMode, routeState.client]);
 
   const {
     control,
@@ -232,7 +244,8 @@ export const PolicyForm: React.FC = () => {
           provincia: data.clienteProvincia || undefined,
         });
         setSnackOpen(true);
-        setTimeout(() => navigate('/vida-y-retiro'), 1200);
+        if (embedded) onSaved?.();
+        else setTimeout(() => navigate('/vida-y-retiro'), 1200);
         return;
       }
 
@@ -240,6 +253,7 @@ export const PolicyForm: React.FC = () => {
       const vigencia = (data.vigencia || 'ANUAL') as PolicyVigencia;
       const cuotaTotal = getQuotaTotalFromVigencia(vigencia);
       const payload: PolicyPayload = {
+        clienteId: routeState.client?.id || undefined,
         clienteNombre: data.clienteNombre || '',
         clienteDni: data.clienteDni || '',
         clienteTelefono: data.clienteTelefono || '',
@@ -266,9 +280,11 @@ export const PolicyForm: React.FC = () => {
         moneda: data.moneda ?? 'ARS',
       };
 
-      await api.policies.create(payload);
+      const created = await api.policies.create(payload);
+      if (couponFile && created?.id) await api.policies.coupon.upload(created.id, couponFile);
       setSnackOpen(true);
-      setTimeout(() => navigate(policyType === 'EMPRESA' ? '/empresas' : '/clientes'), 1200);
+      if (embedded) onSaved?.();
+      else setTimeout(() => navigate(policyType === 'EMPRESA' ? '/empresas' : '/clientes'), 1200);
     } catch (err: any) {
       setError(err.message || 'No se pudo guardar la poliza');
     } finally {
@@ -277,12 +293,14 @@ export const PolicyForm: React.FC = () => {
   };
 
   return (
-    <Box>
-      <Typography variant="h4" sx={{ fontWeight: 800, mb: 4 }}>
+    <Box sx={{ maxWidth: 1380, mx: 'auto', bgcolor: 'background.paper', p: { xs: 2, md: 3 }, borderRadius: embedded ? 0 : 4, boxShadow: embedded ? 'none' : '0 18px 50px rgba(20,31,80,.12)' }}>
+      <Typography variant="h4" sx={{ fontWeight: 900, mb: 2 }}>
         {policyMode === 'EMPRESA' ? 'Nueva Póliza de Empresa' : policyMode === 'VIDA_RETIRO' ? 'Nueva Póliza de Vida y Retiro' : 'Nueva Póliza de Cliente'}
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+
+      <Card variant="outlined" sx={{ mb: 3, borderStyle: 'dashed', borderColor: 'primary.main', bgcolor: '#f8f9ff' }}><CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', py: '14px !important' }}><Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}><Box sx={{ width: 42, height: 42, borderRadius: '50%', bgcolor: 'primary.main', color: 'white', display: 'grid', placeItems: 'center' }}><Sparkles size={20} /></Box><Box><Typography fontWeight={900}>Carga Inteligente por IA ✨</Typography><Typography variant="body2" color="text.secondary">Subí la póliza en PDF y el sistema completará los campos automáticamente.</Typography></Box></Box><Button variant="contained" startIcon={<Upload size={17} />} onClick={() => navigate('/polizas/importar')}>Subir PDF de Póliza</Button></CardContent></Card>
 
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container spacing={3}>
@@ -724,6 +742,7 @@ export const PolicyForm: React.FC = () => {
             </Button>
           </Grid>
         </Grid>
+        {policyMode !== 'VIDA_RETIRO' && <Card variant="outlined" sx={{ mt: 3, borderRadius: 3 }}><CardContent><Typography fontWeight={900} color="primary" sx={{ mb: 1.5 }}>CUPÓN DE PAGO (PDF)</Typography><Button component="label" fullWidth variant="outlined" startIcon={<Upload />} sx={{ minHeight: 110, borderStyle: 'dashed', borderWidth: 2, display: 'flex', flexDirection: 'column', gap: 1 }}><Typography fontWeight={800}>{couponFile ? couponFile.name : 'Arrastrá tu archivo PDF aquí o hacé clic para buscar'}</Typography><Typography variant="caption" color="text.secondary">Soporta únicamente formato PDF</Typography><input hidden type="file" accept="application/pdf" onChange={(e) => setCouponFile(e.target.files?.[0] || null)} /></Button></CardContent></Card>}
       </form>
 
       <Snackbar open={snackOpen} autoHideDuration={4000} onClose={() => setSnackOpen(false)}>

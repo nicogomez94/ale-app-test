@@ -7,7 +7,7 @@ dotenv.config();
 import { authRouter } from "./routes/auth.js";
 import { clientsRouter } from "./routes/clients.js";
 import { companiesRouter } from "./routes/companies.js";
-import { policiesRouter } from "./routes/policies.js";
+import { policiesRouter, publicCouponsRouter } from "./routes/policies.js";
 import { policyImportsRouter } from "./routes/policyImports.js";
 import { policyDocumentsRouter } from "./routes/policyDocuments.js";
 import { lifeFinanceRouter } from "./routes/lifeFinance.js";
@@ -24,6 +24,7 @@ import { authMiddleware } from "./middleware/auth.js";
 import { subscriptionGuard } from "./middleware/subscriptionGuard.js";
 import { startSubscriptionReminders } from "./lib/subscriptionReminders.js";
 import { whatsappWebhookRouter } from "./routes/whatsappWebhook.js";
+import { toolsRouter } from "./routes/tools.js";
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3003");
@@ -63,6 +64,7 @@ app.use(express.json({ limit: "5mb" }));
 app.use("/api/auth", authRouter);
 app.use("/api/subscriptions", subscriptionsRouter);
 app.use("/api/profile", profileRouter);
+app.use("/api/public/coupons", publicCouponsRouter);
 
 // Guarded routes (blocked when subscription expired)
 app.use("/api/clients", authMiddleware, subscriptionGuard, clientsRouter);
@@ -77,6 +79,7 @@ app.use("/api/referrals", authMiddleware, subscriptionGuard, referralsRouter);
 app.use("/api/dashboard", authMiddleware, subscriptionGuard, dashboardRouter);
 app.use("/api/siniestros", authMiddleware, subscriptionGuard, siniestrosRouter);
 app.use("/api/cotizaciones", cotizacionesRouter); // has mixed public/protected routes internally
+app.use("/api/tools", authMiddleware, subscriptionGuard, toolsRouter);
 app.use("/api/admin", adminRouter);
 
 // Health check

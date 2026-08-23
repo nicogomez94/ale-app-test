@@ -166,6 +166,9 @@ siniestrosRouter.get("/kpis", async (req: AuthRequest, res: Response) => {
         estado: true,
         importeReclamado: true,
         montoAprobado: true,
+        prioridad: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -180,8 +183,14 @@ siniestrosRouter.get("/kpis", async (req: AuthRequest, res: Response) => {
     const montoPagadoTotal = all
       .filter((s) => s.estado === "PAGADO")
       .reduce((acc, s) => acc + (s.montoAprobado ?? 0), 0);
+    const enGestion = all.filter((s) => ["EN_GESTION", "EN_INSPECCION", "EN_ANALISIS"].includes(s.estado)).length;
+    const criticos = all.filter((s) => s.prioridad === "ALTA" && !["PAGADO", "RECHAZADO"].includes(s.estado)).length;
+    const cerrados = all.filter((s) => ["PAGADO", "RECHAZADO"].includes(s.estado));
+    const tiempoPromedioDias = cerrados.length
+      ? Math.round(cerrados.reduce((sum, s) => sum + Math.max(0, s.updatedAt.getTime() - s.createdAt.getTime()), 0) / cerrados.length / 86_400_000)
+      : 0;
 
-    res.json({ total, activos, montoReclamadoTotal, montoPagadoTotal });
+    res.json({ total, activos, enGestion, criticos, tiempoPromedioDias, montoReclamadoTotal, montoPagadoTotal });
   } catch (error) {
     console.error("KPIs siniestros error:", error);
     res.status(500).json({ error: "Error interno del servidor" });

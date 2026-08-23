@@ -8,12 +8,14 @@ import {
   LayoutDashboard, Users, CreditCard, Bell, LogOut,
   Menu as MenuIcon, UserCircle, BarChart3, Sun, Moon, Building2, HeartPulse,
   Calendar, Clock, Shield, AlertTriangle, MessageSquare,
-  PanelLeftClose, PanelLeftOpen, ShieldCheck, ChevronDown, ChevronRight, FileSearch
+  PanelLeftClose, PanelLeftOpen, ShieldCheck, ChevronDown, ChevronRight, Wrench, Lightbulb, Coins, BookOpen, Send, StickyNote
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api';
+import { AlertCenter } from './AlertCenter';
+import { WhatsAppLauncher } from './WhatsAppLauncher';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -55,6 +57,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
     clientes: 0,
     empresas: 0,
     vidaRetiro: 0,
+    vida: 0,
+    retiro: 0,
     cotizaciones: 0,
     siniestros: 0,
     comisiones: 0,
@@ -63,6 +67,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
     referidos: 0,
   });
   const [insurersOpen, setInsurersOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = !!user?.isAdmin;
@@ -80,6 +85,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
         clientes: s.polizasClientes || 0,
         empresas: s.polizasEmpresas || 0,
         vidaRetiro: s.polizasVidaRetiro || 0,
+        vida: s.polizasVida || 0,
+        retiro: s.polizasRetiro || 0,
         cotizaciones: s.cotizacionesSinVer || 0,
         siniestros: s.siniestrosPendientes || 0,
         comisiones: s.comisionesPendientes || 0,
@@ -104,34 +111,44 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
     if (['/directorio', '/aseguradoras'].includes(location.pathname)) {
       setInsurersOpen(true);
     }
+    if (location.pathname === '/herramientas') setToolsOpen(true);
   }, [location.pathname]);
 
   const menuItems = [
     { text: 'Dashboard', icon: <LayoutDashboard size={20} color="#4f46e5" />, path: '/dashboard' },
-    { text: 'Vencimientos', icon: <AlertTriangle size={20} color="#f97316" />, path: '/dashboard?filter=expiring', badge: expiringCount, badgeColor: '#f97316', showZero: true, filter: 'expiring' },
     { text: 'Clientes', icon: <UserCircle size={20} color="#0ea5e9" />, path: '/clientes', badge: menuCounts.clientes, badgeColor: '#0ea5e9' },
     { text: 'Empresas', icon: <Building2 size={20} color="#8b5cf6" />, path: '/empresas', badge: menuCounts.empresas, badgeColor: '#8b5cf6' },
-    { text: 'Vida y Retiro', icon: <HeartPulse size={20} color="#ef4444" />, path: '/vida-y-retiro', badge: menuCounts.vidaRetiro, badgeColor: '#ef4444' },
-    { text: 'Importar PDF', icon: <FileSearch size={20} color="#f59e0b" />, path: '/polizas/importar', badge: menuCounts.importaciones, badgeColor: '#f59e0b' },
-    { text: 'Cotizaciones', icon: <MessageSquare size={20} color="#10b981" />, path: '/cotizaciones', badge: menuCounts.cotizaciones, badgeColor: '#10b981' },
+    { text: 'Vida', icon: <HeartPulse size={20} color="#ef4444" />, path: '/vida-y-retiro?tipo=VIDA', badge: menuCounts.vida, badgeColor: '#ef4444', queryType: 'VIDA' },
+    { text: 'Retiro', icon: <Coins size={20} color="#f2a900" />, path: '/vida-y-retiro?tipo=RETIRO', badge: menuCounts.retiro, badgeColor: '#f2a900', queryType: 'RETIRO' },
+    { text: 'Cotizaciones', icon: <MessageSquare size={20} color="#10b981" />, path: '/cotizaciones', badge: menuCounts.cotizaciones, badgeColor: '#10b981', showZero: true },
     { text: 'Siniestros', icon: <AlertTriangle size={20} color="#f43f5e" />, path: '/siniestros', badge: menuCounts.siniestros, badgeColor: '#f43f5e' },
     { text: 'Comisiones', icon: <BarChart3 size={20} color="#10b981" />, path: '/comisiones', badge: menuCounts.comisiones, badgeColor: '#10b981' },
     { text: 'Referidos', icon: <Users size={20} color="#ec4899" />, path: '/referidos', badge: menuCounts.referidos, badgeColor: '#ec4899' },
+    { text: 'Herramientas', icon: <Wrench size={20} color="#667085" />, path: '/herramientas' },
     { text: subscriptionSectionLabel, icon: <CreditCard size={20} color="#6366f1" />, path: '/pagos' },
+    { text: 'Sugerencias', icon: <Lightbulb size={20} color="#dbc21b" />, path: '/sugerencias' },
     ...(user?.isAdmin ? [{ text: 'Administración', icon: <Shield size={20} color="#dc2626" />, path: '/admin' }] : []),
   ];
 
   const insurerSubItems = [
     { text: 'Compañías y Brokers', icon: <ShieldCheck size={20} color="#10b981" />, path: '/aseguradoras', aliases: ['/directorio'] },
   ];
+  const toolSubItems = [
+    { text: 'Calendario', icon: <Calendar size={18} />, path: '/herramientas?tab=calendario', tab: 'calendario' },
+    { text: 'Notas Rápidas', icon: <StickyNote size={18} />, path: '/herramientas?tab=notas', tab: 'notas' },
+    { text: 'Lanzador de Chats', icon: <Send size={18} />, path: '/herramientas?tab=lanzador', tab: 'lanzador' },
+    { text: 'Biblioteca de Scripts', icon: <BookOpen size={18} />, path: '/herramientas?tab=biblioteca', tab: 'biblioteca' },
+  ];
 
   const isPathActive = (path: string, aliases: string[] = []) => location.pathname === path || aliases.includes(location.pathname);
   const isInsurersActive = insurerSubItems.some((item) => isPathActive(item.path, item.aliases));
-  const isMenuItemActive = (item: { path: string; filter?: string }) => {
+  const isMenuItemActive = (item: { path: string; filter?: string; queryType?: string }) => {
     const dashboardFilter = new URLSearchParams(location.search).get('filter');
+    const itemPath = item.path.split('?')[0];
+    if (item.queryType) return location.pathname === itemPath && new URLSearchParams(location.search).get('tipo') === item.queryType;
     if (item.filter) return location.pathname === '/dashboard' && dashboardFilter === item.filter;
     if (item.path === '/dashboard') return location.pathname === '/dashboard' && !dashboardFilter;
-    return location.pathname === item.path;
+    return location.pathname === itemPath;
   };
 
   const activeDrawerWidth = sidebarCollapsed ? collapsedDrawerWidth : drawerWidth;
@@ -141,7 +158,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
       <Box
         sx={{
           px: collapsed ? 1.5 : 2.25,
-          py: collapsed ? 1.5 : 2,
+          py: collapsed ? 1.5 : 2.5,
           minHeight: collapsed ? 88 : 104,
           display: 'flex',
           alignItems: 'center',
@@ -181,10 +198,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
               component="div"
               onClick={() => { navigate(item.path); setMobileOpen(false); }}
               sx={{
-                borderRadius: 2,
+                borderRadius: 999,
                 mb: 1,
                 cursor: 'pointer',
-                minHeight: 48,
+                minHeight: 54,
                 justifyContent: collapsed ? 'center' : 'flex-start',
                 px: collapsed ? 1 : 2,
                 bgcolor: active ? 'primary.main' : 'transparent',
@@ -194,16 +211,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
               }}
             >
               <ListItemIcon sx={{ minWidth: collapsed ? 0 : 40, justifyContent: 'center' }}>
-                <Badge
-                  badgeContent={(item as any).badge || 0}
-                  showZero={Boolean((item as any).showZero)}
-                  max={99}
-                  sx={{ '& .MuiBadge-badge': { bgcolor: (item as any).badgeColor || 'primary.main', color: 'white', fontWeight: 800 } }}
-                >
-                  {item.icon}
-                </Badge>
+                {collapsed ? <Badge badgeContent={(item as any).badge || 0} showZero={Boolean((item as any).showZero)} max={99} sx={{ '& .MuiBadge-badge': { bgcolor: (item as any).badgeColor || 'primary.main', color: 'white', fontWeight: 800 } }}>{item.icon}</Badge> : item.icon}
               </ListItemIcon>
               {!collapsed && <ListItemText primary={item.text} primaryTypographyProps={{ fontWeight: 500 }} />}
+              {!collapsed && ((item as any).badge > 0 || (item as any).showZero) && <Box sx={{ ml: 'auto', minWidth: 28, height: 28, px: .75, borderRadius: 999, bgcolor: (item as any).badgeColor || 'primary.main', color: 'white', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 900, boxShadow: `0 4px 10px ${(item as any).badgeColor || '#222'}44` }}>{(item as any).badge || 0}</Box>}
             </ListItem>
           </Tooltip>
           );
@@ -212,14 +223,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
         <Tooltip title={collapsed ? 'Aseguradoras' : ''} placement="right">
           <ListItem
             component="div"
-            onClick={() => {
-              if (collapsed) {
-                navigate('/directorio');
-                setMobileOpen(false);
-                return;
-              }
-              setInsurersOpen((prev) => !prev);
-            }}
+            onClick={() => { navigate('/aseguradoras'); setMobileOpen(false); }}
             sx={{
               borderRadius: 999,
               mb: 1,
@@ -227,30 +231,24 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
               minHeight: 56,
               justifyContent: collapsed ? 'center' : 'flex-start',
               px: collapsed ? 1 : 2,
-              bgcolor: isInsurersActive ? 'primary.light' : 'transparent',
-              color: isInsurersActive ? '#111827' : 'text.primary',
+              bgcolor: isInsurersActive ? 'primary.main' : 'transparent',
+              color: isInsurersActive ? 'white' : 'text.primary',
               '&:hover': {
-                bgcolor: 'primary.light',
+                bgcolor: isInsurersActive ? 'primary.main' : 'primary.light',
                 color: 'white',
                 '& svg': { stroke: 'white' },
               },
             }}
           >
             <ListItemIcon sx={{ minWidth: collapsed ? 0 : 40, justifyContent: 'center' }}>
-              <Badge
-                badgeContent={menuCounts.aseguradoras}
-                max={99}
-                sx={{ '& .MuiBadge-badge': { bgcolor: '#14b8a6', color: 'white', fontWeight: 800 } }}
-              >
-                <ShieldCheck size={22} color={isInsurersActive ? '#111827' : '#64748b'} />
-              </Badge>
+              {collapsed ? <Badge badgeContent={menuCounts.aseguradoras} max={99} sx={{ '& .MuiBadge-badge': { bgcolor: '#14b8a6', color: 'white', fontWeight: 800 } }}><ShieldCheck size={22} /></Badge> : <ShieldCheck size={22} color={isInsurersActive ? '#5de4cf' : '#14b8a6'} />}
             </ListItemIcon>
             {!collapsed && <ListItemText primary="Aseguradoras" primaryTypographyProps={{ fontWeight: 700, fontSize: '1rem' }} />}
-            {!collapsed && (insurersOpen ? <ChevronDown size={20} /> : <ChevronRight size={20} />)}
+            {!collapsed && menuCounts.aseguradoras > 0 && <Box sx={{ ml: 'auto', minWidth: 28, height: 28, px: .75, borderRadius: 999, bgcolor: '#14b8a6', color: 'white', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 900 }}>{menuCounts.aseguradoras}</Box>}
           </ListItem>
         </Tooltip>
 
-        {!collapsed && (
+        {false && !collapsed && (
           <Collapse in={insurersOpen} timeout="auto" unmountOnExit>
             <List component="div" disablePadding sx={{ pl: 2, mb: 1 }}>
               {insurerSubItems.map((item) => {
@@ -287,16 +285,40 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
 
         {menuItems.slice(8).map((item) => {
           const active = isMenuItemActive(item);
+          if (item.text === 'Herramientas') {
+            const activeTab = new URLSearchParams(location.search).get('tab') || 'lanzador';
+            return (
+              <React.Fragment key={item.text}>
+                <ListItem
+                  component="div"
+                  onClick={() => setToolsOpen((value) => !value)}
+                  sx={{ borderRadius: 999, mb: 1, cursor: 'pointer', minHeight: 54, px: 2, bgcolor: active ? '#6557c8' : 'transparent', color: active ? 'white' : 'text.primary', '&:hover': { bgcolor: active ? '#6557c8' : 'primary.light', color: 'white' } }}
+                >
+                  <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}>{item.icon}</ListItemIcon>
+                  <ListItemText primary="Herramientas" primaryTypographyProps={{ fontWeight: 700 }} />
+                  {toolsOpen ? <ChevronDown size={17} /> : <ChevronRight size={17} />}
+                </ListItem>
+                <Collapse in={toolsOpen} timeout="auto" unmountOnExit>
+                  <List disablePadding sx={{ pl: 2, mb: 1 }}>
+                    {toolSubItems.map((subItem) => {
+                      const subActive = location.pathname === '/herramientas' && activeTab === subItem.tab;
+                      return <ListItem key={subItem.tab} component="div" onClick={() => { navigate(subItem.path); setMobileOpen(false); }} sx={{ borderRadius: 3, mb: .5, minHeight: 46, px: 2, cursor: 'pointer', bgcolor: subActive ? 'primary.main' : 'transparent', color: subActive ? 'white' : 'text.primary', '&:hover': { bgcolor: subActive ? 'primary.main' : 'action.hover' } }}><ListItemIcon sx={{ minWidth: 36, color: 'inherit' }}>{subItem.icon}</ListItemIcon><ListItemText primary={subItem.text} primaryTypographyProps={{ fontSize: '.88rem', fontWeight: subActive ? 800 : 500 }} /></ListItem>;
+                    })}
+                  </List>
+                </Collapse>
+              </React.Fragment>
+            );
+          }
           return (
           <Tooltip key={item.text} title={collapsed ? item.text : ''} placement="right">
             <ListItem
               component="div"
               onClick={() => { navigate(item.path); setMobileOpen(false); }}
               sx={{
-                borderRadius: 2,
+                borderRadius: 999,
                 mb: 1,
                 cursor: 'pointer',
-                minHeight: 48,
+                minHeight: 54,
                 justifyContent: collapsed ? 'center' : 'flex-start',
                 px: collapsed ? 1 : 2,
                 bgcolor: active ? 'primary.main' : 'transparent',
@@ -306,15 +328,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
               }}
             >
               <ListItemIcon sx={{ minWidth: collapsed ? 0 : 40, justifyContent: 'center' }}>
-                <Badge
-                  badgeContent={(item as any).badge || 0}
-                  max={99}
-                  sx={{ '& .MuiBadge-badge': { bgcolor: (item as any).badgeColor || 'primary.main', color: 'white', fontWeight: 800 } }}
-                >
-                  {item.icon}
-                </Badge>
+                {collapsed ? <Badge badgeContent={(item as any).badge || 0} showZero={Boolean((item as any).showZero)} max={99} sx={{ '& .MuiBadge-badge': { bgcolor: (item as any).badgeColor || 'primary.main', color: 'white', fontWeight: 800 } }}>{item.icon}</Badge> : item.icon}
               </ListItemIcon>
               {!collapsed && <ListItemText primary={item.text} primaryTypographyProps={{ fontWeight: 500 }} />}
+              {!collapsed && ((item as any).badge > 0 || (item as any).showZero) && <Box sx={{ ml: 'auto', minWidth: 28, height: 28, px: .75, borderRadius: 999, bgcolor: (item as any).badgeColor || 'primary.main', color: 'white', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 900 }}>{(item as any).badge || 0}</Box>}
             </ListItem>
           </Tooltip>
           );
@@ -399,6 +416,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 }, minWidth: 0 }}>
+            <AlertCenter />
             <IconButton onClick={onToggleDarkMode} color="inherit">
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
             </IconButton>
@@ -462,7 +480,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
           }}
           open
         >
-          {renderDrawer(sidebarCollapsed, true)}
+          {renderDrawer(false, false)}
         </Drawer>
       </Box>
 
@@ -498,7 +516,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
           </Box>
         )}
         {children}
+        <Box component="footer" sx={{ mt: 5, pb: 1, textAlign: 'center', color: 'text.disabled', fontSize: 11 }}>
+          Hecho por <Box component="a" href="https://zigodev.com.ar" target="_blank" rel="noopener noreferrer" sx={{ color: 'inherit' }}>zigodev</Box>
+        </Box>
       </Box>
+      <WhatsAppLauncher />
     </Box>
   );
 };

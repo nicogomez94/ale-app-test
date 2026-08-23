@@ -5,6 +5,7 @@ import { authMiddleware, AuthRequest } from "../middleware/auth.js";
 import { subscriptionGuard } from "../middleware/subscriptionGuard.js";
 import { sendEmail } from "../lib/email.js";
 import * as XLSX from "xlsx";
+import { checkPlanLimit } from "../middleware/planLimits.js";
 
 export const cotizacionesRouter = Router();
 
@@ -206,6 +207,54 @@ cotizacionesRouter.patch("/:id/viewed", async (req: AuthRequest, res: Response) 
   } catch (error) {
     console.error("Mark cotizacion viewed error:", error);
     res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
+cotizacionesRouter.post("/:id/convert-to-client", async (req: AuthRequest, res: Response) => {
+  try {
+    const cotizacion = await prisma.cotizacion.findFirst({ where: { id: req.params.id, userId: req.userId } });
+    if (!cotizacion) {
+      res.status(404).json({ error: "Cotización no encontrada" });
+      return;
+    }
+    if (cotizacion.clientId) {
+      const existing = await prisma.client.findUnique({ where: { id: cotizacion.clientId } });
+      res.json({ client: existing, cotizacion, alreadyConverted: true });
+      return;
+    }
+    const dni = String(cotizacion.cuitCuil || "").trim();
+    const duplicate = dni ? await prisma.client.findFirst({ where: { userId: req.userId!, dni } }) : null;
+    if (!duplicate) {
+      const limitCheck = await checkPlanLimit(req.userId!, "clientes");
+      if (!limitCheck.allowed) {
+        res.status(403).json({ error: limitCheck.message });
+        return;
+      }
+    }
+    const name = [cotizacion.nombre, cotizacion.apellido].filter(Boolean).join(" ").trim();
+    const birthMatch = String(cotizacion.fechaNacimiento || "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    const birthDate = birthMatch ? new Date(Date.UTC(Number(birthMatch[3]), Number(birthMatch[2]) - 1, Number(birthMatch[1]), 12)) : null;
+    const result = await prisma.$transaction(async (tx) => {
+      const client = duplicate || await tx.client.create({
+        data: {
+          userId: req.userId!, nombre: name || cotizacion.nombre,
+          dni: dni || `COT-${cotizacion.id.slice(0, 8)}`,
+          telefono: cotizacion.celular || "Sin informar",
+          email: cotizacion.email || "sin-email@pas-alert.local",
+          direccion: cotizacion.calle, cp: cotizacion.cp, localidad: cotizacion.localidad,
+          provincia: cotizacion.provincia, fechaNacimiento: birthDate,
+        },
+      });
+      const updated = await tx.cotizacion.update({
+        where: { id: cotizacion.id },
+        data: { clientId: client.id, managedAt: new Date(), viewedAt: cotizacion.viewedAt || new Date() },
+      });
+      return { client, cotizacion: updated };
+    });
+    res.json({ ...result, alreadyConverted: Boolean(duplicate) });
+  } catch (error) {
+    console.error("Convert cotizacion error:", error);
+    res.status(500).json({ error: "No se pudo convertir la cotización en cliente" });
   }
 });
 

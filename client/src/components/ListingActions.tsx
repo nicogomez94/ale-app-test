@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Button, Tooltip } from '@mui/material';
-import { Edit2, FileDown, FileText, Mail, MessageCircle, Trash2 } from 'lucide-react';
+import { Edit2, Eye, FileDown, FileText, Mail, MessageCircle, Trash2 } from 'lucide-react';
 
 type ListingActionsProps = {
   onWhatsApp: () => void;
@@ -9,6 +9,7 @@ type ListingActionsProps = {
   onDelete: () => void;
   onCoupon?: () => void;
   onDocument?: () => void;
+  onView?: () => void;
   hasCoupon?: boolean;
   hasDocument?: boolean;
   disableWhatsApp?: boolean;
@@ -41,6 +42,7 @@ export const ListingActions: React.FC<ListingActionsProps> = ({
   onDelete,
   onCoupon,
   onDocument,
+  onView,
   hasCoupon = false,
   hasDocument = false,
   disableWhatsApp = false,
@@ -59,6 +61,22 @@ export const ListingActions: React.FC<ListingActionsProps> = ({
       ml: 'auto',
     }}
   >
+    {onView && (
+      <Button
+        fullWidth
+        size="small"
+        variant="outlined"
+        color="primary"
+        startIcon={<Eye size={14} />}
+        onClick={(event) => {
+          event.stopPropagation();
+          onView();
+        }}
+        sx={{ ...ACTION_BUTTON_SX, gridColumn: '1 / -1', justifyContent: 'center' }}
+      >
+        Ver detalle
+      </Button>
+    )}
     {onCoupon && (
       <Button
         fullWidth

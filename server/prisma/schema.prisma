@@ -178,6 +178,8 @@ model User {
   policyImportCandidates PolicyImportCandidate[]
   couponDeliveries   WhatsAppCouponDelivery[]
   weeklySummaryDispatches WeeklySummaryDispatch[]
+  messageTemplates   MessageTemplate[]
+  suggestions        Suggestion[]
 }
 
 model Client {
@@ -192,11 +194,13 @@ model Client {
   cp        String?
   provincia String?
   localidad String?
+  fechaNacimiento DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   polizas Policy[]
+  cotizaciones Cotizacion[]
 
   @@index([userId])
 }
@@ -631,6 +635,7 @@ model SiniestroNota {
 model Cotizacion {
   id                 String           @id @default(uuid())
   userId             String
+  clientId           String?
   tipo               CotizacionTipo
   origen             CotizacionOrigen @default(MANUAL)
   nombre             String
@@ -655,14 +660,17 @@ model Cotizacion {
   superficieCubierta Float?
   descripcionRiesgo  String?
   viewedAt           DateTime?
+  managedAt          DateTime?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([tipo])
   @@index([viewedAt])
+  @@index([clientId])
 }
 
 model InsuranceCompany {
@@ -726,6 +734,7 @@ model CommissionInvoice {
   insuranceCompanyId String?
   periodo            String
   numeroFactura      String
+  numeroLiquidacion  String?
   fechaEmision       DateTime
   fechaVencimiento   DateTime?
   estado             CommissionInvoiceStatus @default(PENDIENTE)
@@ -744,6 +753,38 @@ model CommissionInvoice {
   @@index([userId])
   @@index([insuranceCompanyId])
   @@index([periodo])
+  @@index([estado])
+}
+
+model MessageTemplate {
+  id        String   @id @default(uuid())
+  userId    String
+  nombre    String
+  categoria String   @default("GENERAL")
+  contenido String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([categoria])
+}
+
+model Suggestion {
+  id         String   @id @default(uuid())
+  userId     String
+  asunto     String
+  mensaje    String
+  estado     String   @default("PENDIENTE")
+  respuesta  String?
+  respondedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
   @@index([estado])
 }
 

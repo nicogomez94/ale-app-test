@@ -197,6 +197,7 @@ export interface CommissionInvoicePayload {
   insuranceCompanyId: string;
   periodo: string;
   numeroFactura: string;
+  numeroLiquidacion?: string;
   fechaEmision: string;
   fechaVencimiento?: string;
   estado: string;
@@ -330,8 +331,15 @@ export const api = {
 
   // Clients
   clients: {
-    list: (search?: string) =>
-      request<any[]>(`/clients${search ? `?search=${encodeURIComponent(search)}` : ""}`),
+    list: (search?: string, filters?: { provincia?: string; localidad?: string }) => {
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      if (filters?.provincia) params.set("provincia", filters.provincia);
+      if (filters?.localidad) params.set("localidad", filters.localidad);
+      const qs = params.toString();
+      return request<any[]>(`/clients${qs ? `?${qs}` : ""}`);
+    },
+    birthdays: (days = 7) => request<any[]>(`/clients/birthdays?days=${days}`),
     create: (data: any) =>
       request<any>("/clients", { method: "POST", body: JSON.stringify(data) }),
     update: (id: string, data: any) =>
@@ -386,6 +394,8 @@ export const api = {
       delete: (id: string) => request<{ message: string }>(`/policies/${id}/coupon`, { method: "DELETE" }),
       sendWhatsApp: (id: string) =>
         request<{ delivery: CouponDelivery }>(`/policies/${id}/coupon/send-whatsapp`, { method: "POST" }),
+      sendEmail: (id: string) =>
+        request<{ message: string; recipient: string }>(`/policies/${id}/coupon/send-email`, { method: "POST" }),
     },
     updateStatuses: () =>
       request<any>("/policies/update-statuses", { method: "POST" }),
@@ -548,7 +558,7 @@ export const api = {
       const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
       return request<any[]>(`/siniestros${qs}`);
     },
-    kpis: () => request<{ total: number; activos: number; montoReclamadoTotal: number; montoPagadoTotal: number }>("/siniestros/kpis"),
+    kpis: () => request<{ total: number; activos: number; enGestion: number; criticos: number; tiempoPromedioDias: number; montoReclamadoTotal: number; montoPagadoTotal: number }>("/siniestros/kpis"),
     create: (data: any) =>
       request<any>("/siniestros", { method: "POST", body: JSON.stringify(data) }),
     update: (id: string, data: any) =>
@@ -572,11 +582,27 @@ export const api = {
       request<any>(`/cotizaciones/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     markViewed: (id: string) =>
       request<any>(`/cotizaciones/${id}/viewed`, { method: "PATCH" }),
+    convertToClient: (id: string) =>
+      request<any>(`/cotizaciones/${id}/convert-to-client`, { method: "POST" }),
     delete: (id: string) =>
       request<any>(`/cotizaciones/${id}`, { method: "DELETE" }),
     export: (params?: { tipo?: string }) => {
       const qs = params?.tipo ? `?tipo=${encodeURIComponent(params.tipo)}` : "";
       return request<Blob>(`/cotizaciones/export${qs}`);
+    },
+  },
+
+  tools: {
+    messages: {
+      list: () => request<any[]>("/tools/messages"),
+      create: (data: any) => request<any>("/tools/messages", { method: "POST", body: JSON.stringify(data) }),
+      update: (id: string, data: any) => request<any>(`/tools/messages/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      delete: (id: string) => request<any>(`/tools/messages/${id}`, { method: "DELETE" }),
+    },
+    suggestions: {
+      list: () => request<any[]>("/tools/suggestions"),
+      create: (data: any) => request<any>("/tools/suggestions", { method: "POST", body: JSON.stringify(data) }),
+      reply: (id: string, respuesta: string) => request<any>(`/tools/suggestions/${id}/reply`, { method: "PUT", body: JSON.stringify({ respuesta }) }),
     },
   },
 };

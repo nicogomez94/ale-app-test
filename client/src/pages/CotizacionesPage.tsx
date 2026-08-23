@@ -10,13 +10,14 @@ import {
 import Grid from '@mui/material/GridLegacy';
 import {
   Plus, Search, Download, Car, Home, Package,
-  Link2, QrCode, Copy, Check
+  Link2, QrCode, Copy, Check, FileDown, UserPlus
 } from 'lucide-react';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { DEBUG, debugData } from '../data/debugData';
 import { ListingActions } from '../components/ListingActions';
+import { printTableReport } from '../utils/reportExports';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type CotizacionTipo = 'AUTO' | 'MOTO' | 'HOGAR' | 'OTROS';
@@ -48,6 +49,8 @@ interface Cotizacion {
   superficieCubierta?: number;
   descripcionRiesgo?: string;
   viewedAt?: string | null;
+  managedAt?: string | null;
+  clientId?: string | null;
   createdAt: string;
 }
 
@@ -273,6 +276,20 @@ export const CotizacionesPage: React.FC = () => {
     } catch (err: any) { alert(err.message); }
   };
 
+  const handleExportPdf = () => printTableReport('Cotizaciones', cotizaciones, [
+    { label: 'Tipo', value: (c) => TIPO_CONFIG[c.tipo].label }, { label: 'Cliente', value: (c) => `${c.nombre} ${c.apellido || ''}` },
+    { label: 'CUIT/CUIL', value: (c) => c.cuitCuil }, { label: 'Contacto', value: (c) => `${c.celular || ''} ${c.email || ''}` },
+    { label: 'Ubicación', value: (c) => `${c.localidad || ''} ${c.provincia || ''} ${c.cp || ''}` }, { label: 'Estado', value: (c) => c.clientId ? 'Ya gestionado' : 'Pendiente de gestión' },
+  ]);
+
+  const convertToClient = async (cotizacion: Cotizacion) => {
+    try {
+      const result = await api.cotizaciones.convertToClient(cotizacion.id);
+      setCotizaciones((rows) => rows.map((row) => row.id === cotizacion.id ? { ...row, clientId: result.client?.id, managedAt: new Date().toISOString(), viewedAt: row.viewedAt || new Date().toISOString() } : row));
+      window.dispatchEvent(new Event('pas-alert:refresh-counts'));
+    } catch (error: any) { alert(error.message); }
+  };
+
   const handleCopyLink = () => {
     navigator.clipboard.writeText(publicLink).then(() => {
       setCopied(true);
@@ -328,18 +345,21 @@ export const CotizacionesPage: React.FC = () => {
             Gestioná solicitudes de cotización manuales y desde tu link público.
           </Typography>
         </Box>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, max-content)' }, gap: 1.5, justifyContent: { xs: 'stretch', md: 'flex-end' }, minWidth: 0 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(4, max-content)' }, gap: 1.5, justifyContent: { xs: 'stretch', md: 'flex-end' }, minWidth: 0 }}>
           <Button variant="outlined" startIcon={<Link2 size={20} />} onClick={() => setLinkOpen(true)} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25 }}>
             Compartir Link
           </Button>
           <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleExport} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25 }}>
             Exportar Excel
           </Button>
+          <Button variant="outlined" color="error" startIcon={<FileDown size={20} />} onClick={handleExportPdf}>Exportar PDF</Button>
           <Button variant="contained" startIcon={<Plus size={20} />} onClick={openCreate} sx={{ minWidth: 0, whiteSpace: 'normal', lineHeight: 1.25, borderRadius: 3, gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
             Nueva Cotización
           </Button>
         </Box>
       </Box>
+
+      <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}><Button variant={!filterTipo ? 'contained' : 'outlined'} onClick={() => setFilterTipo('')}>Todos</Button>{Object.entries(TIPO_CONFIG).map(([key, item]) => <Button key={key} variant={filterTipo === key ? 'contained' : 'outlined'} onClick={() => setFilterTipo(key)}>{item.label}</Button>)}</Box>
 
       {/* Filters */}
       <Card sx={{ mb: 3, borderRadius: 3 }}>
@@ -377,7 +397,7 @@ export const CotizacionesPage: React.FC = () => {
         <Table>
           <TableHead>
             <TableRow sx={{ bgcolor: 'primary.main' }}>
-              {['Tipo', 'Nombre', 'Datos del Riesgo', 'Contacto', 'Origen', 'Fecha', 'Acciones'].map(h => (
+              {['Tipo', 'Cliente / Estado', 'Detalle', 'Contacto', 'Ubicación / C.P.', 'Acciones'].map(h => (
                 <TableCell key={h} sx={{ color: 'white', fontWeight: 700, textAlign: h === 'Acciones' ? 'right' : 'left', minWidth: h === 'Acciones' ? 220 : undefined }}>{h}</TableCell>
               ))}
             </TableRow>
@@ -385,7 +405,7 @@ export const CotizacionesPage: React.FC = () => {
           <TableBody>
             {cotizaciones.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                   No hay cotizaciones registradas
                 </TableCell>
               </TableRow>
@@ -395,17 +415,17 @@ export const CotizacionesPage: React.FC = () => {
               const hasHomeData = c.tipo === 'HOGAR' && (c.tipoVivienda || c.superficieCubierta);
               const hasOtherData = c.tipo === 'OTROS' && c.descripcionRiesgo;
               return (
-                <TableRow key={c.id} hover onClick={() => markViewed(c)} sx={{ cursor: c.viewedAt ? 'default' : 'pointer', bgcolor: c.viewedAt ? 'inherit' : 'rgba(25, 118, 210, 0.04)' }}>
+                <TableRow key={c.id} hover onClick={() => markViewed(c)} sx={{ cursor: c.viewedAt ? 'default' : 'pointer', bgcolor: c.clientId ? '#effcf7' : '#fff', borderLeft: `5px solid ${c.clientId ? '#23c49b' : '#f4a300'}` }}>
                   <TableCell>
                     <Chip
                       label={tc.label} size="small" icon={tc.icon as any}
                       sx={{ bgcolor: tc.color + '20', color: tc.color, fontWeight: 600, fontSize: 11 }}
                     />
-                    {!c.viewedAt && <Chip label="Nuevo" color="error" size="small" sx={{ ml: 0.75, fontWeight: 800 }} />}
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" fontWeight={600}>{c.nombre} {c.apellido ?? ''}</Typography>
-                    {c.cuitCuil && <Typography variant="caption" color="text.secondary">CUIT: {c.cuitCuil}</Typography>}
+                    {c.cuitCuil && <Typography variant="caption" color="text.secondary" display="block">{c.cuitCuil}</Typography>}
+                    <Chip size="small" color={c.clientId ? 'success' : 'warning'} label={c.clientId ? 'Ya Gestionado' : 'Pendiente de Gestión'} sx={{ mt: .5, fontWeight: 800 }} />
                   </TableCell>
                   <TableCell>
                     {hasVehicleData && (
@@ -417,19 +437,11 @@ export const CotizacionesPage: React.FC = () => {
                     {hasOtherData && <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>{c.descripcionRiesgo}</Typography>}
                     {!hasVehicleData && !hasHomeData && !hasOtherData && '—'}
                   </TableCell>
-                  <TableCell>
-                    {c.email && <Typography variant="body2">{c.email}</Typography>}
-                    {c.celular && <Typography variant="caption" color="text.secondary">{c.celular}</Typography>}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={c.origen === 'LINK_PUBLICO' ? 'Link público' : 'Manual'}
-                      size="small"
-                      color={c.origen === 'LINK_PUBLICO' ? 'info' : 'default'}
-                    />
-                  </TableCell>
-                  <TableCell>{new Date(c.createdAt).toLocaleDateString('es-AR')}</TableCell>
+                  <TableCell>{c.celular && <Typography variant="body2">☎ {c.celular}</Typography>}{c.email && <Typography variant="caption" color="text.secondary">✉ {c.email}</Typography>}</TableCell>
+                  <TableCell><Typography fontWeight={700}>{c.localidad || '-'}</Typography><Typography variant="caption" color="text.secondary" display="block">{c.provincia || '-'}</Typography>{c.cp && <Chip size="small" variant="outlined" label={`C.P.: ${c.cp}`} />}</TableCell>
                   <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
+                    {!c.clientId && <Button size="small" color="success" variant="contained" startIcon={<UserPlus size={15} />} onClick={(event) => { event.stopPropagation(); convertToClient(c); }} sx={{ mb: .5 }}>Cargar Cliente</Button>}
+                    {c.clientId && <Button size="small" color="success" variant="outlined" onClick={(event) => { event.stopPropagation(); window.location.href = '/clientes'; }} sx={{ mb: .5 }}>Ver Cliente</Button>}
                     <ListingActions
                       onWhatsApp={() => handleWhatsApp(c)}
                       onEmail={() => handleEmailClick(c.email)}

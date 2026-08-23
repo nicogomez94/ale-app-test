@@ -1,6 +1,6 @@
 import { CompanyType, CurrencyType, InteractionChannel, PolicyType, PolicyVigencia, Prisma } from "@prisma/client";
 import { Router, Response, NextFunction } from "express";
-import { randomUUID } from "crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 import multer from "multer";
 import prisma from "../lib/prisma.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
@@ -24,8 +24,10 @@ import {
   sendCouponTemplate,
   WhatsAppNotConfiguredError,
 } from "../lib/whatsapp.js";
+import { sendEmail } from "../lib/email.js";
 
 export const policiesRouter = Router();
+export const publicCouponsRouter = Router();
 policiesRouter.use(authMiddleware);
 
 function couponUploadMiddleware(req: AuthRequest, res: Response, next: NextFunction): void {
@@ -587,9 +589,9 @@ async function findOwnedPolicy(policyId: string, userId: string) {
   return prisma.policy.findFirst({
     where: { id: policyId, userId },
     include: {
-      cliente: { select: { telefono: true } },
-      company: { select: { telefono: true } },
-      user: { select: { nombre: true } },
+      cliente: { select: { telefono: true, email: true } },
+      company: { select: { telefono: true, email: true } },
+      user: { select: { nombre: true, email: true } },
     },
   });
 }
@@ -605,6 +607,43 @@ async function findCouponForPolicy(policy: { id: string; groupId: string | null;
     include: { deliveries: { orderBy: { createdAt: "desc" }, take: 1 } },
   });
 }
+
+function couponLinkSecret(): string {
+  return process.env.COUPON_LINK_SECRET || process.env.JWT_SECRET || process.env.WHATSAPP_APP_SECRET || "";
+}
+
+function signCouponLink(couponId: string, expires: number): string {
+  return createHmac("sha256", couponLinkSecret()).update(`${couponId}:${expires}`).digest("hex");
+}
+
+publicCouponsRouter.get("/:id", async (req, res) => {
+  try {
+    const expires = Number(req.query.expires || 0);
+    const token = String(req.query.token || "");
+    const secret = couponLinkSecret();
+    if (!secret || !Number.isFinite(expires) || expires < Date.now() || expires > Date.now() + 8 * 24 * 60 * 60 * 1000) {
+      res.status(403).json({ error: "invalid_coupon_link", message: "El enlace del cupón venció o no es válido." });
+      return;
+    }
+    const expected = signCouponLink(req.params.id, expires);
+    const valid = token.length === expected.length && timingSafeEqual(Buffer.from(token), Buffer.from(expected));
+    if (!valid) {
+      res.status(403).json({ error: "invalid_coupon_link", message: "El enlace del cupón no es válido." });
+      return;
+    }
+    const coupon = await prisma.policyCoupon.findUnique({ where: { id: req.params.id } });
+    if (!coupon) { res.status(404).json({ error: "coupon_not_found", message: "Cupón no encontrado." }); return; }
+    const file = await readCouponPdf(coupon.storageKey);
+    const asciiName = coupon.originalName.replace(/[^a-zA-Z0-9._-]/g, "_") || "cupon.pdf";
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("Content-Disposition", `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(coupon.originalName)}`);
+    res.send(file);
+  } catch (error) {
+    console.error("Public coupon download error:", error);
+    res.status(500).json({ error: "coupon_download_failed", message: "No se pudo descargar el cupón." });
+  }
+});
 
 // List policies
 policiesRouter.get("/", async (req: AuthRequest, res: Response) => {
@@ -1060,6 +1099,34 @@ policiesRouter.post("/:id/coupon/send-whatsapp", async (req: AuthRequest, res: R
   } catch (error) {
     console.error("Send coupon WhatsApp error:", error);
     res.status(500).json({ error: "internal_error", message: "No se pudo iniciar el envío por WhatsApp." });
+  }
+});
+
+policiesRouter.post("/:id/coupon/send-email", async (req: AuthRequest, res: Response) => {
+  try {
+    const policy = await findOwnedPolicy(req.params.id, req.userId!);
+    if (!policy) { res.status(404).json({ error: "policy_not_found", message: "Póliza no encontrada." }); return; }
+    const coupon = await findCouponForPolicy(policy);
+    if (!coupon) { res.status(409).json({ error: "coupon_not_found", message: "Cargá una cuponera antes de enviarla por correo." }); return; }
+    const recipient = (policy.clienteEmail || policy.cliente?.email || policy.company?.email || "").trim();
+    if (!recipient) { res.status(400).json({ error: "email_not_found", message: "El cliente no tiene un correo electrónico cargado." }); return; }
+    const secret = couponLinkSecret();
+    if (!secret) { res.status(503).json({ error: "coupon_link_not_configured", message: "Falta configurar COUPON_LINK_SECRET o JWT_SECRET." }); return; }
+    const expires = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const token = signCouponLink(coupon.id, expires);
+    const baseUrl = (process.env.SYSTEM_APP_URL || process.env.APP_URL || `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
+    const downloadUrl = `${baseUrl}/api/public/coupons/${coupon.id}?expires=${expires}&token=${token}`;
+    await sendEmail({
+      name: policy.user.nombre || "PAS Alert",
+      email: policy.user.email || recipient,
+      to: recipient,
+      message: `Hola ${policy.clienteNombre},\n\nTe enviamos el cupón de pago de la póliza N.º ${policy.numeroPoliza} de ${policy.aseguradora}.\n\nDescargar cupón: ${downloadUrl}\n\nEl enlace estará disponible durante 7 días.\n\nSaludos,\n${policy.user.nombre || "PAS Alert"}`,
+    });
+    await prisma.policy.update({ where: { id: policy.id }, data: { ultimaGestionTipo: "EMAIL", ultimaGestionFecha: new Date(), ultimaGestionMailCount: { increment: 1 } } });
+    res.status(202).json({ message: "Cupón enviado por correo electrónico.", recipient });
+  } catch (error: any) {
+    console.error("Send coupon email error:", error);
+    res.status(502).json({ error: "coupon_email_failed", message: error?.message || "No se pudo enviar el cupón por correo." });
   }
 });
 

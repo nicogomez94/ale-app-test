@@ -19,6 +19,7 @@ import {
   FileCheck2,
   FileUp,
   MessageCircle,
+  Mail,
   RefreshCw,
   ShieldCheck,
   Trash2,
@@ -63,7 +64,7 @@ export const PolicyCouponDialog: React.FC<Props> = ({
   const [loading, setLoading] = useState(false);
   const [working, setWorking] = useState<'upload' | 'delete' | 'send' | 'download' | null>(null);
   const [error, setError] = useState('');
-  const [confirmSend, setConfirmSend] = useState(false);
+  const [sendChooser, setSendChooser] = useState(false);
 
   useEffect(() => {
     if (!open || !policy) return;
@@ -74,7 +75,7 @@ export const PolicyCouponDialog: React.FC<Props> = ({
     api.policies.coupon.get(policy.id)
       .then(({ coupon: current }) => {
         setCoupon(current);
-        setConfirmSend(Boolean(initialSend && current));
+        setSendChooser(Boolean(initialSend && current));
       })
       .catch((err) => setError(err.message || 'No se pudo consultar la cuponera.'))
       .finally(() => setLoading(false));
@@ -106,6 +107,7 @@ export const PolicyCouponDialog: React.FC<Props> = ({
       setSelectedFile(null);
       await onChanged();
       onNotify('success', coupon ? 'Cuponera reemplazada correctamente.' : 'Cuponera cargada correctamente.');
+      if (initialSend) setSendChooser(true);
     } catch (err: any) {
       setError(err.message || 'No se pudo guardar la cuponera.');
     } finally {
@@ -150,7 +152,7 @@ export const PolicyCouponDialog: React.FC<Props> = ({
 
   const send = async () => {
     if (!policy || !coupon) return;
-    setConfirmSend(false);
+    setSendChooser(false);
     setWorking('send');
     setError('');
     try {
@@ -160,6 +162,22 @@ export const PolicyCouponDialog: React.FC<Props> = ({
       onNotify('success', 'Meta aceptó el envío de la cuponera por WhatsApp.');
     } catch (err: any) {
       setError(err.message || 'No se pudo enviar la cuponera por WhatsApp.');
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  const sendEmail = async () => {
+    if (!policy || !coupon) return;
+    setSendChooser(false);
+    setWorking('send');
+    setError('');
+    try {
+      const result = await api.policies.coupon.sendEmail(policy.id);
+      await onChanged();
+      onNotify('success', `${result.message} Destinatario: ${result.recipient}`);
+    } catch (err: any) {
+      setError(err.message || 'No se pudo enviar la cuponera por correo.');
     } finally {
       setWorking(null);
     }
@@ -223,11 +241,11 @@ export const PolicyCouponDialog: React.FC<Props> = ({
                       variant="contained"
                       color="success"
                       startIcon={<MessageCircle size={17} />}
-                      onClick={() => setConfirmSend(true)}
-                      disabled={busy || !policy?.telefono}
+                      onClick={() => setSendChooser(true)}
+                      disabled={busy || (!policy?.telefono && !policy?.email)}
                       sx={{ ml: { sm: 'auto' } }}
                     >
-                      Enviar por WhatsApp
+                      Enviar cupón
                     </Button>
                   </Box>
                 </Paper>
@@ -278,22 +296,16 @@ export const PolicyCouponDialog: React.FC<Props> = ({
         </DialogActions>
       </Dialog>
 
-      <Dialog open={confirmSend} onClose={() => setConfirmSend(false)} maxWidth="xs" fullWidth>
-        <DialogTitle fontWeight={900}>Confirmar envío real</DialogTitle>
+      <Dialog open={sendChooser} onClose={() => setSendChooser(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 4, p: 1 } }}>
+        <DialogTitle fontWeight={950}>¿Por qué medio desea enviarlo?</DialogTitle>
         <DialogContent>
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            Meta enviará el PDF mediante la plantilla aprobada. Esta acción puede generar cargos en la cuenta de WhatsApp Business.
-          </Alert>
-          <Typography variant="body2"><strong>Destinatario:</strong> {policy?.cliente}</Typography>
-          <Typography variant="body2"><strong>Teléfono:</strong> {policy?.telefono || 'Sin teléfono'}</Typography>
-          <Typography variant="body2"><strong>Póliza:</strong> {policy?.poliza} · {policy?.aseguradora}</Typography>
-          <Typography variant="body2"><strong>Archivo:</strong> {coupon?.originalName}</Typography>
+          <Typography color="text.secondary" sx={{ mb: 2 }}>Seleccioná cómo enviar el cupón de pago a <strong>{policy?.cliente}</strong>.</Typography>
+          <Button fullWidth size="large" color="success" variant="outlined" startIcon={<MessageCircle />} disabled={!policy?.telefono || busy} onClick={send} sx={{ mb: 1.5, py: 1.4 }}>Enviar por WhatsApp</Button>
+          <Button fullWidth size="large" variant="outlined" startIcon={<Mail />} disabled={!policy?.email || busy} onClick={sendEmail} sx={{ py: 1.4 }}>Enviar por Correo</Button>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 2 }}>WhatsApp utiliza la plantilla aprobada de Meta. Por correo se envía un enlace seguro al PDF válido durante 7 días.</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmSend(false)}>Cancelar</Button>
-          <Button variant="contained" color="success" onClick={send} startIcon={<MessageCircle size={17} />}>
-            Enviar ahora
-          </Button>
+          <Button onClick={() => setSendChooser(false)}>Cancelar</Button>
         </DialogActions>
       </Dialog>
     </>

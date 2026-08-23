@@ -56,6 +56,9 @@ dashboardRouter.get("/stats", async (req: AuthRequest, res: Response) => {
       clientPolicyRows,
       companyPolicyRows,
       lifePolicyCount,
+      vidaPolicyCount,
+      retiroPolicyCount,
+      clientsWithBirthdays,
       unseenCotizaciones,
       pendingClaims,
       pendingCommissionInvoices,
@@ -81,6 +84,9 @@ dashboardRouter.get("/stats", async (req: AuthRequest, res: Response) => {
         select: { id: true, groupId: true },
       }),
       prisma.lifePolicy.count({ where: { userId } }),
+      prisma.lifePolicy.count({ where: { userId, tipo: "VIDA" } }),
+      prisma.lifePolicy.count({ where: { userId, tipo: "RETIRO" } }),
+      prisma.client.findMany({ where: { userId, fechaNacimiento: { not: null } }, select: { fechaNacimiento: true } }),
       prisma.cotizacion.count({ where: { userId, viewedAt: null } }),
       prisma.siniestro.count({ where: { userId, estado: { notIn: ["PAGADO", "RECHAZADO"] } } }),
       prisma.commissionInvoice.count({ where: { userId, estado: { not: "COBRADA" } } }),
@@ -88,6 +94,14 @@ dashboardRouter.get("/stats", async (req: AuthRequest, res: Response) => {
       prisma.insuranceCompany.count({ where: { userId } }),
       prisma.user.findUnique({ where: { id: userId }, select: { referidosMes: true } }),
     ]);
+
+    const birthdayCount = clientsWithBirthdays.filter(({ fechaNacimiento }) => {
+      if (!fechaNacimiento) return false;
+      const next = new Date(now.getFullYear(), fechaNacimiento.getUTCMonth(), fechaNacimiento.getUTCDate(), 12);
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0);
+      if (next < start) next.setFullYear(next.getFullYear() + 1);
+      return next.getTime() - start.getTime() <= 7 * 86_400_000;
+    }).length;
 
     res.json({
       polizasActivas: countPolicyGroups(activePolicyRows),
@@ -98,6 +112,9 @@ dashboardRouter.get("/stats", async (req: AuthRequest, res: Response) => {
       polizasClientes: countPolicyGroups(clientPolicyRows),
       polizasEmpresas: countPolicyGroups(companyPolicyRows),
       polizasVidaRetiro: lifePolicyCount,
+      polizasVida: vidaPolicyCount,
+      polizasRetiro: retiroPolicyCount,
+      cumpleanos7Dias: birthdayCount,
       cotizacionesSinVer: unseenCotizaciones,
       siniestrosPendientes: pendingClaims,
       comisionesPendientes: pendingCommissionInvoices,

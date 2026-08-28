@@ -54,7 +54,17 @@ const REQUIRED_FIELDS: Array<{ key: keyof PolicyImportData; label: string }> = [
 ];
 
 const DEFAULT_INSURERS = [
+  "Federación Patronal Seguros S.A.U.",
   "Federacion Patronal Seguros",
+  "La Equidad Social Compañía de Seguros Patrimoniales S.A.",
+  "La Equidad Social Compania de Seguros Patrimoniales S.A.",
+  "La Equidad Social Compañía de Seguros Patrimoniales",
+  "La Equidad Social Compania de Seguros Patrimoniales",
+  "La Equidad Seguros",
+  "ATM Compañía de Seguros S.A.",
+  "ATM Compania de Seguros S.A.",
+  "Experta Seguros S.A.U.",
+  "Sancor Cooperativa de Seguros Ltda.",
   "Sancor Seguros",
   "La Segunda Seguros",
   "Mercantil Andina",
@@ -118,6 +128,34 @@ function cleanLine(value: string): string {
   return value.replace(/\s+/g, " ").replace(/^[\s:.-]+|[\s:.-]+$/g, "").trim();
 }
 
+function cleanIdentifier(value: string): string | undefined {
+  const cleaned = cleanLine(value).replace(/\s+/g, " ");
+  if (!cleaned || !/\d/.test(cleaned)) return undefined;
+  if (/^(?:ENDOSO|SECCI[OÓ]N|SUPLEMENTO|LIQUIDACI[OÓ]N|NRO|N[ÚU]MERO)$/i.test(cleaned)) return undefined;
+  return cleaned;
+}
+
+function cleanPersonName(value?: string): string | undefined {
+  if (!value) return undefined;
+  const cleaned = cleanLine(value)
+    .replace(/^\d{4,10}\s+/, "")
+    .replace(/\b(?:CUIT|CUIL|DNI|DOCUMENTO)\b.*$/i, "")
+    .trim();
+  if (cleaned.length < 4 || cleaned.length > 100) return undefined;
+  if (/\b(?:QUIEN|M[ÁA]S ADELANTE|LUGAR Y FECHA|DOMICILIO|LOCALIDAD|ASEGURADORA|SEGURO OBLIGATORIO|CONVIENEN|P[ÓO]LIZA)\b/i.test(cleaned)) return undefined;
+  if ((cleaned.match(/[A-ZÁÉÍÓÚÜÑa-záéíóúüñ]+/g) || []).length < 2) return undefined;
+  return cleaned;
+}
+
+function cleanAddress(value?: string): string | undefined {
+  if (!value) return undefined;
+  const cleaned = cleanLine(value);
+  if (cleaned.length < 5 || cleaned.length > 140) return undefined;
+  if (/^(?:DOMICILIO|LOCALIDAD|PROVINCIA|DIRECCI[OÓ]N|ES DE ASEGURADORAS|VIG[EÊ]NCIA|VIGENCIA|VALIDEZ)/i.test(cleaned)) return undefined;
+  if (/\b(?:que fuere|se haya facilitado|protecci[oó]n de datos|www\.)\b/i.test(cleaned)) return undefined;
+  return cleaned;
+}
+
 function firstMatch(text: string, patterns: RegExp[]): string | undefined {
   for (const pattern of patterns) {
     const match = text.match(pattern);
@@ -148,12 +186,18 @@ export function parseArgentineAmount(value: string): number | undefined {
 }
 
 export function parsePolicyDate(value: string): string | undefined {
-  const match = value.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/);
-  if (!match) return undefined;
+  const numeric = value.match(/(?<!\d)(\d{1,2})[/-](\d{1,2})[/-](\d{4}|\d{2})(?!\d)/);
+  const named = value.match(/(?<!\d)(\d{1,2})\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+(\d{4}|\d{2})(?!\d)/i);
+  if (!numeric && !named) return undefined;
+  const match = numeric || named!;
   const day = Number(match[1]);
-  const month = Number(match[2]);
+  const month = numeric
+    ? Number(match[2])
+    : ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+      .indexOf(normalize(match[2]).replace("setiembre", "septiembre")) + 1;
   const rawYear = Number(match[3]);
   const year = rawYear < 100 ? 2000 + rawYear : rawYear;
+  if (year < 1900 || year > 2100) return undefined;
   const date = new Date(Date.UTC(year, month - 1, day));
   if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return undefined;
   return date.toISOString().split("T")[0];
@@ -172,78 +216,155 @@ function parseOptionalDate(value?: string): string | undefined {
 }
 
 function detectInsurer(text: string, directoryInsurers: string[]): string | undefined {
-  const normalizedText = normalize(text);
+  const normalizedText = normalize(text).replace(/[^a-z0-9]+/g, " ");
   const allInsurers = Array.from(new Set([...directoryInsurers, ...DEFAULT_INSURERS].filter(Boolean)));
   const matched = allInsurers
-    .filter((insurer) => normalizedText.includes(normalize(insurer)))
-    .sort((a, b) => b.length - a.length)[0];
+    .map((insurer) => ({ insurer, index: normalizedText.indexOf(normalize(insurer).replace(/[^a-z0-9]+/g, " ").trim()) }))
+    .filter(({ index }) => index >= 0)
+    .sort((a, b) => a.index - b.index || b.insurer.length - a.insurer.length)[0]?.insurer;
   if (matched) return matched;
 
   return firstMatch(text, [
-    /(?:compa(?:ñ|n)ia|aseguradora|asegurador)\s*:?\s*([^\n]{3,80})/i,
-    /(?:emitida por|emisor)\s*:?\s*([^\n]{3,80})/i,
+    /(?:^|\n)\s*compa(?:ñ|n)[ií]a\s+aseguradora\s*:\s*([^\n]{3,100})/im,
+    /(?:^|\n)\s*(?:emitida por|emisor)\s*:\s*([^\n]{3,100})/im,
   ]);
 }
 
 export function mapRamoToRubro(text: string): string | undefined {
   const normalizedText = normalize(text);
+  const frontText = normalize(text.slice(0, 8000));
+  if (/\bseccion\s+motovehiculos\b|\bmotocicletas?\b|\bmotonetas?\b/.test(frontText)) return "Motos";
+  if (/\bseccion\s+automotores\b|\bseguro obligatorio automotor\b|\bautomovil(?:es)?\b|\bvehiculo asegurado\b/.test(frontText)) return "Automoviles";
+  if (/\bseguro de hogar\b|\bcombinado familiar\b/.test(frontText)) return "Hogar";
+  if (/\baccidentes personales\b/.test(frontText)) return "Accidentes personales";
+
   const explicitRamo = firstMatch(text, [
     /(?:ramo|secci[oó]n|producto)\s*:?\s*([^\n]{3,80})/i,
     /(?:seguro de)\s+([^\n]{3,80})/i,
   ]);
   const searchSpace = normalize(`${explicitRamo || ""} ${normalizedText.slice(0, 5000)}`);
-  return RUBRO_MAPPINGS.find((mapping) => mapping.keywords.some((keyword) => searchSpace.includes(normalize(keyword))))?.rubro;
+  return RUBRO_MAPPINGS.find((mapping) => mapping.keywords.some((keyword) => {
+    const escaped = normalize(keyword).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(?:^|\\s)${escaped}(?:$|\\s)`).test(searchSpace);
+  }))?.rubro;
 }
 
 function detectPolicyAndEndorsement(text: string): Pick<PolicyImportData, "numeroPoliza" | "endoso"> {
-  const paired = text.match(/p[oó]liza\s*\/\s*endoso\s*:?\s*([A-Z0-9.-]+)\s*\/\s*([A-Z0-9.-]+)/i);
-  if (paired) return { numeroPoliza: cleanLine(paired[1]), endoso: cleanLine(paired[2]) };
+  const reverseHeader = text.match(/(?:^|\n)\s*(\d{1,4})\s+(\d{5,12})\s*\n\s*VIGENCIA\s+P[ÓO]LIZA\s+N[º°]?\s+ENDOSO\s+N[º°]?\s+SECCI[ÓO]N/im);
+  const labeledPair = text.match(/p[oó]liza\s*\/\s*endoso\s*:?\s*(\d[\d.-]{4,})\s*\/\s*(\d{1,8})/i);
+  const numeroPoliza = cleanIdentifier(reverseHeader?.[2] || firstMatch(text, [
+    /p[oó]liza\s*\/\s*endoso\s*:?\s*(\d[\d.-]{4,})\s*\/\s*\d{1,8}/i,
+    /\bp[oó]liza\s*(?:nro\.?|n[°º]|n[uú]mero|num\.?)\s*:?\s*(\d[\d.-]{4,})/i,
+    /(?:^|\n)\s*[.·•-]*\s*N[°º]?\s*de\s*p[oó]liza\s*:?\s*(\d[\d.-]{4,})/im,
+    /(?:^|\n)\s*p[oó]liza\s*(?:nro\.?|n[°º]|n[uú]mero|num\.?)\s*:?\s*(\d[\d.-]{4,})/im,
+    /(?:^|\n)[^\n]{0,50}\bp[oó]liza\s+(\d{5,12})\s*(?:\/|$)/im,
+  ]) || "");
 
-  const numeroPoliza = firstMatch(text, [
-    /p[oó]liza\s*(?:n(?:ro|°|º)?|n[uú]mero|num\.?)?\s*:?\s*([A-Z0-9][A-Z0-9./-]{2,})/i,
-    /n(?:ro|°|º)?\s*de\s*p[oó]liza\s*:?\s*([A-Z0-9][A-Z0-9./-]{2,})/i,
-  ]);
-  const endoso = firstMatch(text, [
-    /endoso\s*(?:n(?:ro|°|º)?|n[uú]mero|num\.?)?\s*:?\s*([A-Z0-9][A-Z0-9./-]{2,})/i,
-  ]);
+  const paired = numeroPoliza
+    ? text.match(new RegExp(`p[oó]liza\\s*:?\\s*${numeroPoliza.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\/\\s*(\\d{1,6})`, "i"))
+    : undefined;
+  const endoso = cleanIdentifier(firstMatch(text, [
+    /(?:^|\n)\s*Endoso\s+Lugar de emisi[oó]n\s*\n\s*(\d{1,8})/im,
+    /(?:^|\n)\s*ENDOSO\s+SUPLEMENTO\s*\n\s*(\d{1,10})\s+\d{1,6}/im,
+    /p[oó]liza\s*\/\s*endoso\s*:?\s*[A-Z0-9.-]+\s*\/\s*(\d{1,8})/i,
+  ]) || reverseHeader?.[1] || labeledPair?.[2] || paired?.[1] || "");
   return { numeroPoliza, endoso };
 }
 
 function detectDates(text: string): Pick<PolicyImportData, "fechaInicio" | "fechaVencimiento" | "vigencia"> {
-  const compact = text.replace(/\s+/g, " ");
-  const vigencia = compact.match(/(?:vigencia|desde)\D{0,40}(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\D{0,40}(?:hasta|al)\D{0,20}(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i);
-  const desdeHasta = compact.match(/desde\D{0,20}(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\D{0,40}hasta\D{0,20}(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i);
-  const match = vigencia || desdeHasta;
-  const fechaInicio = match ? parsePolicyDate(match[1]) : parseOptionalDate(firstMatch(text, [/fecha\s*(?:inicio|desde)\s*:?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i]));
-  const fechaVencimiento = match ? parsePolicyDate(match[2]) : parseOptionalDate(firstMatch(text, [/fecha\s*(?:vencimiento|hasta)\s*:?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i]));
+  const date = "(\\d{1,2}[/-]\\d{1,2}[/-](?:\\d{4}|\\d{2})|\\d{1,2}\\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\\s+(?:\\d{4}|\\d{2}))";
+  const patterns = [
+    new RegExp(`Vigencia\\s+de\\s+p[oó]liza[\\s\\S]{0,40}?Desde\\s+el\\s+${date}[\\s\\S]{0,30}?Hasta\\s+el\\s+${date}`, "i"),
+    new RegExp(`Vigencia\\s+Desde\\s+Vigencia\\s+Hasta[\\s\\S]{0,100}?Desde[\\s\\S]{0,35}?${date}[\\s\\S]{0,35}?Hasta[\\s\\S]{0,35}?${date}`, "i"),
+    new RegExp(`Desde\\s+las[\\s\\S]{0,30}?del\\s+${date}[\\s\\S]{0,45}?Hasta\\s+las[\\s\\S]{0,30}?del\\s+${date}`, "i"),
+    new RegExp(`Desde\\s+el\\s+${date}[\\s\\S]{0,30}?hasta\\s+el\\s+${date}`, "i"),
+    new RegExp(`(?:VIGENCIA|Validez)[\\s\\S]{0,100}?Desde[\\s\\S]{0,25}?${date}[\\s\\S]{0,45}?(?:Hasta|Al)[\\s\\S]{0,25}?${date}`, "i"),
+  ];
+  const match = patterns.map((pattern) => text.match(pattern)).find(Boolean);
+  let fechaInicio = match ? parsePolicyDate(match[1]) : parseOptionalDate(firstMatch(text, [
+    /(?:fecha\s*(?:inicio|desde)|inicio de vigencia del seguro)\s*:?\s*(\d{1,2}[/-]\d{1,2}[/-](?:\d{4}|\d{2}))/i,
+  ]));
+  let fechaVencimiento = match ? parsePolicyDate(match[2]) : parseOptionalDate(firstMatch(text, [
+    /(?:fecha\s*(?:vencimiento|hasta)|validez de la tarjeta de seguro hasta el)\s*:?\s*(\d{1,2}[/-]\d{1,2}[/-](?:\d{4}|\d{2}))/i,
+  ]));
+
+  const extension = text.match(new RegExp(`Pr[oó]rroga\\s+Autom[aá]tica\\s+de\\s+Vigencia\\s+Hasta[\\s\\S]{0,30}?${date}`, "i"));
+  const extendedEnd = extension ? parsePolicyDate(extension[1]) : undefined;
+  if (fechaInicio && extendedEnd && extendedEnd > (fechaVencimiento || "")) fechaVencimiento = extendedEnd;
   return { fechaInicio, fechaVencimiento, vigencia: inferVigencia(fechaInicio, fechaVencimiento) };
 }
 
-function detectInsured(text: string): Pick<PolicyImportData, "clienteNombre" | "clienteDni" | "clienteDireccion"> {
-  const clienteDni = firstMatch(text, [
-    /(?:cuit|cuil|cuit\/cuil|cuil\/cuit|dni|documento)\s*:?\s*([0-9.\-\s]{7,16})/i,
-  ])?.replace(/\D/g, "");
+function detectInsured(text: string): Pick<PolicyImportData, "clienteNombre" | "clienteDni" | "clienteDireccion" | "clienteTelefono" | "clienteEmail"> {
+  const bbva = text.match(/TOMADOR\s+LUGAR Y FECHA DE EMISI[OÓ]N\s*\n\s*([^\n]+)\s*\n\s*CUIL\s+([\d.-]{7,16})\s*\n\s*([^\n]+)/i);
+  const reversed = text.match(/CUIL\/CUIT\s*\n\s*(?:C\.?A\.?B\.?A\.?|BUENOS AIRES)\s*\n\s*([^\n]+)\s*\n\s*([^\n]+)\s*\n\s*([\d.-]{8,16})\s+[^\n]+/i);
+  const sancor = /\bCombinado Familiar\b/i.test(text)
+    ? text.match(/(?:^|\n)\s*Emisi[oó]n\s+([^\n]+)\s*\n\s*([^\n]+)/im)
+    : undefined;
 
-  const clienteNombre = firstMatch(text, [
-    /(?:asegurado|tomador|contratante)\s*:?\s*([A-ZÁÉÍÓÚÑ][^\n]{3,90})/i,
-    /(?:nombre y apellido|raz[oó]n social)\s*:?\s*([A-ZÁÉÍÓÚÑ][^\n]{3,90})/i,
-  ])?.replace(/\b(?:cuit|cuil|dni|documento)\b.*$/i, "").trim();
+  const clienteNombre = cleanPersonName(
+    bbva?.[1]
+      || reversed?.[1]
+      || sancor?.[1]
+      || firstMatch(text, [
+        /(?:^|\n)\s*[.·•-]*\s*(?:asegurado|tomador|contratante)\s*:?\s+([^\n]{3,100})/im,
+        /(?:^|\n)\s*(?:nombre y apellido|raz[oó]n social)\s*:?\s+([^\n]{3,100})/im,
+      ]),
+  );
+  const clienteDni = (
+    bbva?.[2]
+      || reversed?.[3]
+      || firstMatch(text, [
+        /(?:^|\n)[^\n]{0,80}\b(?:CUIT\/CUIL|CUIL\/CUIT|CUIL|DNI)\s*:?\s*([0-9.\-]{7,16})(?:\s|$)/im,
+        /(?:^|\n)\s*[.·•-]*\s*Tipo y N[°º]? de Documento\s*:?\s*([0-9.\-]{7,16})/im,
+      ])
+  )?.replace(/\D/g, "");
+  const clienteDireccion = cleanAddress(
+    bbva?.[3]
+      || reversed?.[2]
+      || sancor?.[2]
+      || firstMatch(text, [
+        /(?:^|\n)\s*[.·•-]*\s*(?:domicilio|direcci[oó]n)\s*:?\s+([^\n]{5,140})/im,
+      ]),
+  );
+  const clienteTelefono = reversed
+    ? firstMatch(text.slice(0, 3000), [/(?:^|\n)[^\n]{0,100}\bTel\.?\s*:\s*([+\d][\d\s()-]{7,20})/im])?.replace(/[^+\d]/g, "")
+    : undefined;
+  const clienteEmail = undefined;
 
-  const clienteDireccion = firstMatch(text, [
-    /(?:domicilio|direcci[oó]n)\s*:?\s*([^\n]{5,120})/i,
-  ]);
-
-  return { clienteNombre, clienteDni, clienteDireccion };
+  return { clienteNombre, clienteDni, clienteDireccion, clienteTelefono, clienteEmail };
 }
 
 function detectAmounts(text: string): Pick<PolicyImportData, "prima" | "premioTotal" | "moneda"> {
-  const primaRaw = firstMatch(text, [
-    /prima(?:\s+total)?\s*:?\s*(?:\$|ars|usd)?\s*([0-9][0-9.,]*)/i,
+  const amount = "([0-9][0-9.,]*[.,][0-9]{2})";
+  let primaRaw = firstMatch(text, [
+    new RegExp(`(?:^|\\n)\\s*PRIMA(?:\\s+TOTAL)?\\s*:?\\s*(?:\\$|ARS|USD)?\\s*${amount}(?:\\s|$)`, "im"),
+    new RegExp(`PRIMA\\s+PERCEP\\.\\s+IVA[\\s\\S]{0,180}?\\$\\s*${amount}`, "i"),
+    new RegExp(`FRENTE DE P[ÓO]LIZA\\s*\\n\\s*${amount}\\s*\\$?\\s*\\n\\s*0[.,]00`, "i"),
   ]);
-  const premioRaw = firstMatch(text, [
-    /premio(?:\s+total)?\s*:?\s*(?:\$|ars|usd)?\s*([0-9][0-9.,]*)/i,
+  let premioRaw = firstMatch(text, [
+    new RegExp(`(?:^|\\n)\\s*PREMIO(?:\\s+(?:TOTAL|DEL ENDOSO|DEL PER[IÍ]ODO))?\\s*:?\\s*(?:\\$|ARS|USD)?\\s*${amount}(?:\\s|$)`, "im"),
+    new RegExp(`MONEDA\\s+PREMIO\\s+MEDIO DE PAGO[\\s\\S]{0,180}?(?:PESOS|ARS)\\s+\\$\\s*${amount}`, "i"),
   ]);
-  const moneda = /\bUSD\b|U\$S/i.test(text) ? "USD" : "ARS";
+
+  const financialLabels = text.search(/MONEDA\s+PRIMA\s+REC\.\s*FINANCIERO\s+SUB\s*TOTAL/i);
+  if ((!primaRaw || !premioRaw) && financialLabels >= 0) {
+    const precedingLines = text.slice(Math.max(0, financialLabels - 700), financialLabels).split("\n").slice(-8);
+    const numericRows = precedingLines
+      .map((line) => {
+        const values = Array.from(line.matchAll(/[0-9][0-9.]*,[0-9]{2}/g)).map((match) => match[0]);
+        const residue = line.replace(/[0-9][0-9.]*,[0-9]{2}/g, "").replace(/[$\s]/g, "");
+        return residue ? [] : values;
+      })
+      .filter((values) => values.length);
+    const firstRow = numericRows.find((values) => values.length >= 3);
+    const numericValues = numericRows.flat().map((value) => ({ raw: value, parsed: parseArgentineAmount(value) || 0 }));
+    if (!primaRaw && firstRow) primaRaw = firstRow[0];
+    if (!premioRaw && numericValues.length) premioRaw = numericValues.sort((a, b) => b.parsed - a.parsed)[0].raw;
+  }
+
+  const moneda = /MONEDA(?:\s+CONTRATO)?[\s\S]{0,120}\b(?:PESOS|ARS)\b|P[ÓO]LIZA\s+SE\s+EMITE\s+EN\s+PESOS/i.test(text)
+    ? "ARS"
+    : /MONEDA(?:\s+CONTRATO)?[\s\S]{0,80}\b(?:USD|U\$S|D[ÓO]LARES)\b/i.test(text) ? "USD" : "ARS";
   return {
     prima: primaRaw ? parseArgentineAmount(primaRaw) : undefined,
     premioTotal: premioRaw ? parseArgentineAmount(premioRaw) : undefined,
@@ -252,36 +373,95 @@ function detectAmounts(text: string): Pick<PolicyImportData, "prima" | "premioTo
 }
 
 function detectRiskData(text: string): Pick<PolicyImportData, "cobertura" | "patente" | "chasis" | "motor" | "direccionRiesgo"> {
-  const cobertura = firstMatch(text, [
-    /(?:cobertura|plan)\s*:?\s*([^\n]{3,140})/i,
-    /(?:tipo de cobertura)\s*:?\s*([^\n]{3,140})/i,
+  const policyPlan = firstMatch(text, [
+    /T[eé]rmino \(en d[ií]as\) Plan\s*\n\s*\d+\s+([^\n]{3,160})/i,
   ]);
-  const patente = firstMatch(text, [
-    /(?:patente|dominio)\s*:?\s*([A-Z]{2,3}\s?[0-9]{3}\s?[A-Z]{0,2}|[A-Z]{2}\s?[0-9]{3}\s?[A-Z]{2})/i,
+  const coverageFront = text.slice(0, 8000);
+  const documentCoverage = /\bSEGURO DE HOGAR\b/i.test(coverageFront)
+    ? "Seguro de Hogar - Incendio, contenido y responsabilidad civil"
+    : /\bCombinado Familiar\b/i.test(coverageFront)
+      ? (/DESCRIPCI[ÓO]N DEL RIESGO ASEGURADO\s*\n\s*([^\n]+)/i.exec(text)?.[1]
+        ? `Combinado Familiar - ${cleanLine(/DESCRIPCI[ÓO]N DEL RIESGO ASEGURADO\s*\n\s*([^\n]+)/i.exec(text)![1])}`
+        : "Combinado Familiar")
+      : /\bSEGURO OBLIGATORIO AUTOMOTOR\b/i.test(coverageFront)
+        ? "Responsabilidad Civil - Seguro obligatorio automotor"
+        : /\bACCIDENTES PERSONALES\b/i.test(text.slice(0, 4000))
+          ? (/TRABAJOS EN ALTURA/i.test(text.slice(0, 8000)) ? "Accidentes personales - Trabajos en altura" : "Accidentes personales")
+          : undefined;
+  let cobertura = policyPlan || documentCoverage || firstMatch(text, [
+    /(?:^|\n)\s*COBERTURA\s*:\s*([^\n]{3,180})/im,
+    /(?:^|\n)\s*TIPO DE COBERTURA\s*:\s*([^\n]{3,180})/im,
+  ]);
+  if (!cobertura || /^(?:suma asegurada|ver anexo)/i.test(cobertura)) {
+    cobertura = documentCoverage;
+  }
+  cobertura = cobertura ? cleanLine(cobertura).slice(0, 180) : undefined;
+
+  let patente = firstMatch(text, [
+    /(?:^|\n)[^\n]{0,100}\b(?:PATENTE|DOMINIO)\s*:?\s*\b([A-Z]{2}\d{3}[A-Z]{2}|[A-Z]\d{3}[A-Z]{3}|[A-Z]{3}\d{3})\b/im,
+    /\bRiesgo\s*:\s*Pat\.?\s*([A-Z]{2}\d{3}[A-Z]{2}|[A-Z]\d{3}[A-Z]{3}|[A-Z]{3}\d{3})\b/i,
   ])?.replace(/\s+/g, "").toUpperCase();
-  const chasis = firstMatch(text, [
-    /(?:chasis|vin)\s*:?\s*([A-Z0-9]{8,25})/i,
-  ])?.toUpperCase();
-  const motor = firstMatch(text, [
-    /(?:motor)\s*:?\s*([A-Z0-9]{6,25})/i,
-  ])?.toUpperCase();
-  const direccionRiesgo = firstMatch(text, [
-    /(?:direcci[oó]n del riesgo|ubicaci[oó]n del riesgo|riesgo ubicado en)\s*:?\s*([^\n]{5,140})/i,
-  ]);
+
+  const assetText = text.slice(0, 8000);
+  const assetValue = (label: string): string | undefined => {
+    const match = assetText.match(new RegExp(`(?:^|\\n)[^\\n]{0,80}\\b${label}\\s*:?\\s*([^\\n]{5,50})`, "im"));
+    if (!match?.[1]) return undefined;
+    return cleanLine(match[1].split(/\s+(?:CHASIS|CHASSIS|VIN|MOTOR|A[ÑN]O|PATENTE|DOMINIO|FORMA DE COBRO)\s*:?/i)[0]).toUpperCase();
+  };
+  let chasis = assetValue("(?:CHASIS|CHASSIS|VIN|CARROCER[IÍ]A)");
+  let motor = assetValue("MOTOR");
+  if (chasis && !/^[A-Z0-9*]{8,25}$/.test(chasis)) chasis = undefined;
+  if (motor && (!/^[A-Z0-9* -]{6,25}$/.test(motor) || /\b(?:CONFORME|INTERNA|GENERADOR|RIESGO)\b/.test(motor))) motor = undefined;
+
+  const certificateVehicle = text.match(/(?:^|\n)\s*([A-Z0-9]{3}\s+[A-Z0-9]{5,})\s*\/\s*([A-Z0-9]{12,25})\s+([A-Z]{2}\d{3}[A-Z]{2}|[A-Z]\d{3}[A-Z]{3}|[A-Z]{3}\d{3})\s*\n/im);
+  if (!motor && certificateVehicle) motor = cleanLine(certificateVehicle[1]).toUpperCase();
+  if (!chasis && certificateVehicle) chasis = certificateVehicle[2].toUpperCase();
+  if (!patente && certificateVehicle) patente = certificateVehicle[3].toUpperCase();
+
+  const direccionRiesgo = cleanAddress(firstMatch(text, [
+    /(?:^|\n)\s*(?:direcci[oó]n del riesgo|ubicaci[oó]n del riesgo|riesgo ubicado en|descripci[oó]n riesgo)\s*:?\s*\n?\s*([^\n]{5,140})/im,
+  ]));
   return { cobertura, patente, chasis, motor, direccionRiesgo };
 }
 
-function detectInstallments(text: string): ExtractedInstallment[] {
-  const compact = text.replace(/\s+/g, " ");
-  const matches = Array.from(compact.matchAll(/(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\D{0,30}(?:\$|ars)?\s*([0-9][0-9.,]*)/gi));
-  return matches
-    .map((match, index) => ({
-      numero: index + 1,
-      vencimiento: parsePolicyDate(match[1]),
-      importe: parseArgentineAmount(match[2]),
-    }))
-    .filter((item) => item.vencimiento || item.importe)
-    .slice(0, 24);
+function detectInstallments(text: string, premioTotal?: number): ExtractedInstallment[] {
+  const installments: ExtractedInstallment[] = [];
+  const add = (dateRaw?: string, amountRaw?: string) => {
+    const vencimiento = dateRaw ? parsePolicyDate(dateRaw) : undefined;
+    const importe = amountRaw ? parseArgentineAmount(amountRaw) : undefined;
+    if (!vencimiento || installments.some((item) => item.vencimiento === vencimiento && item.importe === importe)) return;
+    installments.push({ numero: installments.length + 1, vencimiento, importe });
+  };
+
+  const bbva = text.match(/MONEDA\s+PREMIO\s+MEDIO DE PAGO[\s\S]{0,220}?(?:PESOS|ARS)\s+\$\s*[0-9][0-9.,]*[.,][0-9]{2}[\s\S]{0,120}?\d+\s+\$\s*([0-9][0-9.,]*[.,][0-9]{2})\s*\n\s*VENCIMIENTOS\s*\n\s*(\d{1,2}[/-]\d{1,2}[/-](?:\d{4}|\d{2}))/i);
+  if (bbva) add(bbva[2], bbva[1]);
+
+  const singleEndorsement = text.match(/TOTAL\s*:\s*([0-9][0-9.,]*[.,][0-9]{2})\s*\n\s*(\d{1,2}[/-]\d{1,2}[/-](?:\d{4}|\d{2}))\s+([0-9][0-9.,]*[.,][0-9]{2})\s+1\/1/i);
+  if (singleEndorsement) add(singleEndorsement[2], singleEndorsement[3]);
+
+  for (const line of text.split("\n").filter((value) => /vencimiento|cuotas?/i.test(value))) {
+    for (const match of line.matchAll(/(?<!\d)(\d{1,2}[/-]\d{1,2}[/-](?:\d{4}|\d{2}))(?!\d)[^\n]{0,45}?(?:\$|ARS|PESOS)\s*([0-9][0-9.,]*[.,][0-9]{2})/gi)) {
+      add(match[1], match[2]);
+    }
+  }
+
+  if (!installments.length) {
+    const labelIndex = text.search(/C[ÓO]D\.\s*PAGOS[\s\S]{0,60}VENCIMIENTO\s+1[°º]\s+CUOTA/i);
+    if (labelIndex >= 0) {
+      const before = text.slice(Math.max(0, labelIndex - 180), labelIndex);
+      const dates = Array.from(before.matchAll(/(?<!\d)(\d{1,2}[/-]\d{1,2}[/-](?:\d{4}|\d{2}))(?!\d)/g));
+      add(dates.at(-1)?.[1], premioTotal ? String(premioTotal) : undefined);
+    }
+  }
+
+  return installments.slice(0, 24);
+}
+
+function detectPaymentMethod(text: string): PolicyImportData["medioPago"] {
+  const front = normalize(text.slice(0, 12000));
+  if (/visa credito|mastercard|debito en tarjeta|tarjeta de credito/.test(front)) return "Tarjeta de credito";
+  if (/banco caja de ahorro|debito automatico|c\.b\.u\.|\bcbu\b/.test(front)) return "Debito por CBU";
+  return "Cupon";
 }
 
 function compactText(text: string): string {
@@ -314,10 +494,10 @@ export function extractPolicyDataFromText(rawText: string, directoryInsurers: st
     ...detectRiskData(text),
     aseguradora: detectInsurer(text, directoryInsurers),
     rubro: mapRamoToRubro(text),
-    medioPago: "Cupon",
+    medioPago: detectPaymentMethod(text),
     porcentajeComision: 15,
   };
-  data.cuotas = detectInstallments(text);
+  data.cuotas = detectInstallments(text, data.premioTotal);
   if (!data.prima && data.premioTotal) data.prima = data.premioTotal;
 
   const completeness = buildCompleteness(data);

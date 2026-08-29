@@ -596,6 +596,7 @@ export const PolicyForm: React.FC<PolicyFormProps> = ({ embedded = false, initia
                               value={typeof field.value === 'number' && field.value > 0 ? formatAmount(field.value) : ''}
                               onChange={(event) => field.onChange(parseAmount(event.target.value))}
                               inputMode="decimal"
+                              inputProps={{ step: '0.01' }}
                             />
                           )}
                         />
@@ -679,6 +680,7 @@ export const PolicyForm: React.FC<PolicyFormProps> = ({ embedded = false, initia
                         onChange={(event) => field.onChange(parseAmount(event.target.value))}
                         placeholder="45.000"
                         inputMode="decimal"
+                        inputProps={{ step: '0.01' }}
                         error={!!errors.prima}
                         helperText={errors.prima?.message}
                       />

@@ -210,7 +210,7 @@ export const LifeAndFinancePage: React.FC = () => {
                   <Grid size={{ xs: 12, md: 6 }}><TextField key={open + 'fondo'} fullWidth label="Fondo Acumulado" type="number" defaultValue={d.fondoAcumulado} onChange={(e) => formRef.current.fondoAcumulado = e.target.value} /></Grid>
                 )}
                 {currentType === 'VIDA' && (
-                  <Grid size={{ xs: 12, md: 6 }}><TextField key={open + 'prima'} fullWidth label="Prima Mensual" type="number" defaultValue={d.prima} onChange={(e) => formRef.current.prima = e.target.value} /></Grid>
+                  <Grid size={{ xs: 12, md: 6 }}><TextField key={open + 'prima'} fullWidth label="Prima Mensual" type="number" inputProps={{ step: '0.01' }} defaultValue={d.prima} onChange={(e) => formRef.current.prima = e.target.value} /></Grid>
                 )}
                 <Grid size={{ xs: 12, md: 6 }}><TextField key={open + 'email'} fullWidth label="Email" defaultValue={d.email} onChange={(e) => formRef.current.email = e.target.value} /></Grid>
                 <Grid size={{ xs: 12, md: 6 }}><TextField key={open + 'tel'} fullWidth label="Teléfono" defaultValue={d.telefono} onChange={(e) => formRef.current.telefono = e.target.value} /></Grid>

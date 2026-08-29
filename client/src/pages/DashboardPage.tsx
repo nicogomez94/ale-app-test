@@ -1473,7 +1473,7 @@ export const Dashboard: React.FC = () => {
                   </TextField>
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField fullWidth label="Prima" value={formatAmountInput(editValues.prima)} onChange={(event) => setEditValues((prev) => prev ? { ...prev, prima: parseAmountInput(event.target.value) } : prev)} />
+                  <TextField fullWidth label="Prima" value={formatAmountInput(editValues.prima)} inputMode="decimal" inputProps={{ step: '0.01' }} onChange={(event) => setEditValues((prev) => prev ? { ...prev, prima: parseAmountInput(event.target.value) } : prev)} />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
@@ -1527,7 +1527,7 @@ export const Dashboard: React.FC = () => {
                   <TextField fullWidth label="Suma Asegurada" type="number" value={lifeEditValues.sumaAsegurada} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, sumaAsegurada: event.target.value } : prev)} />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField fullWidth label="Prima" type="number" value={lifeEditValues.prima} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, prima: event.target.value } : prev)} />
+                  <TextField fullWidth label="Prima" type="number" inputProps={{ step: '0.01' }} value={lifeEditValues.prima} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, prima: event.target.value } : prev)} />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
                   <TextField fullWidth label="Aporte Mensual" type="number" value={lifeEditValues.aporteMensual} onChange={(event) => setLifeEditValues((prev) => prev ? { ...prev, aporteMensual: event.target.value } : prev)} />

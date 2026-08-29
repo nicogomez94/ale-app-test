@@ -285,7 +285,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
 
         {menuItems.slice(8).map((item) => {
           const active = isMenuItemActive(item);
-          if (item.text === 'Herramientas') {
+          if (item.text === 'Herramientas' && !collapsed) {
             const activeTab = new URLSearchParams(location.search).get('tab') || 'lanzador';
             return (
               <React.Fragment key={item.text}>
@@ -413,10 +413,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
                 {format(currentTime, "HH:mm:ss 'hs'")}
               </Typography>
             </Box>
+            <AlertCenter />
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 }, minWidth: 0 }}>
-            <AlertCenter />
             <IconButton onClick={onToggleDarkMode} color="inherit">
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
             </IconButton>
@@ -480,7 +480,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
           }}
           open
         >
-          {renderDrawer(false, false)}
+          {renderDrawer(sidebarCollapsed, true)}
         </Drawer>
       </Box>
 

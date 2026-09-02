@@ -44,7 +44,8 @@ dashboardRouter.get("/stats", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId!;
     const now = new Date();
-    const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const in7Days = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     const [
       totalPolicyRows,
@@ -70,7 +71,7 @@ dashboardRouter.get("/stats", async (req: AuthRequest, res: Response) => {
       prisma.policy.findMany({ where: { userId, estado: "ACTIVA", pagada: false }, select: { id: true, groupId: true } }),
       prisma.policy.findMany({ where: { userId, estado: "VENCIDA", pagada: false }, select: { id: true, groupId: true } }),
       prisma.policy.findMany({
-        where: { userId, pagada: false, fechaVencimiento: { gte: now, lte: in7Days } },
+        where: { userId, pagada: false, fechaVencimiento: { gte: today, lte: in7Days } },
         select: { id: true, groupId: true },
       }),
       prisma.client.count({ where: { userId } }),
@@ -97,10 +98,12 @@ dashboardRouter.get("/stats", async (req: AuthRequest, res: Response) => {
 
     const birthdayCount = clientsWithBirthdays.filter(({ fechaNacimiento }) => {
       if (!fechaNacimiento) return false;
-      const next = new Date(now.getFullYear(), fechaNacimiento.getUTCMonth(), fechaNacimiento.getUTCDate(), 12);
-      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0);
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const next = new Date(start.getFullYear(), fechaNacimiento.getUTCMonth(), fechaNacimiento.getUTCDate());
       if (next < start) next.setFullYear(next.getFullYear() + 1);
-      return next.getTime() - start.getTime() <= 7 * 86_400_000;
+      const startDay = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+      const nextDay = Date.UTC(next.getFullYear(), next.getMonth(), next.getDate());
+      return Math.round((nextDay - startDay) / 86_400_000) <= 7;
     }).length;
 
     res.json({
@@ -138,12 +141,15 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
 
     if (filter === "expiring") {
       const now = new Date();
-      const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-      where.fechaVencimiento = { gte: now, lte: in7Days };
+      const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+      const in7Days = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+      where.fechaVencimiento = { gte: today, lte: in7Days };
+      where.pagada = false;
     } else if (filter === "expired") {
       where.estado = "VENCIDA";
     } else if (filter === "active") {
       where.estado = "ACTIVA";
+      where.pagada = false;
     }
 
     if (rubro) {
@@ -173,9 +179,11 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
 
     // Map to frontend format
     const mapped = policies.map((p: any) => {
-      const daysLeft = Math.ceil(
-        (p.fechaVencimiento.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-      );
+      const current = new Date();
+      const daysLeft = Math.round((
+        Date.UTC(p.fechaVencimiento.getUTCFullYear(), p.fechaVencimiento.getUTCMonth(), p.fechaVencimiento.getUTCDate())
+        - Date.UTC(current.getFullYear(), current.getMonth(), current.getDate())
+      ) / (1000 * 60 * 60 * 24));
 
       let estadoLabel = "Activa";
       if (daysLeft < 0) estadoLabel = "Vencida";
@@ -202,6 +210,7 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
         estadoLabel,
         tipo: p.tipo,
         medioPago: p.medioPago,
+        tipoUso: p.tipoUso,
         diasRestantes: daysLeft,
         telefono: p.clienteTelefono || p.cliente?.telefono || p.company?.telefono || "",
         email: p.clienteEmail || p.cliente?.email || p.company?.email || "",

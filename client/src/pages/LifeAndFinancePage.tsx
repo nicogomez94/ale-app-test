@@ -154,8 +154,8 @@ export const LifeAndFinancePage: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {policies.map((policy) => (
-                <TableRow key={policy.id} hover>
+              {policies.map((policy, index) => (
+                <TableRow key={policy.id} hover sx={{ '& > td': { bgcolor: index % 2 === 0 ? '#fff' : '#fff8f8' }, borderLeft: `6px solid ${currentType === 'VIDA' ? '#ef4444' : '#f2a900'}`, '&:hover > td': { bgcolor: currentType === 'VIDA' ? '#fff0f0' : '#fff8df' } }}>
                   <TableCell sx={{ fontWeight: 600 }}>{policy.cliente}</TableCell>
                   <TableCell>{policy.cuit}</TableCell>
                   <TableCell>{policy.aseguradora}</TableCell>

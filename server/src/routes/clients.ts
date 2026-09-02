@@ -20,12 +20,21 @@ function parseBirthDate(value: unknown): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function nextBirthday(fechaNacimiento: Date, now = new Date()) {
-  const next = new Date(now.getFullYear(), fechaNacimiento.getUTCMonth(), fechaNacimiento.getUTCDate(), 12);
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0);
+export function nextBirthday(fechaNacimiento: Date, now = new Date()) {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const next = new Date(start.getFullYear(), fechaNacimiento.getUTCMonth(), fechaNacimiento.getUTCDate());
   if (next < start) next.setFullYear(next.getFullYear() + 1);
-  const daysUntil = Math.ceil((next.getTime() - start.getTime()) / 86_400_000);
+  const startDay = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+  const nextDay = Date.UTC(next.getFullYear(), next.getMonth(), next.getDate());
+  const daysUntil = Math.round((nextDay - startDay) / 86_400_000);
   return { next, daysUntil, age: next.getFullYear() - fechaNacimiento.getUTCFullYear() };
+}
+
+function localDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 clientsRouter.get("/birthdays", async (req: AuthRequest, res: Response) => {
@@ -44,7 +53,7 @@ clientsRouter.get("/birthdays", async (req: AuthRequest, res: Response) => {
         nombre: client.nombre,
         telefono: client.telefono,
         fechaNacimiento: client.fechaNacimiento.toISOString().split("T")[0],
-        proximoCumpleanos: info.next.toISOString().split("T")[0],
+        proximoCumpleanos: localDateKey(info.next),
         diasRestantes: info.daysUntil,
         edad: info.age,
       }];
@@ -79,6 +88,7 @@ clientsRouter.get("/", async (req: AuthRequest, res: Response) => {
           orderBy: { fechaVencimiento: "asc" },
           select: {
             id: true,
+            groupId: true,
             aseguradora: true,
             rubro: true,
             numeroPoliza: true,

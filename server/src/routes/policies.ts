@@ -98,6 +98,7 @@ export type PolicyPayload = {
   fechaInicio?: string;
   fechaVencimiento?: string;
   medioPago?: string | null;
+  tipoUso?: string | null;
   vigencia?: PolicyVigencia | string | null;
   cuotaActual?: number | string | null;
   cuotaTotal?: number | string | null;
@@ -119,8 +120,9 @@ export type PolicyPayload = {
 
 function computeStatus(fechaVencimiento: Date): PolicyStatus {
   const now = new Date();
-  const diff = fechaVencimiento.getTime() - now.getTime();
-  const daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
+  const expiryDay = Date.UTC(fechaVencimiento.getUTCFullYear(), fechaVencimiento.getUTCMonth(), fechaVencimiento.getUTCDate());
+  const currentDay = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const daysLeft = Math.round((expiryDay - currentDay) / (1000 * 60 * 60 * 24));
   if (daysLeft < 0) return "VENCIDA";
   if (daysLeft <= 7) return "VENCE_PRONTO";
   return "ACTIVA";
@@ -158,6 +160,14 @@ function asDate(value: unknown): Date | undefined {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return undefined;
   return date;
+}
+
+function usesCouponPayment(value: unknown): boolean {
+  return typeof value === "string" && value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .includes("cupon");
 }
 
 export function addMonths(date: Date, months: number): Date {
@@ -400,6 +410,7 @@ export async function buildPolicyWriteData(
     fechaInicio,
     fechaVencimiento,
     medioPago: asNullableString(input.medioPago),
+    tipoUso: asNullableString(input.tipoUso),
     vigencia,
     cuotaActual,
     cuotaTotal,
@@ -482,6 +493,7 @@ function buildNextCascadeQuotaData(source: any, groupStartDate: Date) {
     fechaInicio,
     fechaVencimiento,
     medioPago: source.medioPago,
+    tipoUso: source.tipoUso,
     vigencia: source.vigencia,
     cuotaActual: nextQuota,
     cuotaTotal: source.cuotaTotal,
@@ -530,6 +542,7 @@ function buildRenewalBaseData(source: any, groupId: string) {
     fechaInicio,
     fechaVencimiento,
     medioPago: source.medioPago,
+    tipoUso: source.tipoUso,
     vigencia: source.vigencia,
     cuotaActual: 1,
     cuotaTotal: quotaTotal,
@@ -905,6 +918,10 @@ policiesRouter.post("/:id/coupon", couponUploadMiddleware, async (req: AuthReque
       res.status(404).json({ error: "policy_not_found", message: "Póliza no encontrada." });
       return;
     }
+    if (!usesCouponPayment(policy.medioPago)) {
+      res.status(409).json({ error: "coupon_not_allowed", message: "La cuponera solo está habilitada para pólizas con pago por cupón." });
+      return;
+    }
     if (!req.file) {
       res.status(400).json({ error: "invalid_pdf", message: "Seleccioná un archivo PDF." });
       return;
@@ -1014,6 +1031,10 @@ policiesRouter.post("/:id/coupon/send-whatsapp", async (req: AuthRequest, res: R
       res.status(404).json({ error: "policy_not_found", message: "Póliza no encontrada." });
       return;
     }
+    if (!usesCouponPayment(policy.medioPago)) {
+      res.status(409).json({ error: "coupon_not_allowed", message: "Esta póliza no utiliza cupón como medio de pago." });
+      return;
+    }
     const coupon = await findCouponForPolicy(policy);
     if (!coupon) {
       res.status(409).json({ error: "coupon_not_found", message: "Cargá una cuponera antes de enviar por WhatsApp." });
@@ -1106,6 +1127,7 @@ policiesRouter.post("/:id/coupon/send-email", async (req: AuthRequest, res: Resp
   try {
     const policy = await findOwnedPolicy(req.params.id, req.userId!);
     if (!policy) { res.status(404).json({ error: "policy_not_found", message: "Póliza no encontrada." }); return; }
+    if (!usesCouponPayment(policy.medioPago)) { res.status(409).json({ error: "coupon_not_allowed", message: "Esta póliza no utiliza cupón como medio de pago." }); return; }
     const coupon = await findCouponForPolicy(policy);
     if (!coupon) { res.status(409).json({ error: "coupon_not_found", message: "Cargá una cuponera antes de enviarla por correo." }); return; }
     const recipient = (policy.clienteEmail || policy.cliente?.email || policy.company?.email || "").trim();

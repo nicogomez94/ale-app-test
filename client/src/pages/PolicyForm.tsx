@@ -197,6 +197,7 @@ export const PolicyForm: React.FC<PolicyFormProps> = ({ embedded = false, initia
   const fechaVigencia = watch('vigencia');
   const prima = watch('prima');
   const porcentaje = watch('porcentajeComision');
+  const medioPago = watch('medioPago');
   const policyMode = watch('policyMode') || 'CLIENTE';
   const vidaRetiroTipo = watch('vidaRetiroTipo') || 'VIDA';
 
@@ -220,6 +221,10 @@ export const PolicyForm: React.FC<PolicyFormProps> = ({ embedded = false, initia
       .then((data) => setDirectoryInsurers(data.map((insurer: any) => insurer.razonSocial).filter(Boolean)))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (medioPago !== 'Cupon') setCouponFile(null);
+  }, [medioPago]);
 
   const onSubmit = async (data: FormData) => {
     setSaving(true);
@@ -281,7 +286,7 @@ export const PolicyForm: React.FC<PolicyFormProps> = ({ embedded = false, initia
       };
 
       const created = await api.policies.create(payload);
-      if (couponFile && created?.id) await api.policies.coupon.upload(created.id, couponFile);
+      if (data.medioPago === 'Cupon' && couponFile && created?.id) await api.policies.coupon.upload(created.id, couponFile);
       setSnackOpen(true);
       if (embedded) onSaved?.();
       else setTimeout(() => navigate(policyType === 'EMPRESA' ? '/empresas' : '/clientes'), 1200);
@@ -744,7 +749,7 @@ export const PolicyForm: React.FC<PolicyFormProps> = ({ embedded = false, initia
             </Button>
           </Grid>
         </Grid>
-        {policyMode !== 'VIDA_RETIRO' && <Card variant="outlined" sx={{ mt: 3, borderRadius: 3 }}><CardContent><Typography fontWeight={900} color="primary" sx={{ mb: 1.5 }}>CUPÓN DE PAGO (PDF)</Typography><Button component="label" fullWidth variant="outlined" startIcon={<Upload />} sx={{ minHeight: 110, borderStyle: 'dashed', borderWidth: 2, display: 'flex', flexDirection: 'column', gap: 1 }}><Typography fontWeight={800}>{couponFile ? couponFile.name : 'Arrastrá tu archivo PDF aquí o hacé clic para buscar'}</Typography><Typography variant="caption" color="text.secondary">Soporta únicamente formato PDF</Typography><input hidden type="file" accept="application/pdf" onChange={(e) => setCouponFile(e.target.files?.[0] || null)} /></Button></CardContent></Card>}
+        {policyMode !== 'VIDA_RETIRO' && medioPago === 'Cupon' && <Card variant="outlined" sx={{ mt: 3, borderRadius: 3 }}><CardContent><Typography fontWeight={900} color="primary" sx={{ mb: 1.5 }}>CUPÓN DE PAGO (PDF)</Typography><Button component="label" fullWidth variant="outlined" startIcon={<Upload />} sx={{ minHeight: 110, borderStyle: 'dashed', borderWidth: 2, display: 'flex', flexDirection: 'column', gap: 1 }}><Typography fontWeight={800}>{couponFile ? couponFile.name : 'Arrastrá tu archivo PDF aquí o hacé clic para buscar'}</Typography><Typography variant="caption" color="text.secondary">Disponible únicamente para pólizas con pago por cupón.</Typography><input hidden type="file" accept="application/pdf" onChange={(e) => setCouponFile(e.target.files?.[0] || null)} /></Button></CardContent></Card>}
       </form>
 
       <Snackbar open={snackOpen} autoHideDuration={4000} onClose={() => setSnackOpen(false)}>

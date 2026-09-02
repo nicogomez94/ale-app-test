@@ -316,6 +316,7 @@ export const CotizacionesPage: React.FC = () => {
     setCotizaciones((items) => items.map((item) => item.id === cotizacion.id ? { ...item, viewedAt: new Date().toISOString() } : item));
     try {
       await api.cotizaciones.markViewed(cotizacion.id);
+      window.dispatchEvent(new Event('pas-alert:refresh-counts'));
     } catch (error) {
       console.error(error);
     }

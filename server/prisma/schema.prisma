@@ -246,6 +246,7 @@ model Policy {
   fechaInicio              DateTime
   fechaVencimiento         DateTime
   medioPago                String?
+  tipoUso                  String?
   vigencia                 PolicyVigencia      @default(ANUAL)
   cuotaActual              Int                 @default(1)
   cuotaTotal               Int                 @default(1)

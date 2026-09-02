@@ -382,6 +382,7 @@ export const DirectoryPage: React.FC = () => {
                       </Box>
                     </TableCell>
                     <TableCell>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: .75 }}>
                       {insurer.websiteUrl ? (
                         <Button
                           size="small"
@@ -393,6 +394,12 @@ export const DirectoryPage: React.FC = () => {
                           Acceder Web
                         </Button>
                       ) : '-'}
+                      {insurer.portalLoginUrl && (
+                        <Button size="small" variant="outlined" color="secondary" startIcon={<ExternalLink size={14} />} onClick={() => openUrl(insurer.portalLoginUrl)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+                          Acceso LOGIN PAS
+                        </Button>
+                      )}
+                      </Box>
                     </TableCell>
                     <TableCell sx={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <Tooltip title="Editar"><IconButton onClick={() => openInsurerDialog(insurer)}><Edit size={18} /></IconButton></Tooltip>
@@ -421,32 +428,30 @@ export const DirectoryPage: React.FC = () => {
                                 <Typography variant="body2"><strong>Email:</strong> {insurer.email || '-'}</Typography>
                                 <Typography variant="body2"><strong>Teléfono:</strong> {insurer.telefono || '-'}</Typography>
                                 <Typography variant="body2"><strong>Web:</strong> {insurer.websiteUrl || '-'}</Typography>
-                                <Typography variant="body2"><strong>Login PAS:</strong> {insurer.portalLoginUrl || '-'}</Typography>
                               </Box>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                                 {insurer.websiteUrl && (
                                   <Button size="small" startIcon={<ExternalLink size={16} />} onClick={() => openUrl(insurer.websiteUrl)}>Abrir web</Button>
                                 )}
-                                {insurer.portalLoginUrl && (
-                                  <Button size="small" startIcon={<Globe size={16} />} onClick={() => openUrl(insurer.portalLoginUrl)}>Login PAS</Button>
-                                )}
-                                {insurer.hasPortalPassword && (
-                                  <Button size="small" startIcon={revealedPasswords[insurer.id] ? <EyeOff size={16} /> : <Eye size={16} />} onClick={() => revealPassword(insurer)}>
-                                    {revealedPasswords[insurer.id] ? 'Ocultar clave' : 'Ver clave'}
-                                  </Button>
-                                )}
                               </Box>
-                              <Typography variant="body2" sx={{ mt: 1 }}>Usuario: {insurer.portalUsername || '-'}</Typography>
-                              {revealedPasswords[insurer.id] && <Typography variant="body2" sx={{ fontWeight: 700 }}>Clave: {revealedPasswords[insurer.id]}</Typography>}
                             </Grid>
                             <Grid size={{ xs: 12, md: 4 }}>
-                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase' }}>Acceso y Notas</Typography>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase' }}>Acceso LOGIN PAS</Typography>
+                              <Typography variant="body2" sx={{ mt: 1, overflowWrap: 'anywhere' }}><strong>URL:</strong> {insurer.portalLoginUrl || '-'}</Typography>
                               <Typography variant="body2" sx={{ mt: 1 }}><strong>Usuario:</strong> {insurer.portalUsername || '-'}</Typography>
                               <Typography variant="body2">
                                 <strong>Contraseña:</strong> {revealedPasswords[insurer.id] || (insurer.hasPortalPassword ? '••••••••' : '-')}
                               </Typography>
                               <Typography variant="body2"><strong>Cód. Cliente:</strong> {insurer.producerCode || '-'}</Typography>
-                              <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}><strong>Notas:</strong> {insurer.notes || '-'}</Typography>
+                              <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                                {insurer.portalLoginUrl && <Button size="small" startIcon={<ExternalLink size={16} />} onClick={() => openUrl(insurer.portalLoginUrl)}>Abrir LOGIN PAS</Button>}
+                                {insurer.hasPortalPassword && <Button size="small" startIcon={revealedPasswords[insurer.id] ? <EyeOff size={16} /> : <Eye size={16} />} onClick={() => revealPassword(insurer)}>{revealedPasswords[insurer.id] ? 'Ocultar clave' : 'Ver clave'}</Button>}
+                              </Box>
+                            </Grid>
+                            <Grid size={{ xs: 12 }}>
+                              <Divider sx={{ mb: 1.5 }} />
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase' }}>Notas</Typography>
+                              <Typography variant="body2" sx={{ mt: .75, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{insurer.notes || 'Sin notas.'}</Typography>
                             </Grid>
                             <Grid size={{ xs: 12 }}>
                               <Divider sx={{ my: 1 }} />
@@ -484,8 +489,8 @@ export const DirectoryPage: React.FC = () => {
       ) : (
         <Grid container spacing={3}>
           {brokers.map((broker) => (
-            <Grid size={{ xs: 12, md: 6 }} key={broker.id}>
-              <Card sx={{ borderRadius: 3, borderLeft: `8px solid ${broker.color}`, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', height: '100%' }}>
+            <Grid size={{ xs: 12, md: 4 }} key={broker.id}>
+              <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', borderLeft: `8px solid ${broker.color}`, boxShadow: '0 8px 24px rgba(0,0,0,0.08)', height: '100%', transition: 'transform .18s ease, box-shadow .18s ease', '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 14px 30px rgba(0,0,0,0.12)' } }}>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                     <Box>

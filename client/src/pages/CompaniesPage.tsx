@@ -20,6 +20,14 @@ const COMPANY_TYPES = [
   { label: 'Integral de Comercio', icon: <Store size={18} />, value: 'INTEGRAL_DE_COMERCIO' },
 ];
 
+const companyVisual = (policies: any[] = []) => {
+  if (!policies.length) return { bg: '#fff', border: '#d8dce8', pulse: false };
+  const pending = policies.filter((policy) => !policy.pagada);
+  if (pending.some((policy) => policy.estado === 'VENCIDA')) return { bg: '#fff0f0', border: '#dc2d2d', pulse: false };
+  if (pending.some((policy) => policy.estado === 'VENCE_PRONTO')) return { bg: '#fff4df', border: '#f59e0b', pulse: true };
+  return { bg: '#edf8ed', border: '#37a654', pulse: false };
+};
+
 export const CompaniesPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -161,8 +169,10 @@ export const CompaniesPage: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {companies.map((company) => (
-                <TableRow key={company.id} hover>
+              {companies.map((company) => {
+                const visual = companyVisual(company.polizas || []);
+                return (
+                <TableRow key={company.id} hover sx={{ '& > td': { bgcolor: visual.bg }, borderLeft: `6px solid ${visual.border}`, ...(visual.pulse ? { animation: 'companyHeartbeat 1.7s ease-in-out infinite', '@keyframes companyHeartbeat': { '0%, 100%': { filter: 'brightness(1)' }, '15%': { filter: 'brightness(1.07)' }, '30%': { filter: 'brightness(1)' } } } : {}) }}>
                   <TableCell sx={{ fontWeight: 600 }}>{company.razonSocial}</TableCell>
                   <TableCell><Chip label={company.ramo || '-'} size="small" variant="outlined" sx={{ fontWeight: 600 }} /></TableCell>
                   <TableCell>{company.cuit}</TableCell>
@@ -179,7 +189,7 @@ export const CompaniesPage: React.FC = () => {
                   <TableCell sx={{ minWidth: 220 }}>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                       {(company.polizasActivas || []).length > 0 ? company.polizasActivas.slice(0, 3).map((policy: any) => (
-                        <Chip key={policy.id} label={`${policy.numeroPoliza} · ${policy.aseguradora}`} size="small" variant="outlined" />
+                        <Chip key={policy.id} label={`${policy.numeroPoliza} · ${policy.aseguradora}`} size="small" variant="outlined" sx={{ borderColor: policy.estado === 'VENCE_PRONTO' ? '#f59e0b' : '#37a654', color: policy.estado === 'VENCE_PRONTO' ? '#9a5b00' : '#25843a', fontWeight: 800 }} />
                       )) : <Typography variant="body2" color="text.secondary">Sin pólizas activas</Typography>}
                       {(company.polizasActivas || []).length > 3 && <Chip label={`+${company.polizasActivas.length - 3}`} size="small" />}
                     </Box>
@@ -193,7 +203,7 @@ export const CompaniesPage: React.FC = () => {
                     />
                   </TableCell>
                 </TableRow>
-              ))}
+              );})}
               {companies.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={10} sx={{ textAlign: 'center', py: 5, color: 'text.secondary', fontWeight: 600 }}>

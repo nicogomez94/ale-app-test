@@ -4,14 +4,14 @@ import {
   TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
   TextField, InputAdornment, Dialog, DialogTitle, DialogContent,
   DialogActions, Grid, Chip, CircularProgress, Select, MenuItem,
-  FormControl, InputLabel, Divider,
+  Autocomplete, FormControl, InputLabel, Divider,
   LinearProgress
 } from '@mui/material';
 import {
   Plus, Search, Edit2, Download, AlertTriangle, CheckCircle, FileDown,
   XCircle, Clock, FileText, X, ChevronRight, Notebook, Mail, MessageCircle
 } from 'lucide-react';
-import { api } from '../api';
+import { api, DashboardPolicy } from '../api';
 import { DEBUG, debugData } from '../data/debugData';
 import { ListingActions } from '../components/ListingActions';
 import { printTableReport } from '../utils/reportExports';
@@ -82,6 +82,18 @@ const ESTADO_PROGRESS: Record<SiniestroEstado, number> = {
 };
 
 const estadoInfo = (e: SiniestroEstado) => ESTADOS.find(s => s.value === e) ?? ESTADOS[0];
+const inferClaimType = (rubro: string) => {
+  const value = rubro.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (value.includes('moto')) return 'Moto';
+  if (value.includes('auto') || value.includes('vehiculo')) return 'Automotor';
+  if (value.includes('hogar')) return 'Hogar';
+  if (value.includes('vida')) return 'Vida';
+  if (value.includes('art')) return 'ART';
+  if (value.includes('caucion')) return 'Caución';
+  if (value.includes('consorcio')) return 'Consorcio';
+  if (value.includes('comercio')) return 'Comercio';
+  return 'Otros';
+};
 
 const fmt = (n?: number) =>
   n !== undefined && n !== null
@@ -109,6 +121,7 @@ export const SiniestrosPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
   const [filterPrioridad, setFilterPrioridad] = useState('');
+  const [policyOptions, setPolicyOptions] = useState<DashboardPolicy[]>([]);
 
   // Form state
   const [formOpen, setFormOpen] = useState(false);
@@ -138,6 +151,16 @@ export const SiniestrosPage: React.FC = () => {
   }, [search, filterEstado, filterPrioridad]);
 
   useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    api.dashboard.policies().then((rows) => {
+      const pending = rows.filter((policy) => !policy.pagada);
+      const unique = new Map<string, DashboardPolicy>();
+      (pending.length ? pending : rows).forEach((policy) => {
+        if (!unique.has(policy.poliza)) unique.set(policy.poliza, policy);
+      });
+      setPolicyOptions(Array.from(unique.values()));
+    }).catch(() => setPolicyOptions([]));
+  }, []);
 
   // ─── Form handlers ──────────────────────────────────────────────────────────
   const openCreate = () => {
@@ -265,6 +288,21 @@ export const SiniestrosPage: React.FC = () => {
   const setF = (key: keyof typeof EMPTY_FORM, value: string) =>
     setForm(prev => ({ ...prev, [key]: value }));
 
+  const applyPolicy = (policy: DashboardPolicy | null) => {
+    if (!policy) return;
+    setForm((prev) => ({
+      ...prev,
+      numeroPoliza: policy.poliza,
+      aseguradora: policy.aseguradora,
+      tipoSeguro: inferClaimType(policy.rubro || ''),
+      clienteNombre: policy.clienteNombre || policy.cliente,
+      clienteDni: policy.clienteDni || '',
+      clienteTelefono: policy.telefono || '',
+      clienteEmail: policy.email || '',
+      patente: policy.patente || prev.patente,
+    }));
+  };
+
   const isAutoMoto = form.tipoSeguro === 'Automotor' || form.tipoSeguro === 'Moto';
   const isHogar = form.tipoSeguro === 'Hogar';
 
@@ -391,7 +429,7 @@ export const SiniestrosPage: React.FC = () => {
               const est = estadoInfo(s.estado);
               const pri = PRIORIDADES.find(p => p.value === s.prioridad) ?? PRIORIDADES[2];
               return (
-                <TableRow key={s.id} hover sx={{ cursor: 'pointer' }}>
+                <TableRow key={s.id} hover sx={{ cursor: 'pointer', borderLeft: `6px solid ${est.color}`, '& > td': { bgcolor: `${est.color}0d` }, '&:hover > td': { bgcolor: `${est.color}18` } }}>
                   <TableCell sx={{ fontWeight: 700 }} onClick={() => openDetail(s)}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       {s.numeroSiniestro}
@@ -462,7 +500,15 @@ export const SiniestrosPage: React.FC = () => {
               <TextField fullWidth label="N° Siniestro *" size="small" value={form.numeroSiniestro} onChange={e => setF('numeroSiniestro', e.target.value)} />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField fullWidth label="N° Póliza *" size="small" value={form.numeroPoliza} onChange={e => setF('numeroPoliza', e.target.value)} />
+              <Autocomplete
+                freeSolo
+                options={policyOptions}
+                value={policyOptions.find((policy) => policy.poliza === form.numeroPoliza) || form.numeroPoliza}
+                getOptionLabel={(option) => typeof option === 'string' ? option : `${option.poliza} · ${option.cliente}`}
+                onChange={(_, value) => typeof value === 'string' ? setF('numeroPoliza', value) : applyPolicy(value)}
+                onInputChange={(_, value, reason) => { if (reason === 'input') setF('numeroPoliza', value.split(' · ')[0]); }}
+                renderInput={(params) => <TextField {...params} fullWidth label="N° Póliza *" size="small" helperText="Al elegir una póliza se completan automáticamente los datos del titular." />}
+              />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField fullWidth label="Aseguradora *" size="small" value={form.aseguradora} onChange={e => setF('aseguradora', e.target.value)} />

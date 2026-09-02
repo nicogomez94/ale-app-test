@@ -73,6 +73,28 @@ const moneyPair = (values: { ars: number; usd: number }) => {
   return parts.join(' / ');
 };
 
+const sanitizeDecimal = (value: string) => {
+  const cleaned = value.replace(/[^\d.,]/g, '');
+  const separator = Math.max(cleaned.lastIndexOf(','), cleaned.lastIndexOf('.'));
+  if (separator < 0) return cleaned;
+  const integer = cleaned.slice(0, separator).replace(/[.,]/g, '');
+  const decimals = cleaned.slice(separator + 1).replace(/[.,]/g, '').slice(0, 2);
+  return `${integer},${decimals}`;
+};
+const parseDecimal = (value: string) => {
+  const cleaned = String(value || '').replace(/[^\d.,]/g, '');
+  const separator = Math.max(cleaned.lastIndexOf(','), cleaned.lastIndexOf('.'));
+  if (separator < 0) return Number(cleaned) || 0;
+  const integer = cleaned.slice(0, separator).replace(/[.,]/g, '');
+  const decimals = cleaned.slice(separator + 1).replace(/[.,]/g, '');
+  return Number(`${integer}.${decimals}`) || 0;
+};
+const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+const periodLabel = (period: string) => {
+  const [year, month] = period.split('-');
+  return month ? `${MONTH_LABELS[Number(month) - 1]} ${year.slice(-2)}` : period;
+};
+
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
@@ -97,6 +119,7 @@ export const BillingPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'individual' | 'consolidated'>('individual');
   const [chartRange, setChartRange] = useState<6 | 12>(12);
   const [chartType, setChartType] = useState<'line' | 'bar'>('line');
+  const [chartYear, setChartYear] = useState('ALL');
   const [expandedPeriods, setExpandedPeriods] = useState<Record<string, boolean>>({});
   const [snack, setSnack] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
 
@@ -140,9 +163,10 @@ export const BillingPage: React.FC = () => {
     return acc;
   }, { ars: { facturado: 0, cobrado: 0 }, usd: { facturado: 0, cobrado: 0 } }), [invoices]);
 
+  const chartYears = useMemo(() => Array.from(new Set(invoices.map((invoice) => invoice.periodo.slice(0, 4)))).sort().reverse(), [invoices]);
   const chartData = useMemo(() => {
     const periods = new Map<string, { periodo: string; FacturadoARS: number; CobradoARS: number; RetencionesARS: number; FacturadoUSD: number; CobradoUSD: number; RetencionesUSD: number }>();
-    invoices.forEach((invoice) => {
+    invoices.filter((invoice) => chartYear === 'ALL' || invoice.periodo.startsWith(`${chartYear}-`)).forEach((invoice) => {
       const current = periods.get(invoice.periodo) || { periodo: invoice.periodo, FacturadoARS: 0, CobradoARS: 0, RetencionesARS: 0, FacturadoUSD: 0, CobradoUSD: 0, RetencionesUSD: 0 };
       if (invoice.moneda === 'USD') {
         current.FacturadoUSD += Number(invoice.monto || 0);
@@ -156,7 +180,7 @@ export const BillingPage: React.FC = () => {
       periods.set(invoice.periodo, current);
     });
     return Array.from(periods.values()).sort((a, b) => a.periodo.localeCompare(b.periodo)).slice(-chartRange);
-  }, [invoices, chartRange]);
+  }, [invoices, chartRange, chartYear]);
   const projectionData = useMemo(() => chartData.slice(-6).map((row) => ({
     periodo: row.periodo,
     ProyectadoARS: row.FacturadoARS,
@@ -184,7 +208,7 @@ export const BillingPage: React.FC = () => {
     setForm(invoice ? {
       insuranceCompanyId: invoice.insuranceCompanyId || '', periodo: invoice.periodo, numeroFactura: invoice.numeroFactura, numeroLiquidacion: invoice.numeroLiquidacion || '',
       fechaEmision: invoice.fechaEmision, fechaVencimiento: invoice.fechaVencimiento || '', estado: invoice.estado,
-      monto: String(invoice.monto), montoCobradoInicial: '', moneda: invoice.moneda, comprobanteUrl: invoice.comprobanteUrl || '',
+      monto: String(invoice.monto), montoCobradoInicial: String(invoice.montoCobrado || 0), moneda: invoice.moneda, comprobanteUrl: invoice.comprobanteUrl || '',
       notes: invoice.notes || '', policyIds: invoice.policies.map((policy) => policy.id),
     } : { ...emptyInvoice, periodo: currentPeriod(), fechaEmision: today(), policyIds: [] });
     setFormOpen(true);
@@ -193,11 +217,11 @@ export const BillingPage: React.FC = () => {
   const saveInvoice = async () => {
     setSaving(true);
     try {
-      const payload = { ...form, monto: Number(form.monto) };
+      const payload = { ...form, monto: parseDecimal(form.monto) };
       if (editing) await api.commissions.invoices.update(editing.id, payload);
       else {
         const created: any = await api.commissions.invoices.create(payload);
-        const initialCollected = Number(form.montoCobradoInicial || 0);
+        const initialCollected = parseDecimal(form.montoCobradoInicial);
         if (initialCollected > 0 && created?.id) await api.commissions.invoices.addPayment(created.id, { fechaPago: today(), monto: initialCollected, medioPago: 'Transferencia' });
       }
       setFormOpen(false);
@@ -218,7 +242,7 @@ export const BillingPage: React.FC = () => {
     if (!detail) return;
     setSaving(true);
     try {
-      const updated = await api.commissions.invoices.addPayment(detail.id, { ...payment, monto: Number(payment.monto) }) as Invoice;
+      const updated = await api.commissions.invoices.addPayment(detail.id, { ...payment, monto: parseDecimal(payment.monto) }) as Invoice;
       setDetail(updated);
       setPayment({ ...emptyPayment, fechaPago: today() });
       setSnack({ open: true, message: 'Pago registrado.', severity: 'success' });
@@ -284,6 +308,10 @@ export const BillingPage: React.FC = () => {
               <Typography variant="h6" fontWeight={900}>Evolución de Comisiones e Impuestos Recibidos</Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <TextField select size="small" label="Año" value={chartYear} onChange={(event) => setChartYear(event.target.value)} sx={{ minWidth: 108 }}>
+                <MenuItem value="ALL">Todos</MenuItem>
+                {chartYears.map((year) => <MenuItem key={year} value={year}>{year}</MenuItem>)}
+              </TextField>
               <Button size="small" variant={chartRange === 6 ? 'contained' : 'outlined'} onClick={() => setChartRange(6)}>6 meses</Button>
               <Button size="small" variant={chartRange === 12 ? 'contained' : 'outlined'} onClick={() => setChartRange(12)}>12 meses</Button>
               <Button size="small" variant={chartType === 'line' ? 'contained' : 'outlined'} color="secondary" onClick={() => setChartType('line')}>Líneas</Button>
@@ -295,7 +323,7 @@ export const BillingPage: React.FC = () => {
               {chartType === 'line' ? (
                 <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="periodo" tickLine={false} axisLine={false} />
+                  <XAxis dataKey="periodo" tickFormatter={periodLabel} tickLine={false} axisLine={false} />
                   <YAxis tickLine={false} axisLine={false} />
                   <ChartTooltip formatter={(value, name) => [money(Number(value || 0), String(name).includes('USD') ? 'USD' : 'ARS'), String(name)]} />
                   <Legend />
@@ -309,13 +337,13 @@ export const BillingPage: React.FC = () => {
               ) : (
                 <BarChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="periodo" tickLine={false} axisLine={false} />
+                  <XAxis dataKey="periodo" tickFormatter={periodLabel} tickLine={false} axisLine={false} />
                   <YAxis tickLine={false} axisLine={false} />
                   <ChartTooltip formatter={(value, name) => [money(Number(value || 0), String(name).includes('USD') ? 'USD' : 'ARS'), String(name)]} />
                   <Legend />
-                  <Bar dataKey="FacturadoARS" name="Facturado ARS" fill="#2563eb" radius={[5, 5, 0, 0]} />
-                  <Bar dataKey="CobradoARS" name="Cobrado ARS" fill="#0f9f6e" radius={[5, 5, 0, 0]} />
-                  <Bar dataKey="RetencionesARS" name="IIBB / Retenciones ARS" fill="#e9ad25" radius={[5, 5, 0, 0]} />
+                  <Bar dataKey="FacturadoARS" name="Facturado ARS" fill="#2563eb" radius={[5, 5, 0, 0]} barSize={14} />
+                  <Bar dataKey="CobradoARS" name="Cobrado ARS" fill="#0f9f6e" radius={[5, 5, 0, 0]} barSize={14} />
+                  <Bar dataKey="RetencionesARS" name="IIBB / Retenciones ARS" fill="#e9ad25" radius={[5, 5, 0, 0]} barSize={14} />
                 </BarChart>
               )}
             </ResponsiveContainer>
@@ -332,14 +360,14 @@ export const BillingPage: React.FC = () => {
             <ResponsiveContainer>
               <BarChart data={projectionData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="periodo" tickLine={false} axisLine={false} />
+                <XAxis dataKey="periodo" tickFormatter={periodLabel} tickLine={false} axisLine={false} />
                 <YAxis tickLine={false} axisLine={false} />
                 <ChartTooltip formatter={(value, name) => [money(Number(value || 0), String(name).includes('USD') ? 'USD' : 'ARS'), String(name)]} />
                 <Legend />
-                <Bar dataKey="ProyectadoARS" name="Proyectado ARS" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="PercibidoARS" name="Percibido ARS" fill="#12b886" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="ProyectadoUSD" name="Proyectado USD" fill="#c4b5fd" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="PercibidoUSD" name="Percibido USD" fill="#67e8c3" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="ProyectadoARS" name="Proyectado ARS" fill="#8b5cf6" radius={[6, 6, 0, 0]} barSize={14} />
+                <Bar dataKey="PercibidoARS" name="Percibido ARS" fill="#12b886" radius={[6, 6, 0, 0]} barSize={14} />
+                <Bar dataKey="ProyectadoUSD" name="Proyectado USD" fill="#c4b5fd" radius={[6, 6, 0, 0]} barSize={14} />
+                <Bar dataKey="PercibidoUSD" name="Percibido USD" fill="#67e8c3" radius={[6, 6, 0, 0]} barSize={14} />
               </BarChart>
             </ResponsiveContainer>
           </Box>
@@ -424,14 +452,14 @@ export const BillingPage: React.FC = () => {
           <Grid size={{ xs: 12, md: 4 }}><TextField fullWidth label="Nro Liquidación Compañía" value={form.numeroLiquidacion} onChange={(e) => setForm((s) => ({ ...s, numeroLiquidacion: e.target.value }))} /></Grid>
           <Grid size={{ xs: 6, md: 4 }}><TextField fullWidth required type="date" label="Emisión" InputLabelProps={{ shrink: true }} value={form.fechaEmision} onChange={(e) => setForm((s) => ({ ...s, fechaEmision: e.target.value }))} /></Grid>
           <Grid size={{ xs: 6, md: 4 }}><TextField fullWidth type="date" label="Vencimiento" InputLabelProps={{ shrink: true }} value={form.fechaVencimiento} onChange={(e) => setForm((s) => ({ ...s, fechaVencimiento: e.target.value }))} /></Grid>
-          <Grid size={{ xs: 6, md: 4 }}><TextField fullWidth required type="number" label="Comisión Facturada" value={form.monto} onChange={(e) => setForm((s) => ({ ...s, monto: e.target.value }))} /></Grid>
-          {!editing && <Grid size={{ xs: 6, md: 4 }}><TextField fullWidth type="number" label="Comisión Cobrada" value={form.montoCobradoInicial} onChange={(e) => setForm((s) => ({ ...s, montoCobradoInicial: e.target.value }))} /></Grid>}
-          <Grid size={12}><Alert severity="warning">Impuestos / IIBB calculados: <strong>{money(Math.max(0, Number(form.monto || 0) - Number(form.montoCobradoInicial || 0)), form.moneda)}</strong></Alert></Grid>
+          <Grid size={{ xs: 6, md: 4 }}><TextField fullWidth required label="Comisión Facturada" value={form.monto} inputProps={{ inputMode: 'decimal' }} onChange={(e) => setForm((s) => ({ ...s, monto: sanitizeDecimal(e.target.value) }))} helperText="Acepta centavos con coma o punto." /></Grid>
+          <Grid size={{ xs: 6, md: 4 }}><TextField fullWidth label="Monto del pago recibido" value={form.montoCobradoInicial} inputProps={{ inputMode: 'decimal', readOnly: Boolean(editing) }} onChange={(e) => setForm((s) => ({ ...s, montoCobradoInicial: sanitizeDecimal(e.target.value) }))} helperText={editing ? 'Los pagos se administran desde Ver detalle.' : 'Podés registrar un cobro inicial, incluso parcial.'} /></Grid>
+          <Grid size={12}><Alert severity="warning">Impuestos / IIBB calculados: <strong>{money(Math.max(0, parseDecimal(form.monto) - parseDecimal(form.montoCobradoInicial)), form.moneda)}</strong></Alert></Grid>
           <Grid size={{ xs: 6, md: 4 }}><TextField select fullWidth label="Moneda" value={form.moneda} onChange={(e) => setForm((s) => ({ ...s, moneda: e.target.value as Currency, policyIds: [] }))}><MenuItem value="ARS">ARS</MenuItem><MenuItem value="USD">USD</MenuItem></TextField></Grid>
           <Grid size={{ xs: 12, md: 4 }}><TextField fullWidth label="URL del comprobante" value={form.comprobanteUrl} onChange={(e) => setForm((s) => ({ ...s, comprobanteUrl: e.target.value }))} /></Grid>
           <Grid size={12}><Autocomplete multiple options={eligiblePolicies} value={eligiblePolicies.filter((p) => form.policyIds.includes(p.id))} getOptionLabel={(p) => `${p.numeroPoliza} · ${p.clienteNombre} · ${money(p.comisionCalculada, form.moneda)}`} onChange={(_, values) => setForm((s) => ({ ...s, policyIds: values.map((p) => p.id) }))} renderInput={(params) => <TextField {...params} label="Pólizas vinculadas" helperText="Se muestran pólizas de la aseguradora y moneda elegidas." />} /></Grid>
           <Grid size={12}><TextField fullWidth multiline minRows={2} label="Notas" value={form.notes} onChange={(e) => setForm((s) => ({ ...s, notes: e.target.value }))} /></Grid>
-        </Grid></DialogContent><DialogActions><Button onClick={() => setFormOpen(false)}>Cancelar</Button><Button variant="contained" disabled={saving || !form.insuranceCompanyId || !form.periodo || !form.numeroFactura || Number(form.monto) <= 0} onClick={saveInvoice}>Guardar</Button></DialogActions>
+        </Grid></DialogContent><DialogActions><Button onClick={() => setFormOpen(false)}>Cancelar</Button><Button variant="contained" disabled={saving || !form.insuranceCompanyId || !form.periodo || !form.numeroFactura || parseDecimal(form.monto) <= 0} onClick={saveInvoice}>Guardar</Button></DialogActions>
       </Dialog>
 
       <Dialog open={!!detail} onClose={() => setDetail(null)} maxWidth="md" fullWidth><DialogTitle>Detalle de factura {detail?.numeroFactura}</DialogTitle>{detail && <DialogContent dividers>
@@ -439,7 +467,7 @@ export const BillingPage: React.FC = () => {
         {detail.comprobanteUrl && <Link href={detail.comprobanteUrl} target="_blank" rel="noreferrer" sx={{ mt: 2, display: 'inline-flex', gap: 1 }}>Abrir comprobante <ExternalLink size={15} /></Link>}
         <Divider sx={{ my: 2 }} /><Typography variant="subtitle1" fontWeight={800}>Pólizas vinculadas</Typography>{detail.policies.length ? detail.policies.map((policy) => <Chip key={policy.id} sx={{ mr: 1, mt: 1 }} label={`${policy.numeroPoliza} · ${policy.clienteNombre} · ${policy.cuotaActual}/${policy.cuotaTotal}`} />) : <Typography color="text.secondary">Sin pólizas vinculadas.</Typography>}
         <Divider sx={{ my: 2 }} /><Typography variant="subtitle1" fontWeight={800}>Pagos</Typography>{detail.payments.map((item) => <Box key={item.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1, borderBottom: '1px solid', borderColor: 'divider' }}><Box><Typography fontWeight={700}>{money(item.monto, detail.moneda)}</Typography><Typography variant="caption">{item.fechaPago} · {item.medioPago || 'Sin medio'} {item.comprobanteUrl && <>· <Link href={item.comprobanteUrl} target="_blank">Comprobante</Link></>}</Typography></Box><IconButton color="error" onClick={() => removePayment(item.id)}><Trash2 size={17} /></IconButton></Box>)}
-        {detail.saldoPendiente > 0 && <Card variant="outlined" sx={{ mt: 2 }}><CardContent><Typography variant="subtitle2" fontWeight={800} sx={{ mb: 2 }}>Registrar pago parcial</Typography><Grid container spacing={2}><Grid size={{ xs: 6, md: 3 }}><TextField fullWidth type="date" label="Fecha" InputLabelProps={{ shrink: true }} value={payment.fechaPago} onChange={(e) => setPayment((s) => ({ ...s, fechaPago: e.target.value }))} /></Grid><Grid size={{ xs: 6, md: 3 }}><TextField fullWidth type="number" label="Monto" value={payment.monto} onChange={(e) => setPayment((s) => ({ ...s, monto: e.target.value }))} /></Grid><Grid size={{ xs: 12, md: 3 }}><TextField select fullWidth label="Medio" value={payment.medioPago} onChange={(e) => setPayment((s) => ({ ...s, medioPago: e.target.value }))}><MenuItem value="Transferencia">Transferencia</MenuItem><MenuItem value="Efectivo">Efectivo</MenuItem><MenuItem value="Cheque">Cheque</MenuItem><MenuItem value="Otro">Otro</MenuItem></TextField></Grid><Grid size={{ xs: 12, md: 3 }}><TextField fullWidth label="URL comprobante" value={payment.comprobanteUrl} onChange={(e) => setPayment((s) => ({ ...s, comprobanteUrl: e.target.value }))} /></Grid></Grid><Button sx={{ mt: 2 }} variant="contained" startIcon={<CreditCard size={17} />} disabled={saving || Number(payment.monto) <= 0 || Number(payment.monto) > detail.saldoPendiente} onClick={addPayment}>Registrar pago</Button></CardContent></Card>}
+        {detail.saldoPendiente > 0 && <Card variant="outlined" sx={{ mt: 2 }}><CardContent><Typography variant="subtitle2" fontWeight={800} sx={{ mb: 2 }}>Registrar pago parcial</Typography><Grid container spacing={2}><Grid size={{ xs: 6, md: 3 }}><TextField fullWidth type="date" label="Fecha" InputLabelProps={{ shrink: true }} value={payment.fechaPago} onChange={(e) => setPayment((s) => ({ ...s, fechaPago: e.target.value }))} /></Grid><Grid size={{ xs: 6, md: 3 }}><TextField fullWidth label="Monto" value={payment.monto} inputProps={{ inputMode: 'decimal' }} onChange={(e) => setPayment((s) => ({ ...s, monto: sanitizeDecimal(e.target.value) }))} helperText="Acepta centavos." /></Grid><Grid size={{ xs: 12, md: 3 }}><TextField select fullWidth label="Medio" value={payment.medioPago} onChange={(e) => setPayment((s) => ({ ...s, medioPago: e.target.value }))}><MenuItem value="Transferencia">Transferencia</MenuItem><MenuItem value="Efectivo">Efectivo</MenuItem><MenuItem value="Cheque">Cheque</MenuItem><MenuItem value="Otro">Otro</MenuItem></TextField></Grid><Grid size={{ xs: 12, md: 3 }}><TextField fullWidth label="URL comprobante" value={payment.comprobanteUrl} onChange={(e) => setPayment((s) => ({ ...s, comprobanteUrl: e.target.value }))} /></Grid></Grid><Button sx={{ mt: 2 }} variant="contained" startIcon={<CreditCard size={17} />} disabled={saving || parseDecimal(payment.monto) <= 0 || parseDecimal(payment.monto) > detail.saldoPendiente} onClick={addPayment}>Registrar pago</Button></CardContent></Card>}
       </DialogContent>}<DialogActions><Button onClick={() => setDetail(null)}>Cerrar</Button></DialogActions></Dialog>
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))}><Alert severity={snack.severity} onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.message}</Alert></Snackbar>
     </Box>

@@ -6,6 +6,7 @@ export type WeeklyPolicy = {
   clienteNombre: string;
   numeroPoliza: string;
   aseguradora: string;
+  medioPago?: string | null;
   fechaVencimiento: Date;
 };
 
@@ -57,7 +58,7 @@ export function buildWeeklySummaryChunks(policies: WeeklyPolicy[], maxChars = 90
 
   const dateFormatter = new Intl.DateTimeFormat("es-AR", { timeZone: WEEKLY_TIME_ZONE, day: "2-digit", month: "2-digit", year: "numeric" });
   const lines = policies.map((policy, index) =>
-    `${index + 1}. ${compact(policy.clienteNombre)} · Póliza ${compact(policy.numeroPoliza, 30)} · ${compact(policy.aseguradora, 42)} · ${dateFormatter.format(policy.fechaVencimiento)}`
+    `${index + 1}. ${compact(policy.clienteNombre)} · Póliza ${compact(policy.numeroPoliza, 30)} · ${compact(policy.aseguradora, 42)} · Pago: ${compact(policy.medioPago || "Sin informar", 30)} · ${dateFormatter.format(policy.fechaVencimiento)}`
   );
   const summaryText = lines.join("\n");
   const groups: string[][] = [];

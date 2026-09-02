@@ -29,15 +29,16 @@ companiesRouter.get("/", async (req: AuthRequest, res: Response) => {
       orderBy: { createdAt: "desc" },
       include: {
         polizas: {
-          where: { estado: { in: ["ACTIVA", "VENCE_PRONTO"] } },
           orderBy: { fechaVencimiento: "asc" },
           select: {
             id: true,
+            groupId: true,
             aseguradora: true,
             rubro: true,
             numeroPoliza: true,
             fechaVencimiento: true,
             estado: true,
+            pagada: true,
             cuotaActual: true,
             cuotaTotal: true,
           },
@@ -47,7 +48,7 @@ companiesRouter.get("/", async (req: AuthRequest, res: Response) => {
 
     res.json(companies.map((company) => ({
       ...company,
-      polizasActivas: company.polizas,
+      polizasActivas: company.polizas.filter((policy) => !policy.pagada && ["ACTIVA", "VENCE_PRONTO"].includes(policy.estado)),
     })));
   } catch (error) {
     console.error("List companies error:", error);

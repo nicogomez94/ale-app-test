@@ -72,8 +72,8 @@ export async function runWeeklySummaryJob(options: {
 
     for (const user of users) {
       const policies = await prisma.policy.findMany({
-        where: { userId: user.id, fechaVencimiento: { gte: now, lte: windowEnd } },
-        select: { clienteNombre: true, numeroPoliza: true, aseguradora: true, fechaVencimiento: true },
+        where: { userId: user.id, pagada: false, fechaVencimiento: { gte: weekStart, lte: windowEnd } },
+        select: { clienteNombre: true, numeroPoliza: true, aseguradora: true, medioPago: true, fechaVencimiento: true },
         orderBy: { fechaVencimiento: "asc" },
       });
       const summary = buildWeeklySummaryChunks(policies, getChunkMaxChars());

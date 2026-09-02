@@ -52,6 +52,7 @@ export interface DashboardPolicy {
   estadoLabel: string;
   tipo: PolicyType;
   medioPago: string;
+  tipoUso?: string | null;
   diasRestantes: number;
   telefono: string;
   email: string;
@@ -107,6 +108,7 @@ export interface PolicyPayload {
   fechaInicio: string;
   fechaVencimiento: string;
   medioPago: string;
+  tipoUso?: string | null;
   vigencia: PolicyVigencia;
   cuotaActual: number;
   cuotaTotal: number;

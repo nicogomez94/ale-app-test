@@ -33,6 +33,7 @@ import {
 import {
   AlertCircle,
   Banknote,
+  Cake,
   ChevronDown,
   ChevronUp,
   CheckSquare,
@@ -46,6 +47,7 @@ import {
   Mail,
   MapPin,
   MessageCircle,
+  MessageSquareQuote,
   Phone,
   Plus,
   Search,
@@ -94,6 +96,7 @@ type EditFormValues = {
   vigencia: PolicyVigencia;
   prima: string;
   porcentajeComision: string;
+  tipoUso: string;
   moneda: string;
   pagada: boolean;
   fechaPago: string;
@@ -128,6 +131,16 @@ const StatCard = ({ title, value, icon, color, subtitle, onClick, active }: any)
       border: active ? 2 : 0,
       borderColor: active ? `${color}.main` : 'transparent',
       transition: 'all 0.2s',
+      ...(value > 0 && (title === 'Vencen en 7 dias' || title === 'Cotizaciones nuevas' || title === 'Cumpleanos en 7 dias') ? {
+        animation: 'dashboardHeartbeat 1.7s ease-in-out infinite',
+        '@keyframes dashboardHeartbeat': {
+          '0%, 100%': { transform: 'scale(1)' },
+          '10%': { transform: 'scale(1.025)' },
+          '20%': { transform: 'scale(1)' },
+          '30%': { transform: 'scale(1.018)' },
+          '42%': { transform: 'scale(1)' },
+        },
+      } : {}),
       '&:hover': onClick ? { transform: 'translateY(-2px)', boxShadow: 4 } : {},
     }}
     onClick={onClick}
@@ -176,18 +189,23 @@ const formatMoney = (value?: number | null) => {
   return `$ ${value.toLocaleString('es-AR')}`;
 };
 
-const formatAmountInput = (value: string): string => {
-  const numeric = Number(value || 0);
-  if (!Number.isFinite(numeric) || numeric <= 0) return '';
-  return new Intl.NumberFormat('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(numeric);
+const sanitizeAmountInput = (value: string): string => {
+  const cleaned = value.replace(/[^\d.,]/g, '');
+  const decimalIndex = Math.max(cleaned.lastIndexOf(','), cleaned.lastIndexOf('.'));
+  if (decimalIndex < 0) return cleaned;
+  const integer = cleaned.slice(0, decimalIndex).replace(/[.,]/g, '');
+  const decimals = cleaned.slice(decimalIndex + 1).replace(/[.,]/g, '').slice(0, 2);
+  return `${integer},${decimals}`;
 };
 
-const parseAmountInput = (value: string): string => {
-  const cleaned = value.replace(/[^\d.,]/g, '');
-  if (!cleaned) return '';
-  const normalized = cleaned.replace(/\./g, '').replace(',', '.');
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? String(parsed) : '';
+const parseLocalizedAmount = (value: string): number => {
+  const cleaned = value.trim().replace(/[^\d.,]/g, '');
+  if (!cleaned) return 0;
+  const decimalIndex = Math.max(cleaned.lastIndexOf(','), cleaned.lastIndexOf('.'));
+  if (decimalIndex < 0) return Number(cleaned) || 0;
+  const integer = cleaned.slice(0, decimalIndex).replace(/[.,]/g, '');
+  const decimals = cleaned.slice(decimalIndex + 1).replace(/[.,]/g, '');
+  return Number(`${integer}.${decimals}`) || 0;
 };
 
 const getErrorMessage = (error: unknown, fallback: string) => (
@@ -213,7 +231,7 @@ const getStatusVisual = (policy: DashboardPolicy) => {
   }
 
   if (policy.estado === 'VENCE_PRONTO') {
-    return { label: 'Vence pronto', color: 'warning.main', textColor: 'black', detail: policy.diasRestantes === 0 ? 'Hoy' : `${policy.diasRestantes} dias` };
+    return { label: 'Vence pronto', color: '#f59e0b', textColor: 'white', detail: policy.diasRestantes === 0 ? 'Hoy' : `${policy.diasRestantes} dias` };
   }
 
   return { label: 'Vigente', color: 'success.main', textColor: 'white', detail: policy.diasRestantes === 0 ? 'Hoy' : `${policy.diasRestantes} dias` };
@@ -240,26 +258,44 @@ const getPolicyRowSx = (policy: DashboardPolicy, accentColor?: string) => {
     ? 'rgba(46, 125, 50, 0.09)'
     : policy.estado === 'VENCIDA'
       ? 'rgba(211, 47, 47, 0.09)'
-      : 'transparent';
+      : policy.estado === 'VENCE_PRONTO'
+        ? 'rgba(245, 158, 11, 0.14)'
+        : 'rgba(46, 125, 50, 0.08)';
   const hoverColor = policy.pagada
     ? 'rgba(46, 125, 50, 0.15)'
     : policy.estado === 'VENCIDA'
       ? 'rgba(211, 47, 47, 0.15)'
-      : 'action.hover';
+      : policy.estado === 'VENCE_PRONTO'
+        ? 'rgba(245, 158, 11, 0.22)'
+        : 'rgba(46, 125, 50, 0.14)';
 
   return {
     cursor: 'pointer',
     borderLeft: '4px solid',
-    borderLeftColor: policy.pagada ? 'success.main' : policy.estado === 'VENCIDA' ? 'error.main' : accentColor || 'transparent',
+    borderLeftColor: policy.pagada ? 'success.main' : policy.estado === 'VENCIDA' ? 'error.main' : policy.estado === 'VENCE_PRONTO' ? '#f59e0b' : accentColor || 'success.main',
+    ...(policy.estado === 'VENCE_PRONTO' && !policy.pagada ? {
+      animation: 'policyHeartbeat 1.7s ease-in-out infinite',
+      '@keyframes policyHeartbeat': {
+        '0%, 100%': { filter: 'brightness(1)' },
+        '15%': { filter: 'brightness(1.08)' },
+        '30%': { filter: 'brightness(1)' },
+        '45%': { filter: 'brightness(1.06)' },
+      },
+    } : {}),
     '& > td': { bgcolor: backgroundColor, transition: 'background-color .18s ease' },
     '&:hover > td': { bgcolor: hoverColor },
   };
 };
 
-const getSequentiallyVisiblePolicies = (policies: DashboardPolicy[]) => {
+const getCascadeDisplayPolicies = (policies: DashboardPolicy[]) => {
   const sortedPolicies = [...policies].sort((a, b) => a.cuotaActual - b.cuotaActual);
-  const firstUnpaidIndex = sortedPolicies.findIndex((policy) => !policy.pagada);
-  return firstUnpaidIndex === -1 ? sortedPolicies : sortedPolicies.slice(0, firstUnpaidIndex + 1);
+  const nextUnpaid = sortedPolicies.find((policy) => !policy.pagada);
+  const current = nextUnpaid || sortedPolicies[sortedPolicies.length - 1];
+  if (!current) return [];
+  const history = sortedPolicies
+    .filter((policy) => policy.id !== current.id && policy.pagada)
+    .sort((a, b) => b.cuotaActual - a.cuotaActual);
+  return [current, ...history];
 };
 
 const PaymentStatusControl = ({
@@ -352,8 +388,8 @@ const PolicyTable = ({
     });
     return Array.from(groups.values()).map((group) => ({
       ...group,
-      policies: getSequentiallyVisiblePolicies(group.policies),
-    }));
+      policies: getCascadeDisplayPolicies(group.policies),
+    })).sort((a, b) => (a.policies[0]?.vencimiento || '').localeCompare(b.policies[0]?.vencimiento || ''));
   }, [policies]);
   const visibleGroups = showAll ? groupedPolicies : groupedPolicies.slice(0, VISIBLE_POLICIES_LIMIT);
   const toggleGroup = (key: string) => {
@@ -421,6 +457,7 @@ const PolicyTable = ({
                   {group.policies.slice(0, 1).map((policy) => {
                     const status = getStatusVisual(policy);
                     const isExpanded = expandedGroups.has(group.key);
+                    const isCouponPayment = normalizeFilterText(policy.medioPago).includes('cupon');
                     return (
                   <TableRow key={policy.id} hover onClick={() => onView(policy)} sx={getPolicyRowSx(policy, headerColor)}>
                     <TableCell sx={{ fontWeight: 600, minWidth: 220 }}>
@@ -533,7 +570,7 @@ const PolicyTable = ({
                     </TableCell>
                     <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
                       <ListingActions
-                        onCoupon={() => onCoupon(policy)}
+                        onCoupon={isCouponPayment ? () => onCoupon(policy) : undefined}
                         hasCoupon={Boolean(policy.coupon)}
                         onDocument={() => onDocument(policy)}
                         hasDocument={Boolean(policy.policyDocument)}
@@ -541,8 +578,8 @@ const PolicyTable = ({
                         onEmail={() => onEmail(policy)}
                         onEdit={() => onEdit(policy)}
                         onDelete={() => onDelete(policy)}
-                        disableWhatsApp={!policy.coupon || !policy.telefono}
-                        whatsappTitle={!policy.coupon ? 'Cargá una cuponera antes de enviar' : !policy.telefono ? 'La póliza no tiene un teléfono válido' : 'Enviar cuponera por Meta WhatsApp'}
+                        disableWhatsApp={!policy.telefono || (isCouponPayment && !policy.coupon)}
+                        whatsappTitle={!policy.telefono ? 'La póliza no tiene un teléfono válido' : isCouponPayment && !policy.coupon ? 'Cargá una cuponera antes de enviar' : isCouponPayment ? 'Enviar cuponera por Meta WhatsApp' : `Contactar por ${policy.medioPago || 'WhatsApp'}`}
                       />
                     </TableCell>
                   </TableRow>
@@ -560,6 +597,7 @@ const PolicyTable = ({
                               <TableBody>
                                 {group.policies.slice(1).map((policy) => {
                                   const status = getStatusVisual(policy);
+                                  const isCouponPayment = normalizeFilterText(policy.medioPago).includes('cupon');
                                   return (
                                     <TableRow key={policy.id} hover onClick={() => onView(policy)} sx={getPolicyRowSx(policy)}>
                                       <TableCell sx={{ minWidth: 220 }}>
@@ -579,7 +617,7 @@ const PolicyTable = ({
                                       </TableCell>
                                       <TableCell align="right">
                                         <ListingActions
-                                          onCoupon={() => onCoupon(policy)}
+                                          onCoupon={isCouponPayment ? () => onCoupon(policy) : undefined}
                                           hasCoupon={Boolean(policy.coupon)}
                                           onDocument={() => onDocument(policy)}
                                           hasDocument={Boolean(policy.policyDocument)}
@@ -587,8 +625,8 @@ const PolicyTable = ({
                                           onEmail={() => onEmail(policy)}
                                           onEdit={() => onEdit(policy)}
                                           onDelete={() => onDelete(policy)}
-                                          disableWhatsApp={!policy.coupon || !policy.telefono}
-                                          whatsappTitle={!policy.coupon ? 'Cargá una cuponera antes de enviar' : !policy.telefono ? 'La póliza no tiene un teléfono válido' : 'Enviar cuponera por Meta WhatsApp'}
+                                          disableWhatsApp={!policy.telefono || (isCouponPayment && !policy.coupon)}
+                                          whatsappTitle={!policy.telefono ? 'La póliza no tiene un teléfono válido' : isCouponPayment && !policy.coupon ? 'Cargá una cuponera antes de enviar' : isCouponPayment ? 'Enviar cuponera por Meta WhatsApp' : `Contactar por ${policy.medioPago || 'WhatsApp'}`}
                                         />
                                       </TableCell>
                                     </TableRow>
@@ -741,6 +779,7 @@ function getEditValues(policy: DashboardPolicy): EditFormValues {
     vigencia: policy.vigencia || 'ANUAL',
     prima: String(policy.prima || 0),
     porcentajeComision: String(policy.porcentajeComision || 0),
+    tipoUso: policy.tipoUso || 'USO_PARTICULAR',
     moneda: policy.moneda || 'ARS',
     pagada: policy.pagada,
     fechaPago: policy.fechaPago || '',
@@ -771,7 +810,7 @@ function buildPolicyPayload(policy: DashboardPolicy, values: EditFormValues): Po
     cuotaActual: policy.cuotaActual || 1,
     cuotaTotal: policy.cuotaTotal || getQuotaTotalFromVigencia(values.vigencia),
     groupId: policy.groupId || policy.id,
-    prima: Number(values.prima || 0),
+    prima: parseLocalizedAmount(values.prima),
     premioTotal: policy.premioTotal ?? null,
     cobertura: policy.cobertura ?? null,
     endoso: policy.endoso ?? null,
@@ -779,7 +818,8 @@ function buildPolicyPayload(policy: DashboardPolicy, values: EditFormValues): Po
     chasis: policy.chasis ?? null,
     motor: policy.motor ?? null,
     direccionRiesgo: policy.direccionRiesgo ?? null,
-    porcentajeComision: Number(values.porcentajeComision || 0),
+    porcentajeComision: parseLocalizedAmount(values.porcentajeComision),
+    tipoUso: values.tipoUso,
     moneda: values.moneda || 'ARS',
     tipo,
   };
@@ -792,7 +832,7 @@ export const Dashboard: React.FC = () => {
   const searchParams = new URLSearchParams(location.search);
   const filter = searchParams.get('filter');
 
-  const [stats, setStats] = useState({ polizasActivas: 0, vencen7Dias: 0, polizasVencidas: 0, clientesTotales: 0 });
+  const [stats, setStats] = useState({ polizasActivas: 0, vencen7Dias: 0, polizasVencidas: 0, clientesTotales: 0, cotizacionesSinVer: 0, cumpleanos7Dias: 0 });
   const [policies, setPolicies] = useState<DashboardPolicy[]>([]);
   const [lifePolicies, setLifePolicies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -925,6 +965,8 @@ export const Dashboard: React.FC = () => {
   const statCards = [
     { title: 'Polizas Activas', value: stats.polizasActivas, icon: <FileCheck size={20} />, color: 'primary', onClick: () => applyFilter(filter === 'active' ? null : 'active'), active: filter === 'active' },
     { title: 'Vencen en 7 dias', value: stats.vencen7Dias, icon: <Clock size={20} />, color: 'warning', subtitle: 'Requieren atencion', onClick: () => applyFilter(filter === 'expiring' ? null : 'expiring'), active: filter === 'expiring' },
+    { title: 'Cotizaciones nuevas', value: stats.cotizacionesSinVer, icon: <MessageSquareQuote size={20} />, color: 'success', subtitle: 'Sin visualizar', onClick: () => navigate('/cotizaciones') },
+    { title: 'Cumpleanos en 7 dias', value: stats.cumpleanos7Dias, icon: <Cake size={20} />, color: 'secondary', subtitle: 'Próximos saludos', onClick: () => navigate('/clientes') },
     { title: 'Polizas Vencidas', value: stats.polizasVencidas, icon: <AlertCircle size={20} />, color: 'error', subtitle: 'Accion inmediata', onClick: () => applyFilter(filter === 'expired' ? null : 'expired'), active: filter === 'expired' },
     { title: 'Clientes Totales', value: stats.clientesTotales, icon: <Users size={20} />, color: 'info', subtitle: 'Cartera activa' },
   ];
@@ -956,8 +998,20 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const handleWhatsApp = (policy: DashboardPolicy) => {
-    handleCoupon(policy, true);
+  const handleWhatsApp = async (policy: DashboardPolicy) => {
+    if (normalizeFilterText(policy.medioPago).includes('cupon')) {
+      handleCoupon(policy, true);
+      return;
+    }
+    try {
+      await api.policies.trackInteraction(policy.id, 'WHATSAPP');
+      await loadDashboardData(false);
+    } catch (error) {
+      console.error(error);
+    }
+    const target = policy.telefono.replace(/\D/g, '');
+    const message = `Hola ${policy.cliente}, te recordamos que la póliza ${policy.poliza} vence el ${format(parseISO(policy.vencimiento), 'dd/MM/yyyy')}. La forma de pago registrada es ${policy.medioPago || 'a confirmar'}.`;
+    window.open(`https://wa.me/${target}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
   const handleEmail = async (policy: DashboardPolicy) => {
@@ -1176,7 +1230,7 @@ export const Dashboard: React.FC = () => {
           gridTemplateColumns: {
             xs: '1fr',
             sm: 'repeat(2, minmax(0, 1fr))',
-            md: 'repeat(4, minmax(0, 1fr))',
+            md: 'repeat(3, minmax(0, 1fr))',
           },
           gap: { xs: 2, md: 1.5, lg: 2 },
           mb: 3,
@@ -1314,7 +1368,7 @@ export const Dashboard: React.FC = () => {
                 <DetailField label="Cuota" value={`${detailPolicy.cuota} · ${detailPolicy.medioPago || 'Sin informar'}`} />
                 <DetailField label="Pago" value={detailPolicy.pagada ? `Pagada${detailPolicy.fechaPago ? ` el ${format(parseISO(detailPolicy.fechaPago), 'dd/MM/yyyy')}` : ''}` : 'Pendiente'} />
                 <DetailField label="Prima" value={`${detailPolicy.moneda || 'ARS'} ${formatMoney(detailPolicy.prima)}`} />
-                <DetailField label="Comisión" value={`${detailPolicy.porcentajeComision || 0}% · ${formatMoney(detailPolicy.comisionCalculada)}`} />
+                <DetailField label="Uso" value={detailPolicy.tipoUso === 'USO_ACTIVIDAD_COMERCIAL' ? 'Uso actividad comercial' : 'Uso particular'} />
                 <DetailField label="Última gestión" value={detailPolicy.ultimaGestion ? `${detailPolicy.ultimaGestion.tipo} · ${format(parseISO(detailPolicy.ultimaGestion.fecha), 'dd/MM/yyyy')}` : 'Sin gestiones'} />
               </Box>
               <Divider sx={{ my: 3 }} />
@@ -1333,9 +1387,9 @@ export const Dashboard: React.FC = () => {
               </Box>
               <Box sx={{ mt: 3, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 <Button variant="contained" onClick={() => { const policy = detailPolicy; setDetailPolicy(null); handleEdit(policy); }}>Modificar</Button>
-                <Button variant="outlined" onClick={() => { const policy = detailPolicy; setDetailPolicy(null); handleCoupon(policy); }}>
+                {normalizeFilterText(detailPolicy.medioPago).includes('cupon') && <Button variant="outlined" onClick={() => { const policy = detailPolicy; setDetailPolicy(null); handleCoupon(policy); }}>
                   {detailPolicy.coupon ? 'Ver cuponera' : 'Cargar cuponera'}
-                </Button>
+                </Button>}
               </Box>
             </Box>
           </Box>
@@ -1473,7 +1527,7 @@ export const Dashboard: React.FC = () => {
                   </TextField>
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField fullWidth label="Prima" value={formatAmountInput(editValues.prima)} inputMode="decimal" inputProps={{ step: '0.01' }} onChange={(event) => setEditValues((prev) => prev ? { ...prev, prima: parseAmountInput(event.target.value) } : prev)} />
+                  <TextField fullWidth label="Prima" value={editValues.prima} inputMode="decimal" inputProps={{ step: '0.01' }} onChange={(event) => setEditValues((prev) => prev ? { ...prev, prima: sanitizeAmountInput(event.target.value) } : prev)} helperText="Podés ingresar centavos con coma o punto." />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
@@ -1488,7 +1542,10 @@ export const Dashboard: React.FC = () => {
                   </TextField>
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField fullWidth label="Porcentaje Comision (%)" type="number" value={editValues.porcentajeComision} onChange={(event) => setEditValues((prev) => prev ? { ...prev, porcentajeComision: event.target.value } : prev)} />
+                  <TextField select fullWidth label="Tipo de uso" value={editValues.tipoUso} onChange={(event) => setEditValues((prev) => prev ? { ...prev, tipoUso: event.target.value } : prev)}>
+                    <MenuItem value="USO_PARTICULAR">Uso particular</MenuItem>
+                    <MenuItem value="USO_ACTIVIDAD_COMERCIAL">Uso actividad comercial</MenuItem>
+                  </TextField>
                 </Grid>
               </Grid>
             </DialogContent>

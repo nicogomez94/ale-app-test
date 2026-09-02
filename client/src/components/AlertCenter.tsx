@@ -3,9 +3,10 @@ import {
   Box, Button, Chip, Dialog, DialogContent, IconButton, Paper, Table, TableBody,
   TableCell, TableHead, TableRow, Typography,
 } from '@mui/material';
-import { AlertTriangle, Cake, Gift, MessageCircle, ShieldAlert, X } from 'lucide-react';
+import { AlertTriangle, Cake, Gift, MessageCircle, MessageSquareQuote, ShieldAlert, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { api, DashboardPolicy } from '../api';
+import { useNavigate } from 'react-router-dom';
 
 const waPhone = (value = '') => {
   const digits = value.replace(/\D/g, '');
@@ -14,16 +15,31 @@ const waPhone = (value = '') => {
   return digits.length === 10 ? `549${digits}` : digits;
 };
 
+const heartbeatSx = {
+  animation: 'alertHeartbeat 1.7s ease-in-out infinite',
+  '@keyframes alertHeartbeat': {
+    '0%, 100%': { transform: 'scale(1)' },
+    '10%': { transform: 'scale(1.06)' },
+    '20%': { transform: 'scale(1)' },
+    '30%': { transform: 'scale(1.04)' },
+    '42%': { transform: 'scale(1)' },
+  },
+};
+
 export const AlertCenter: React.FC = () => {
+  const navigate = useNavigate();
   const [expiring, setExpiring] = useState<DashboardPolicy[]>([]);
   const [birthdays, setBirthdays] = useState<any[]>([]);
   const [expiryOpen, setExpiryOpen] = useState(false);
   const [birthdayOpen, setBirthdayOpen] = useState(false);
+  const [newQuotes, setNewQuotes] = useState(0);
 
   useEffect(() => {
-    Promise.all([api.dashboard.policies('expiring'), api.clients.birthdays(7)]).then(([policies, birthdayRows]) => {
+    const refreshQuoteCount = () => api.dashboard.stats().then((stats) => setNewQuotes(stats.cotizacionesSinVer || 0)).catch(() => {});
+    Promise.all([api.dashboard.policies('expiring'), api.clients.birthdays(7), api.dashboard.stats()]).then(([policies, birthdayRows, stats]) => {
       setExpiring(policies);
       setBirthdays(birthdayRows);
+      setNewQuotes(stats.cotizacionesSinVer || 0);
       const dayKey = new Date().toISOString().slice(0, 10);
       const storageKey = `pas-alert-open-alerts-${dayKey}`;
       if (!localStorage.getItem(storageKey)) {
@@ -32,6 +48,8 @@ export const AlertCenter: React.FC = () => {
         else if (birthdayRows.length) setBirthdayOpen(true);
       }
     }).catch(() => {});
+    window.addEventListener('pas-alert:refresh-counts', refreshQuoteCount);
+    return () => window.removeEventListener('pas-alert:refresh-counts', refreshQuoteCount);
   }, []);
 
   const expiringGroups = useMemo(() => {
@@ -57,8 +75,9 @@ export const AlertCenter: React.FC = () => {
   return (
     <>
       <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 1 }}>
-        <Chip icon={<AlertTriangle size={16} />} label={`Vencimientos (${expiringGroups.length})`} onClick={() => setExpiryOpen(true)} sx={{ bgcolor: '#ff8a00', color: 'white', fontWeight: 900, boxShadow: '0 5px 14px rgba(255,138,0,.28)', '& .MuiChip-icon': { color: 'white' } }} />
-        <Chip icon={<Gift size={16} />} label={`Cumpleaños (${birthdays.length})`} onClick={() => setBirthdayOpen(true)} sx={{ bgcolor: '#08bf68', color: '#073b22', fontWeight: 900, boxShadow: '0 5px 14px rgba(8,191,104,.24)', '& .MuiChip-icon': { color: '#073b22' } }} />
+        <Chip icon={<AlertTriangle size={16} />} label={`Vencimientos (${expiringGroups.length})`} onClick={() => setExpiryOpen(true)} sx={{ bgcolor: '#ff8a00', color: 'white', fontWeight: 900, boxShadow: '0 5px 14px rgba(255,138,0,.28)', '& .MuiChip-icon': { color: 'white' }, ...(expiringGroups.length ? heartbeatSx : {}) }} />
+        <Chip icon={<MessageSquareQuote size={16} />} label={`Cotizaciones (${newQuotes})`} onClick={() => navigate('/cotizaciones')} sx={{ bgcolor: '#2563eb', color: 'white', fontWeight: 900, boxShadow: '0 5px 14px rgba(37,99,235,.24)', '& .MuiChip-icon': { color: 'white' }, ...(newQuotes ? heartbeatSx : {}) }} />
+        <Chip icon={<Gift size={16} />} label={`Cumpleaños (${birthdays.length})`} onClick={() => setBirthdayOpen(true)} sx={{ bgcolor: '#08bf68', color: '#073b22', fontWeight: 900, boxShadow: '0 5px 14px rgba(8,191,104,.24)', '& .MuiChip-icon': { color: '#073b22' }, ...(birthdays.length ? heartbeatSx : {}) }} />
       </Box>
 
       <Dialog open={expiryOpen} onClose={closeExpiry} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 5, border: '2px solid #ff9d23', overflow: 'hidden' } }}>
@@ -71,9 +90,9 @@ export const AlertCenter: React.FC = () => {
           <Box sx={{ my: 2, p: 1.5, bgcolor: '#fff7e8', borderRadius: 3, display: 'flex', gap: 1.5, alignItems: 'center' }}><AlertTriangle color="#e88a13" /><Typography fontWeight={800}>Se registran {expiringGroups.length} póliza(s) con vencimiento dentro de los próximos 7 días:</Typography></Box>
           <Box sx={{ overflowX: 'auto', border: '1px solid #f0bb58', borderRadius: 3 }}>
             <Table size="small" sx={{ minWidth: 760 }}>
-              <TableHead sx={{ bgcolor: '#fff8db' }}><TableRow>{['Nombre del Cliente', 'N° de Póliza', 'Categoría / Ramo', 'Fecha de Vencimiento', 'Estado', 'Acción'].map((h) => <TableCell key={h} sx={{ fontWeight: 900, color: '#9c7014' }}>{h}</TableCell>)}</TableRow></TableHead>
+              <TableHead sx={{ bgcolor: '#fff8db' }}><TableRow>{['Nombre del Cliente', 'N° de Póliza', 'Categoría / Ramo', 'Forma de pago', 'Fecha de Vencimiento', 'Estado', 'Acción'].map((h) => <TableCell key={h} sx={{ fontWeight: 900, color: '#9c7014' }}>{h}</TableCell>)}</TableRow></TableHead>
               <TableBody>{expiringGroups.map((policy) => <TableRow key={policy.id}>
-                <TableCell sx={{ fontWeight: 800 }}>{policy.cliente}</TableCell><TableCell sx={{ color: '#252c85', fontWeight: 800 }}>{policy.poliza}</TableCell><TableCell><Chip size="small" label={policy.rubro} sx={{ bgcolor: '#24298d', color: 'white', fontWeight: 800 }} /></TableCell><TableCell sx={{ color: '#d63c32', fontWeight: 800 }}>{format(parseISO(policy.vencimiento), 'dd/MM/yyyy')}</TableCell><TableCell><Chip size="small" label={policy.diasRestantes <= 0 ? '¡VENCE HOY!' : `Vence en ${policy.diasRestantes} días`} sx={{ bgcolor: '#ffd995', color: '#8a5200', fontWeight: 900 }} /></TableCell><TableCell><Button size="small" variant="contained" color="success" startIcon={<MessageCircle size={15} />} onClick={() => openWhatsApp(policy.telefono, `Hola ${policy.cliente}, te recordamos que tu póliza ${policy.poliza} vence el ${format(parseISO(policy.vencimiento), 'dd/MM/yyyy')}.`)}>WhatsApp</Button></TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>{policy.cliente}</TableCell><TableCell sx={{ color: '#252c85', fontWeight: 800 }}>{policy.poliza}</TableCell><TableCell><Chip size="small" label={policy.rubro} sx={{ bgcolor: '#24298d', color: 'white', fontWeight: 800 }} /></TableCell><TableCell sx={{ fontWeight: 800 }}>{policy.medioPago || 'Sin informar'}</TableCell><TableCell sx={{ color: '#d63c32', fontWeight: 800 }}>{format(parseISO(policy.vencimiento), 'dd/MM/yyyy')}</TableCell><TableCell><Chip size="small" label={policy.diasRestantes <= 0 ? '¡VENCE HOY!' : `Vence en ${policy.diasRestantes} días`} sx={{ bgcolor: '#ffd995', color: '#8a5200', fontWeight: 900 }} /></TableCell><TableCell><Button size="small" variant="contained" color="success" startIcon={<MessageCircle size={15} />} onClick={() => openWhatsApp(policy.telefono, `Hola ${policy.cliente}, te recordamos que tu póliza ${policy.poliza} vence el ${format(parseISO(policy.vencimiento), 'dd/MM/yyyy')}. Forma de pago: ${policy.medioPago || 'a confirmar'}.`)}>WhatsApp</Button></TableCell>
               </TableRow>)}</TableBody>
             </Table>
           </Box>

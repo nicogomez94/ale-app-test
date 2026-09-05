@@ -35,7 +35,10 @@ export const AlertCenter: React.FC = () => {
   const [newQuotes, setNewQuotes] = useState(0);
 
   useEffect(() => {
-    const refreshQuoteCount = () => api.dashboard.stats().then((stats) => setNewQuotes(stats.cotizacionesSinVer || 0)).catch(() => {});
+    const refreshQuoteCount = () => Promise.all([api.dashboard.policies('expiring'), api.dashboard.stats()]).then(([policies, stats]) => {
+      setExpiring(policies);
+      setNewQuotes(stats.cotizacionesSinVer || 0);
+    }).catch(() => {});
     Promise.all([api.dashboard.policies('expiring'), api.clients.birthdays(7), api.dashboard.stats()]).then(([policies, birthdayRows, stats]) => {
       setExpiring(policies);
       setBirthdays(birthdayRows);
@@ -76,7 +79,15 @@ export const AlertCenter: React.FC = () => {
     <>
       <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 1 }}>
         <Chip icon={<AlertTriangle size={16} />} label={`Vencimientos (${expiringGroups.length})`} onClick={() => setExpiryOpen(true)} sx={{ bgcolor: '#ff8a00', color: 'white', fontWeight: 900, boxShadow: '0 5px 14px rgba(255,138,0,.28)', '& .MuiChip-icon': { color: 'white' }, ...(expiringGroups.length ? heartbeatSx : {}) }} />
-        <Chip icon={<MessageSquareQuote size={16} />} label={`Cotizaciones (${newQuotes})`} onClick={() => navigate('/cotizaciones')} sx={{ bgcolor: '#2563eb', color: 'white', fontWeight: 900, boxShadow: '0 5px 14px rgba(37,99,235,.24)', '& .MuiChip-icon': { color: 'white' }, ...(newQuotes ? heartbeatSx : {}) }} />
+        <Button
+          type="button"
+          aria-label={`Abrir cotizaciones nuevas (${newQuotes})`}
+          startIcon={<MessageSquareQuote size={16} />}
+          onClick={() => navigate('/cotizaciones')}
+          sx={{ minWidth: 0, minHeight: 32, px: 1.5, py: .5, bgcolor: '#2563eb', color: 'white', fontWeight: 900, boxShadow: '0 5px 14px rgba(37,99,235,.24)', '&:hover': { bgcolor: '#1d4ed8' }, ...(newQuotes ? heartbeatSx : {}) }}
+        >
+          Cotizaciones ({newQuotes})
+        </Button>
         <Chip icon={<Gift size={16} />} label={`Cumpleaños (${birthdays.length})`} onClick={() => setBirthdayOpen(true)} sx={{ bgcolor: '#08bf68', color: '#073b22', fontWeight: 900, boxShadow: '0 5px 14px rgba(8,191,104,.24)', '& .MuiChip-icon': { color: '#073b22' }, ...(birthdays.length ? heartbeatSx : {}) }} />
       </Box>
 

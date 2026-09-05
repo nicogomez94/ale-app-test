@@ -11,6 +11,8 @@ import { api } from '../api';
 import { DEBUG, debugData } from '../data/debugData';
 import { ListingActions } from '../components/ListingActions';
 import { printTableReport } from '../utils/reportExports';
+import { downloadLifeCoupon } from '../utils/lifeCoupon';
+import { PolicyFormDialog } from '../components/PolicyFormDialog';
 
 const LIFE_TYPES = [
   { label: 'Seguros de Vida', icon: <HeartPulse size={18} />, value: 'VIDA' },
@@ -22,6 +24,7 @@ export const LifeAndFinancePage: React.FC = () => {
   const [tab, setTab] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [open, setOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<any>(null);
   const [policies, setPolicies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +49,7 @@ export const LifeAndFinancePage: React.FC = () => {
   useEffect(() => { setLoading(true); loadPolicies(); }, [tab, searchTerm]);
 
   const handleOpen = (policy?: any) => {
+    if (!policy) { setCreateOpen(true); return; }
     setEditingPolicy(policy || null);
     formRef.current = policy
       ? { ...policy }
@@ -170,6 +174,8 @@ export const LifeAndFinancePage: React.FC = () => {
                   <TableCell>{policy.provincia || '-'}</TableCell>
                   <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
                     <ListingActions
+                      onCoupon={policy.coupon ? () => downloadLifeCoupon(policy.id) : undefined}
+                      hasCoupon={Boolean(policy.coupon)}
                       onWhatsApp={() => handleWhatsApp(policy.telefono || '')}
                       onEmail={() => handleEmailClick(policy.email || '')}
                       onEdit={() => handleOpen(policy)}
@@ -190,6 +196,7 @@ export const LifeAndFinancePage: React.FC = () => {
         </TableContainer>
       )}
 
+      <PolicyFormDialog open={createOpen} mode="VIDA_RETIRO" lifeType={currentType as 'VIDA' | 'RETIRO'} onClose={() => setCreateOpen(false)} onSaved={() => { setCreateOpen(false); loadPolicies(); }} />
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>{editingPolicy ? 'Editar Póliza' : `Nueva Póliza (${LIFE_TYPES[tab].label})`}</DialogTitle>
         <DialogContent>

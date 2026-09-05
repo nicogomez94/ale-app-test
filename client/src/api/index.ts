@@ -424,6 +424,13 @@ export const api = {
 
   // Life & Finance
   lifePolicies: {
+    createWithCoupon: (data: any, file: File) => {
+      const body = new FormData();
+      body.append('data', JSON.stringify(data));
+      body.append('file', file);
+      return request<any>('/life-policies', { method: 'POST', body });
+    },
+    downloadCoupon: (id: string) => requestBlob(`/life-policies/${id}/coupon/download`),
     list: (tipo?: string, search?: string) => {
       const params = new URLSearchParams();
       if (tipo) params.set("tipo", tipo);

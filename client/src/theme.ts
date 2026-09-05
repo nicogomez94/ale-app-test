@@ -33,6 +33,21 @@ export const getTheme = (mode: 'light' | 'dark'): ThemeOptions => {
       borderRadius: 12,
     },
     components: {
+      MuiTable: {
+        styleOverrides: {
+          root: {
+            borderCollapse: 'separate',
+            borderSpacing: '0 16px',
+            '& > tbody > tr:not([data-detail-row]) > td': {
+              borderTop: `2px solid ${mode === 'light' ? '#303030' : '#666'}`,
+              borderBottom: `2px solid ${mode === 'light' ? '#303030' : '#666'}`,
+              '&:first-of-type': { borderLeft: '5px solid', borderLeftColor: 'inherit', borderTopLeftRadius: 8, borderBottomLeftRadius: 8 },
+              '&:last-of-type': { borderRight: `2px solid ${mode === 'light' ? '#303030' : '#666'}`, borderTopRightRadius: 8, borderBottomRightRadius: 8 },
+            },
+            '& > tbody > tr[data-detail-row] > td': { border: 0 },
+          },
+        },
+      },
       MuiButton: {
         styleOverrides: {
           root: {

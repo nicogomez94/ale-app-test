@@ -3,6 +3,8 @@ import { Router, Response, NextFunction } from "express";
 import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 import multer from "multer";
 import prisma from "../lib/prisma.js";
+import { policyDaysRemaining } from '../lib/policyCalendar.js';
+import { getPolicyGroupWhere } from "../lib/policyGroup.js";
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
 import { checkPlanLimit } from "../middleware/planLimits.js";
 import {
@@ -119,10 +121,7 @@ export type PolicyPayload = {
 };
 
 function computeStatus(fechaVencimiento: Date): PolicyStatus {
-  const now = new Date();
-  const expiryDay = Date.UTC(fechaVencimiento.getUTCFullYear(), fechaVencimiento.getUTCMonth(), fechaVencimiento.getUTCDate());
-  const currentDay = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-  const daysLeft = Math.round((expiryDay - currentDay) / (1000 * 60 * 60 * 24));
+  const daysLeft = policyDaysRemaining(fechaVencimiento);
   if (daysLeft < 0) return "VENCIDA";
   if (daysLeft <= 7) return "VENCE_PRONTO";
   return "ACTIVA";
@@ -569,9 +568,6 @@ function getPolicyGroupId(policy: { id: string; groupId: string | null }): strin
   return policy.groupId || policy.id;
 }
 
-function getPolicyGroupWhere(policy: { id: string; groupId: string | null }, userId: string): Prisma.PolicyWhereInput {
-  return policy.groupId ? { userId, groupId: policy.groupId } : { userId, id: policy.id };
-}
 
 function serializeDelivery(delivery: any) {
   if (!delivery) return null;

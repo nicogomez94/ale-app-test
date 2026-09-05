@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { downloadLifeCoupon } from '../utils/lifeCoupon';
 import {
   Alert,
   Autocomplete,
@@ -226,6 +227,10 @@ const getStatusVisual = (policy: DashboardPolicy) => {
     return { label: 'PAGADO', color: 'success.main', textColor: 'white', detail: policy.fechaPago ? format(parseISO(policy.fechaPago), 'dd/MM/yyyy') : '' };
   }
 
+  if (policy.diasRestantes === 0) {
+    return { label: 'VENCE HOY', color: '#ff9d00', textColor: 'white', detail: '¡Vence Hoy!' };
+  }
+
   if (policy.estado === 'VENCIDA') {
     return { label: 'Vencida', color: 'error.main', textColor: 'white', detail: `${policy.diasRestantes} dias` };
   }
@@ -254,6 +259,10 @@ const matchesPaymentFilter = (policy: DashboardPolicy, paymentFilter: PaymentFil
 };
 
 const getPolicyRowSx = (policy: DashboardPolicy, accentColor?: string) => {
+  // Today's calendar date wins over a persisted status from an earlier job.
+  if (!policy.pagada && policy.diasRestantes === 0) {
+    return { cursor: 'pointer', '& > td': { bgcolor: 'rgba(255, 157, 0, .12)' }, '& > td:first-of-type': { borderLeft: '6px solid #ff9d00' }, '&:hover > td': { bgcolor: 'rgba(255, 157, 0, .2)' } };
+  }
   const backgroundColor = policy.pagada
     ? 'rgba(46, 125, 50, 0.09)'
     : policy.estado === 'VENCIDA'
@@ -348,6 +357,7 @@ const PolicyTable = ({
   policies,
   onWhatsApp,
   onCoupon,
+  onSendCoupon,
   onDocument,
   onEmail,
   onDelete,
@@ -364,6 +374,7 @@ const PolicyTable = ({
   policies: DashboardPolicy[];
   onWhatsApp: (policy: DashboardPolicy) => void;
   onCoupon: (policy: DashboardPolicy) => void;
+  onSendCoupon: (policy: DashboardPolicy) => void;
   onDocument: (policy: DashboardPolicy) => void;
   onEmail: (policy: DashboardPolicy) => void;
   onDelete: (policy: DashboardPolicy) => void;
@@ -565,12 +576,13 @@ const PolicyTable = ({
                           </Typography>
                         </Box>
                       ) : (
-                        <Typography variant="body2" color="text.secondary">-</Typography>
+                        <Typography variant="body2" color="text.secondary" fontStyle="italic">Sin gestiones</Typography>
                       )}
                     </TableCell>
                     <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
                       <ListingActions
                         onCoupon={isCouponPayment ? () => onCoupon(policy) : undefined}
+                        onSendCoupon={isCouponPayment && Boolean(policy.coupon) ? () => onSendCoupon(policy) : undefined}
                         hasCoupon={Boolean(policy.coupon)}
                         onDocument={() => onDocument(policy)}
                         hasDocument={Boolean(policy.policyDocument)}
@@ -578,15 +590,15 @@ const PolicyTable = ({
                         onEmail={() => onEmail(policy)}
                         onEdit={() => onEdit(policy)}
                         onDelete={() => onDelete(policy)}
-                        disableWhatsApp={!policy.telefono || (isCouponPayment && !policy.coupon)}
-                        whatsappTitle={!policy.telefono ? 'La póliza no tiene un teléfono válido' : isCouponPayment && !policy.coupon ? 'Cargá una cuponera antes de enviar' : isCouponPayment ? 'Enviar cuponera por Meta WhatsApp' : `Contactar por ${policy.medioPago || 'WhatsApp'}`}
+                        disableWhatsApp={!policy.telefono}
+                        whatsappTitle={!policy.telefono ? 'La póliza no tiene un teléfono válido' : 'Contactar al cliente por WhatsApp'}
                       />
                     </TableCell>
                   </TableRow>
                     );
                   })}
-                  {group.policies.length > 1 && (
-                    <TableRow>
+                  {group.policies.length > 1 && expandedGroups.has(group.key) && (
+                    <TableRow data-detail-row>
                       <TableCell colSpan={8} sx={{ p: 0, border: 0 }}>
                         <Collapse in={expandedGroups.has(group.key)} timeout="auto" unmountOnExit>
                           <Box sx={{ m: 2, p: 2, bgcolor: 'background.default', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
@@ -618,6 +630,7 @@ const PolicyTable = ({
                                       <TableCell align="right">
                                         <ListingActions
                                           onCoupon={isCouponPayment ? () => onCoupon(policy) : undefined}
+                                          onSendCoupon={isCouponPayment && Boolean(policy.coupon) ? () => onSendCoupon(policy) : undefined}
                                           hasCoupon={Boolean(policy.coupon)}
                                           onDocument={() => onDocument(policy)}
                                           hasDocument={Boolean(policy.policyDocument)}
@@ -625,8 +638,8 @@ const PolicyTable = ({
                                           onEmail={() => onEmail(policy)}
                                           onEdit={() => onEdit(policy)}
                                           onDelete={() => onDelete(policy)}
-                                          disableWhatsApp={!policy.telefono || (isCouponPayment && !policy.coupon)}
-                                          whatsappTitle={!policy.telefono ? 'La póliza no tiene un teléfono válido' : isCouponPayment && !policy.coupon ? 'Cargá una cuponera antes de enviar' : isCouponPayment ? 'Enviar cuponera por Meta WhatsApp' : `Contactar por ${policy.medioPago || 'WhatsApp'}`}
+                                          disableWhatsApp={!policy.telefono}
+                                          whatsappTitle={!policy.telefono ? 'La póliza no tiene un teléfono válido' : 'Contactar al cliente por WhatsApp'}
                                         />
                                       </TableCell>
                                     </TableRow>
@@ -735,6 +748,8 @@ const LifeFinanceTable = ({
                 <TableCell>{policy.email || '-'}</TableCell>
                 <TableCell sx={{ textAlign: 'right', minWidth: 220 }}>
                   <ListingActions
+                    onCoupon={policy.coupon ? () => downloadLifeCoupon(policy.id) : undefined}
+                    hasCoupon={Boolean(policy.coupon)}
                     onWhatsApp={() => onWhatsApp(policy)}
                     onEmail={() => onEmail(policy)}
                     onEdit={() => onEdit(policy)}
@@ -999,10 +1014,6 @@ export const Dashboard: React.FC = () => {
   };
 
   const handleWhatsApp = async (policy: DashboardPolicy) => {
-    if (normalizeFilterText(policy.medioPago).includes('cupon')) {
-      handleCoupon(policy, true);
-      return;
-    }
     try {
       await api.policies.trackInteraction(policy.id, 'WHATSAPP');
       await loadDashboardData(false);
@@ -1149,6 +1160,8 @@ export const Dashboard: React.FC = () => {
 
     try {
       await api.policies.delete(policy.id);
+      window.dispatchEvent(new Event('pas-alert:refresh-counts'));
+      setDetailPolicy(null);
       await loadDashboardData(false);
       setSnack({ open: true, severity: 'success', message: 'Póliza, cuotas y documentos asociados eliminados.' });
     } catch (error: any) {
@@ -1293,6 +1306,7 @@ export const Dashboard: React.FC = () => {
             policies={individualPolicies}
             onWhatsApp={handleWhatsApp}
             onCoupon={handleCoupon}
+            onSendCoupon={(policy) => handleCoupon(policy, true)}
             onDocument={handlePolicyDocumentDownload}
             onEmail={handleEmail}
             onDelete={handleDelete}
@@ -1310,6 +1324,7 @@ export const Dashboard: React.FC = () => {
             policies={companyPolicies}
             onWhatsApp={handleWhatsApp}
             onCoupon={handleCoupon}
+            onSendCoupon={(policy) => handleCoupon(policy, true)}
             onDocument={handlePolicyDocumentDownload}
             onEmail={handleEmail}
             onDelete={handleDelete}
@@ -1389,6 +1404,9 @@ export const Dashboard: React.FC = () => {
                 <Button variant="contained" onClick={() => { const policy = detailPolicy; setDetailPolicy(null); handleEdit(policy); }}>Modificar</Button>
                 {normalizeFilterText(detailPolicy.medioPago).includes('cupon') && <Button variant="outlined" onClick={() => { const policy = detailPolicy; setDetailPolicy(null); handleCoupon(policy); }}>
                   {detailPolicy.coupon ? 'Ver cuponera' : 'Cargar cuponera'}
+                </Button>}
+                {normalizeFilterText(detailPolicy.medioPago).includes('cupon') && detailPolicy.coupon && <Button variant="contained" color="success" onClick={() => { const policy = detailPolicy; setDetailPolicy(null); handleCoupon(policy, true); }}>
+                  Enviar cuponera
                 </Button>}
               </Box>
             </Box>

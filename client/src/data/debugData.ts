@@ -4,7 +4,7 @@
 // 2) URL query param ?debug=1 | true | on
 // 3) localStorage.setItem('debug_mode', 'true')
 const DEBUG_FROM_ENV = import.meta.env.VITE_DEBUG_MODE === 'true';
-const TODAY = new Date().toISOString().split('T')[0];
+const TODAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date());
 
 const DEBUG_FROM_RUNTIME = (() => {
   if (typeof window === 'undefined') return false;
@@ -84,7 +84,7 @@ export const debugData = {
     aseguradora: 'Sancor Seguros',
     rubro: 'Automoviles',
     numeroPoliza: 'POL-2026-00099',
-    fechaInicio: new Date().toISOString().split('T')[0],
+    fechaInicio: TODAY,
     fechaVencimiento: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     medioPago: 'Cupon',
     vigencia: 'ANUAL',

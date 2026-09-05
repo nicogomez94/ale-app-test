@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Button, Tooltip } from '@mui/material';
-import { Edit2, Eye, FileDown, FileText, Mail, MessageCircle, Trash2 } from 'lucide-react';
+import { Edit2, Eye, FileDown, FileText, Mail, MessageCircle, Send, Trash2 } from 'lucide-react';
 
 type ListingActionsProps = {
   onWhatsApp: () => void;
@@ -8,6 +8,7 @@ type ListingActionsProps = {
   onEdit: () => void;
   onDelete: () => void;
   onCoupon?: () => void;
+  onSendCoupon?: () => void;
   onDocument?: () => void;
   onView?: () => void;
   hasCoupon?: boolean;
@@ -41,6 +42,7 @@ export const ListingActions: React.FC<ListingActionsProps> = ({
   onEdit,
   onDelete,
   onCoupon,
+  onSendCoupon,
   onDocument,
   onView,
   hasCoupon = false,
@@ -91,6 +93,22 @@ export const ListingActions: React.FC<ListingActionsProps> = ({
         sx={{ ...ACTION_BUTTON_SX, gridColumn: '1 / -1' }}
       >
         {hasCoupon ? 'Cuponera cargada' : 'Cargar cuponera'}
+      </Button>
+    )}
+    {onSendCoupon && (
+      <Button
+        fullWidth
+        size="small"
+        variant="contained"
+        color="success"
+        startIcon={<Send size={14} />}
+        onClick={(event) => {
+          event.stopPropagation();
+          onSendCoupon();
+        }}
+        sx={{ ...ACTION_BUTTON_SX, gridColumn: '1 / -1', justifyContent: 'center' }}
+      >
+        Enviar cuponera
       </Button>
     )}
     {onDocument && hasDocument && (

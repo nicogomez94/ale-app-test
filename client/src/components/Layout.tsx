@@ -400,7 +400,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
             <MenuIcon />
           </IconButton>
 
-          <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 3 }}>
+          <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 2, flexShrink: 0, whiteSpace: 'nowrap' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
               <Calendar size={18} />
               <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -413,10 +413,13 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
                 {format(currentTime, "HH:mm:ss 'hs'")}
               </Typography>
             </Box>
+          </Box>
+
+          <Box sx={{ ml: 'auto', flexShrink: 0 }}>
             <AlertCenter />
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 }, minWidth: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 }, minWidth: 0, flexShrink: 0 }}>
             <IconButton onClick={onToggleDarkMode} color="inherit">
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
             </IconButton>
@@ -427,9 +430,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, isDark
               <Avatar src={user?.avatar} sx={{ width: 48, height: 48, bgcolor: 'primary.main', fontSize: '1.25rem', boxShadow: '0 6px 18px rgba(30, 41, 120, .22)' }}>
                 {user?.nombre?.charAt(0) || 'U'}
               </Avatar>
-              <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+              <Box sx={{ display: { xs: 'none', xl: 'block' }, maxWidth: 200, overflow: 'hidden' }}>
                 <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>{user?.nombre || 'Usuario'}</Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{user?.email}</Typography>
+                <Typography noWrap variant="caption" color="text.secondary" sx={{ display: 'block' }}>{user?.email}</Typography>
               </Box>
             </Box>
             <Menu

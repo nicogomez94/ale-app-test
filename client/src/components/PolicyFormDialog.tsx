@@ -7,24 +7,25 @@ type Props = {
   open: boolean;
   mode?: 'CLIENTE' | 'EMPRESA' | 'VIDA_RETIRO';
   client?: any;
+  lifeType?: 'VIDA' | 'RETIRO';
   onClose: () => void;
   onSaved: () => void;
 };
 
-export const PolicyFormDialog: React.FC<Props> = ({ open, mode = 'CLIENTE', client, onClose, onSaved }) => (
+export const PolicyFormDialog: React.FC<Props> = ({ open, mode = 'CLIENTE', client, lifeType, onClose, onSaved }) => (
   <Dialog
     open={open}
     onClose={onClose}
-    maxWidth="xl"
+    maxWidth={false}
     fullWidth
-    PaperProps={{ sx: { width: 'min(1320px, 96vw)', maxHeight: '94vh', borderRadius: 4, overflow: 'hidden' } }}
+    PaperProps={{ sx: { width: '96vw', m: 2, maxHeight: '94vh', borderRadius: 4, overflow: 'hidden' } }}
   >
     <DialogTitle sx={{ fontWeight: 950, borderBottom: '1px solid', borderColor: 'divider', pr: 7 }}>
       Cargar Nueva Póliza
       <IconButton aria-label="Cerrar" onClick={onClose} sx={{ position: 'absolute', right: 16, top: 11 }}><X size={21} /></IconButton>
     </DialogTitle>
-    <DialogContent dividers sx={{ p: 0, bgcolor: '#f7f8fc' }}>
-      {open && <PolicyForm embedded initialMode={mode} initialClient={client} onSaved={onSaved} />}
+    <DialogContent sx={{ p: 0, bgcolor: 'background.paper' }}>
+      {open && <PolicyForm embedded initialMode={mode} initialLifeType={lifeType} initialClient={client} onSaved={onSaved} />}
     </DialogContent>
   </Dialog>
 );

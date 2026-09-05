@@ -1,5 +1,6 @@
 import { Router, Response } from "express";
 import prisma from "../lib/prisma.js";
+import { argentinaCalendarDay, policyDaysRemaining } from '../lib/policyCalendar.js';
 import { authMiddleware, AuthRequest } from "../middleware/auth.js";
 import { getVigenciaLabel } from "../lib/generalPolicies.js";
 import { countPolicyGroups } from "../middleware/planLimits.js";
@@ -44,7 +45,7 @@ dashboardRouter.get("/stats", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId!;
     const now = new Date();
-    const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const today = argentinaCalendarDay(now);
     const in7Days = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     const [
@@ -141,7 +142,7 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
 
     if (filter === "expiring") {
       const now = new Date();
-      const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+      const today = argentinaCalendarDay(now);
       const in7Days = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
       where.fechaVencimiento = { gte: today, lte: in7Days };
       where.pagada = false;
@@ -179,11 +180,7 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
 
     // Map to frontend format
     const mapped = policies.map((p: any) => {
-      const current = new Date();
-      const daysLeft = Math.round((
-        Date.UTC(p.fechaVencimiento.getUTCFullYear(), p.fechaVencimiento.getUTCMonth(), p.fechaVencimiento.getUTCDate())
-        - Date.UTC(current.getFullYear(), current.getMonth(), current.getDate())
-      ) / (1000 * 60 * 60 * 24));
+      const daysLeft = policyDaysRemaining(p.fechaVencimiento);
 
       let estadoLabel = "Activa";
       if (daysLeft < 0) estadoLabel = "Vencida";
@@ -206,7 +203,7 @@ dashboardRouter.get("/policies", async (req: AuthRequest, res: Response) => {
         inicio: p.fechaInicio.toISOString().split("T")[0],
         vencimiento: p.fechaVencimiento.toISOString().split("T")[0],
         poliza: p.numeroPoliza,
-        estado: p.estado,
+        estado: daysLeft < 0 ? 'VENCIDA' : daysLeft <= 7 ? 'VENCE_PRONTO' : 'ACTIVA',
         estadoLabel,
         tipo: p.tipo,
         medioPago: p.medioPago,

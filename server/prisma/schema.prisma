@@ -464,6 +464,18 @@ model LifePolicy {
   prima          Float?
   aporteMensual  Float?
   fondoAcumulado Float?
+  tipoSeguro     String?
+  edad           Int?
+  edadRetiro     Int?
+  incremento     Float?
+  frecuenciaIncremento String?
+  numeroPoliza   String?
+  medioPago      String?
+  fechaInicio    DateTime?
+  fechaVencimiento DateTime?
+  vigencia       PolicyVigencia?
+  moneda         CurrencyType @default(ARS)
+  altura         String?
   email          String?
   telefono       String?
   direccion      String?

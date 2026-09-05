@@ -228,7 +228,7 @@ const getStatusVisual = (policy: DashboardPolicy) => {
   }
 
   if (policy.diasRestantes === 0) {
-    return { label: 'VENCE HOY', color: '#ff9d00', textColor: 'white', detail: '¡Vence Hoy!' };
+    return { label: 'VENCE HOY', color: '#ff9d00', textColor: '#3b2400', detail: '¡Vence Hoy!' };
   }
 
   if (policy.estado === 'VENCIDA') {
@@ -240,6 +240,15 @@ const getStatusVisual = (policy: DashboardPolicy) => {
   }
 
   return { label: 'Vigente', color: 'success.main', textColor: 'white', detail: policy.diasRestantes === 0 ? 'Hoy' : `${policy.diasRestantes} dias` };
+};
+
+const dueTodayPulseSx = {
+  animation: 'dashboardDueTodayPulse 1.35s ease-in-out infinite',
+  transformOrigin: 'center',
+  '@keyframes dashboardDueTodayPulse': {
+    '0%, 100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(255, 157, 0, 0)' },
+    '50%': { transform: 'scale(1.08)', boxShadow: '0 0 0 6px rgba(255, 157, 0, .2)' },
+  },
 };
 
 type PaymentFilter = 'ALL' | 'CASH' | 'BANK' | 'CARD';
@@ -532,6 +541,7 @@ const PolicyTable = ({
                           fontWeight: 700,
                           bgcolor: status.color,
                           color: status.textColor,
+                          ...(policy.diasRestantes === 0 ? dueTodayPulseSx : {}),
                         }}
                       >
                         {status.label}
@@ -618,7 +628,7 @@ const PolicyTable = ({
                                       </TableCell>
                                       <TableCell align="center">{policy.inicio ? format(parseISO(policy.inicio), 'dd/MM/yyyy') : '-'}</TableCell>
                                       <TableCell align="center">{format(parseISO(policy.vencimiento), 'dd/MM/yyyy')}</TableCell>
-                                      <TableCell align="center"><Chip label={status.label} size="small" sx={{ bgcolor: status.color, color: status.textColor, fontWeight: 700 }} /></TableCell>
+                                      <TableCell align="center"><Chip label={status.label} size="small" sx={{ bgcolor: status.color, color: status.textColor, fontWeight: 700, ...(policy.diasRestantes === 0 ? dueTodayPulseSx : {}) }} /></TableCell>
                                       <TableCell align="center">{policy.cuota}</TableCell>
                                       <TableCell align="center" sx={{ minWidth: 150 }}>
                                         <PaymentStatusControl

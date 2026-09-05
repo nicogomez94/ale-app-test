@@ -416,7 +416,7 @@ export const CotizacionesPage: React.FC = () => {
               const hasHomeData = c.tipo === 'HOGAR' && (c.tipoVivienda || c.superficieCubierta);
               const hasOtherData = c.tipo === 'OTROS' && c.descripcionRiesgo;
               return (
-                <TableRow key={c.id} hover onClick={() => markViewed(c)} sx={{ cursor: c.viewedAt ? 'default' : 'pointer', bgcolor: c.clientId ? '#effcf7' : '#fff', borderLeft: `5px solid ${c.clientId ? '#23c49b' : '#f4a300'}` }}>
+                <TableRow key={c.id} hover onClick={() => markViewed(c)} sx={{ cursor: c.viewedAt ? 'default' : 'pointer', '& > td': { bgcolor: c.clientId ? 'rgba(35, 196, 155, .11)' : 'background.paper' }, borderLeft: `5px solid ${c.clientId ? '#23c49b' : '#f4a300'}` }}>
                   <TableCell>
                     <Chip
                       label={tc.label} size="small" icon={tc.icon as any}

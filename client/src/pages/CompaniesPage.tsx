@@ -21,11 +21,11 @@ const COMPANY_TYPES = [
 ];
 
 const companyVisual = (policies: any[] = []) => {
-  if (!policies.length) return { bg: '#fff', border: '#d8dce8', pulse: false };
+  if (!policies.length) return { bg: 'background.paper', border: '#d8dce8', pulse: false };
   const pending = policies.filter((policy) => !policy.pagada);
-  if (pending.some((policy) => policy.estado === 'VENCIDA')) return { bg: '#fff0f0', border: '#dc2d2d', pulse: false };
-  if (pending.some((policy) => policy.estado === 'VENCE_PRONTO')) return { bg: '#fff4df', border: '#f59e0b', pulse: true };
-  return { bg: '#edf8ed', border: '#37a654', pulse: false };
+  if (pending.some((policy) => policy.estado === 'VENCIDA')) return { bg: 'rgba(220, 45, 45, .13)', border: '#dc2d2d', pulse: false };
+  if (pending.some((policy) => policy.estado === 'VENCE_PRONTO')) return { bg: 'rgba(245, 158, 11, .16)', border: '#f59e0b', pulse: true };
+  return { bg: 'rgba(55, 166, 84, .13)', border: '#37a654', pulse: false };
 };
 
 export const CompaniesPage: React.FC = () => {

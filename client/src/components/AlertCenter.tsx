@@ -26,6 +26,15 @@ const heartbeatSx = {
   },
 };
 
+const dueTodayPulseSx = {
+  animation: 'dueTodayPulse 1.35s ease-in-out infinite',
+  transformOrigin: 'center',
+  '@keyframes dueTodayPulse': {
+    '0%, 100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(255, 157, 0, 0)' },
+    '50%': { transform: 'scale(1.08)', boxShadow: '0 0 0 7px rgba(255, 157, 0, .2)' },
+  },
+};
+
 export const AlertCenter: React.FC = () => {
   const navigate = useNavigate();
   const [expiring, setExpiring] = useState<DashboardPolicy[]>([]);
@@ -91,19 +100,19 @@ export const AlertCenter: React.FC = () => {
         <Chip icon={<Gift size={16} />} label={`Cumpleaños (${birthdays.length})`} onClick={() => setBirthdayOpen(true)} sx={{ bgcolor: '#08bf68', color: '#073b22', fontWeight: 900, boxShadow: '0 5px 14px rgba(8,191,104,.24)', '& .MuiChip-icon': { color: '#073b22' }, ...(birthdays.length ? heartbeatSx : {}) }} />
       </Box>
 
-      <Dialog open={expiryOpen} onClose={closeExpiry} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 5, border: '2px solid #ff9d23', overflow: 'hidden' } }}>
-        <DialogContent sx={{ p: { xs: 2, md: 3 }, bgcolor: '#fffdfa' }}>
-          <Paper elevation={0} sx={{ bgcolor: '#fff3df', borderRadius: 3, p: 2, display: 'flex', gap: 2, alignItems: 'center', position: 'relative' }}>
+      <Dialog open={expiryOpen} onClose={closeExpiry} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 2, border: '2px solid #ff9d23', overflow: 'hidden' } }}>
+        <DialogContent sx={(theme) => ({ p: { xs: 2, md: 3 }, bgcolor: theme.palette.mode === 'light' ? '#fffdfa' : '#15120e', color: 'text.primary' })}>
+          <Paper elevation={0} sx={(theme) => ({ bgcolor: theme.palette.mode === 'light' ? '#fff3df' : '#2b2114', borderRadius: 1.5, p: 2, display: 'flex', gap: 2, alignItems: 'center', position: 'relative' })}>
             <Box sx={{ width: 46, height: 46, borderRadius: '50%', bgcolor: '#ff9d00', color: 'white', display: 'grid', placeItems: 'center' }}><ShieldAlert /></Box>
-            <Box><Typography variant="h5" fontWeight={950} color="#d65c00">¡Atención de Vencimientos Semanales!</Typography><Typography variant="caption" fontWeight={800} color="#d87522">PAS Alert System — Notificación Automática de Apertura</Typography></Box>
+            <Box><Typography variant="h5" fontWeight={950} sx={(theme) => ({ color: theme.palette.mode === 'light' ? '#d65c00' : '#ffb45e' })}>¡Atención de Vencimientos Semanales!</Typography><Typography variant="caption" fontWeight={800} sx={(theme) => ({ color: theme.palette.mode === 'light' ? '#d87522' : '#ffc47d' })}>PAS Alert System — Notificación Automática de Apertura</Typography></Box>
             <IconButton onClick={closeExpiry} sx={{ position: 'absolute', right: 10, top: 10 }}><X /></IconButton>
           </Paper>
-          <Box sx={{ my: 2, p: 1.5, bgcolor: '#fff7e8', borderRadius: 3, display: 'flex', gap: 1.5, alignItems: 'center' }}><AlertTriangle color="#e88a13" /><Typography fontWeight={800}>Se registran {expiringGroups.length} póliza(s) con vencimiento dentro de los próximos 7 días:</Typography></Box>
-          <Box sx={{ overflowX: 'auto', border: '1px solid #f0bb58', borderRadius: 3 }}>
-            <Table size="small" sx={{ minWidth: 760 }}>
-              <TableHead sx={{ bgcolor: '#fff8db' }}><TableRow>{['Nombre del Cliente', 'N° de Póliza', 'Categoría / Ramo', 'Forma de pago', 'Fecha de Vencimiento', 'Estado', 'Acción'].map((h) => <TableCell key={h} sx={{ fontWeight: 900, color: '#9c7014' }}>{h}</TableCell>)}</TableRow></TableHead>
+          <Box sx={(theme) => ({ my: 2, p: 1.5, bgcolor: theme.palette.mode === 'light' ? '#fff7e8' : '#251d12', borderRadius: 1.5, display: 'flex', gap: 1.5, alignItems: 'center' })}><AlertTriangle color="#f5a02a" /><Typography fontWeight={800}>Se registran {expiringGroups.length} póliza(s) con vencimiento dentro de los próximos 7 días:</Typography></Box>
+          <Box sx={(theme) => ({ overflowX: 'auto', border: '1px solid', borderColor: theme.palette.mode === 'light' ? '#f0bb58' : '#8d6425', borderRadius: 1, bgcolor: theme.palette.mode === 'light' ? '#f5f7fb' : '#0a0a0a' })}>
+            <Table size="small" sx={{ minWidth: 760, borderSpacing: '0 8px', '& > tbody > tr > td:first-of-type': { borderTopLeftRadius: 2, borderBottomLeftRadius: 2 }, '& > tbody > tr > td:last-of-type': { borderTopRightRadius: 2, borderBottomRightRadius: 2 } }}>
+              <TableHead sx={(theme) => ({ bgcolor: theme.palette.mode === 'light' ? '#fff8db' : '#33280f' })}><TableRow>{['Nombre del Cliente', 'N° de Póliza', 'Categoría / Ramo', 'Forma de pago', 'Fecha de Vencimiento', 'Estado', 'Acción'].map((h) => <TableCell key={h} sx={(theme) => ({ fontWeight: 900, color: theme.palette.mode === 'light' ? '#9c7014' : '#ffd27a' })}>{h}</TableCell>)}</TableRow></TableHead>
               <TableBody>{expiringGroups.map((policy) => <TableRow key={policy.id}>
-                <TableCell sx={{ fontWeight: 800 }}>{policy.cliente}</TableCell><TableCell sx={{ color: '#252c85', fontWeight: 800 }}>{policy.poliza}</TableCell><TableCell><Chip size="small" label={policy.rubro} sx={{ bgcolor: '#24298d', color: 'white', fontWeight: 800 }} /></TableCell><TableCell sx={{ fontWeight: 800 }}>{policy.medioPago || 'Sin informar'}</TableCell><TableCell sx={{ color: '#d63c32', fontWeight: 800 }}>{format(parseISO(policy.vencimiento), 'dd/MM/yyyy')}</TableCell><TableCell><Chip size="small" label={policy.diasRestantes <= 0 ? '¡VENCE HOY!' : `Vence en ${policy.diasRestantes} días`} sx={{ bgcolor: '#ffd995', color: '#8a5200', fontWeight: 900 }} /></TableCell><TableCell><Button size="small" variant="contained" color="success" startIcon={<MessageCircle size={15} />} onClick={() => openWhatsApp(policy.telefono, `Hola ${policy.cliente}, te recordamos que tu póliza ${policy.poliza} vence el ${format(parseISO(policy.vencimiento), 'dd/MM/yyyy')}. Forma de pago: ${policy.medioPago || 'a confirmar'}.`)}>WhatsApp</Button></TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>{policy.cliente}</TableCell><TableCell sx={{ color: 'primary.main', fontWeight: 800 }}>{policy.poliza}</TableCell><TableCell><Chip size="small" label={policy.rubro} sx={{ bgcolor: 'primary.dark', color: 'white', fontWeight: 800 }} /></TableCell><TableCell sx={{ fontWeight: 800 }}>{policy.medioPago || 'Sin informar'}</TableCell><TableCell sx={{ color: 'error.light', fontWeight: 800 }}>{format(parseISO(policy.vencimiento), 'dd/MM/yyyy')}</TableCell><TableCell><Chip size="small" label={policy.diasRestantes <= 0 ? '¡VENCE HOY!' : `Vence en ${policy.diasRestantes} días`} sx={(theme) => ({ bgcolor: theme.palette.mode === 'light' ? '#ffd995' : '#a85b00', color: theme.palette.mode === 'light' ? '#704100' : '#fff7e8', fontWeight: 900, ...(policy.diasRestantes <= 0 ? dueTodayPulseSx : {}) })} /></TableCell><TableCell><Button size="small" variant="contained" color="success" startIcon={<MessageCircle size={15} />} onClick={() => openWhatsApp(policy.telefono, `Hola ${policy.cliente}, te recordamos que tu póliza ${policy.poliza} vence el ${format(parseISO(policy.vencimiento), 'dd/MM/yyyy')}. Forma de pago: ${policy.medioPago || 'a confirmar'}.`)}>WhatsApp</Button></TableCell>
               </TableRow>)}</TableBody>
             </Table>
           </Box>

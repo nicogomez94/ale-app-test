@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Autocomplete,
@@ -46,10 +46,8 @@ import {
   Mail,
   MapPin,
   MessageSquare,
-  Banknote,
   Phone,
   Plus,
-  Receipt,
   Search,
   ShieldCheck,
   Trash2,
@@ -90,7 +88,6 @@ export const DirectoryPage: React.FC = () => {
   const [tab, setTab] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [insurers, setInsurers] = useState<any[]>([]);
-  const [allInsurers, setAllInsurers] = useState<any[]>([]);
   const [brokers, setBrokers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedInsurer, setExpandedInsurer] = useState<string | null>(null);
@@ -110,28 +107,17 @@ export const DirectoryPage: React.FC = () => {
     severity: 'success',
   });
 
-  const financialTotals = useMemo(() => allInsurers.reduce(
-    (totals, insurer) => ({
-      ars: totals.ars + Number(insurer.totalFacturadoARS || 0),
-      usd: totals.usd + Number(insurer.totalFacturadoUSD || 0),
-      invoices: totals.invoices + Number(insurer.cantidadFacturas || 0),
-    }),
-    { ars: 0, usd: 0, invoices: 0 },
-  ), [allInsurers]);
-
   const formatMoney = (value: number, currency: 'ARS' | 'USD') =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [insurerData, brokerData, allInsurerData] = await Promise.all([
+      const [insurerData, brokerData] = await Promise.all([
         api.directory.insurers.list(tab === 0 ? searchTerm : undefined),
         api.directory.brokers.list(tab === 1 ? searchTerm : undefined),
-        api.directory.insurers.list(),
       ]);
       setInsurers(insurerData);
-      setAllInsurers(allInsurerData);
       setBrokers(brokerData);
     } catch (error: any) {
       setSnack({ open: true, message: error.message || 'No se pudo cargar el directorio.', severity: 'error' });
@@ -285,26 +271,6 @@ export const DirectoryPage: React.FC = () => {
         </Box>
       </Box>
 
-      <Grid container spacing={2} sx={{ mb: 3, display: tab === 0 ? 'flex' : 'none' }}>
-        {[
-          { label: 'Total facturado ARS', value: formatMoney(financialTotals.ars, 'ARS'), icon: <Banknote size={22} />, color: '#2563eb' },
-          { label: 'Total facturado USD', value: formatMoney(financialTotals.usd, 'USD'), icon: <Banknote size={22} />, color: '#16a34a' },
-          { label: 'Facturas emitidas', value: String(financialTotals.invoices), icon: <Receipt size={22} />, color: '#9333ea' },
-        ].map((item) => (
-          <Grid key={item.label} size={{ xs: 12, sm: 4 }}>
-            <Card sx={{ height: '100%', borderLeft: `5px solid ${item.color}` }}>
-              <CardContent sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                <Box sx={{ color: item.color }}>{item.icon}</Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>{item.label}</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 800 }}>{item.value}</Typography>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 4 }}>
         <Tabs value={tab} onChange={(_, value) => { setTab(value); setSearchTerm(''); }} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile>
           <Tab label="Aseguradoras" sx={{ fontWeight: 700 }} />
@@ -351,7 +317,7 @@ export const DirectoryPage: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Box sx={{ width: 40, height: 40, bgcolor: 'primary.light', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'primary.main' }}>
+                        <Box sx={{ width: 40, height: 40, bgcolor: 'primary.main', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'primary.contrastText' }}>
                           <ShieldCheck size={24} />
                         </Box>
                         <Box>
@@ -383,22 +349,26 @@ export const DirectoryPage: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: .75 }}>
-                      {insurer.websiteUrl ? (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          startIcon={<Globe size={14} />}
-                          onClick={() => openUrl(insurer.websiteUrl)}
-                          sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
-                        >
-                          Acceder Web
-                        </Button>
+                      {insurer.websiteUrl || insurer.portalLoginUrl ? (
+                        <>
+                          {insurer.websiteUrl && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<Globe size={14} />}
+                              onClick={() => openUrl(insurer.websiteUrl)}
+                              sx={{ minWidth: 132, justifyContent: 'flex-start', borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+                            >
+                              Acceder Web
+                            </Button>
+                          )}
+                          {insurer.portalLoginUrl && (
+                            <Button size="small" variant="outlined" startIcon={<ExternalLink size={14} />} onClick={() => openUrl(insurer.portalLoginUrl)} sx={{ minWidth: 132, justifyContent: 'flex-start', borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+                              Acceso Login
+                            </Button>
+                          )}
+                        </>
                       ) : '-'}
-                      {insurer.portalLoginUrl && (
-                        <Button size="small" variant="outlined" color="secondary" startIcon={<ExternalLink size={14} />} onClick={() => openUrl(insurer.portalLoginUrl)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
-                          Acceso LOGIN PAS
-                        </Button>
-                      )}
                       </Box>
                     </TableCell>
                     <TableCell sx={{ textAlign: 'right', whiteSpace: 'nowrap' }}>

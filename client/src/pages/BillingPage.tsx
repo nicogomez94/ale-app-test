@@ -281,14 +281,14 @@ export const BillingPage: React.FC = () => {
         <Grid size={{ xs: 12, md: 4 }}>
           <Card><CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Layers size={18} color="#1a237e" />
+              <Layers size={18} color="currentColor" />
               <Typography variant="caption" color="text.secondary" fontWeight={800}>Total facturado</Typography>
             </Box>
             <Typography variant="h4" fontWeight={900}>{moneyPair({ ars: totals.ars.facturado, usd: totals.usd.facturado })}</Typography>
           </CardContent></Card>
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
-          <Card sx={{ bgcolor: '#fffdf4', border: '1px solid #f4e499' }}><CardContent><Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}><ReceiptText size={18} color="#d98a00" /><Typography variant="caption" color="#a36700" fontWeight={800}>Impuestos IIBB / Retenciones</Typography></Box><Typography variant="h4" fontWeight={900} color="#d98a00">{moneyPair({ ars: Math.max(0, totals.ars.facturado - totals.ars.cobrado), usd: Math.max(0, totals.usd.facturado - totals.usd.cobrado) })}</Typography></CardContent></Card>
+          <Card sx={(theme) => ({ bgcolor: theme.palette.mode === 'light' ? '#fffdf4' : '#292410', border: '1px solid', borderColor: theme.palette.mode === 'light' ? '#f4e499' : '#8a6b16' })}><CardContent><Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, color: 'warning.light' }}><ReceiptText size={18} color="currentColor" /><Typography variant="caption" color="inherit" fontWeight={800}>Impuestos IIBB / Retenciones</Typography></Box><Typography variant="h4" fontWeight={900} color="warning.main">{moneyPair({ ars: Math.max(0, totals.ars.facturado - totals.ars.cobrado), usd: Math.max(0, totals.usd.facturado - totals.usd.cobrado) })}</Typography></CardContent></Card>
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
           <Card><CardContent>
@@ -304,7 +304,7 @@ export const BillingPage: React.FC = () => {
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: { xs: 'flex-start', md: 'center' }, justifyContent: 'space-between', gap: 2, mb: 2, flexDirection: { xs: 'column', md: 'row' } }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <TrendingUp size={18} color="#1a237e" />
+              <TrendingUp size={18} color="currentColor" />
               <Typography variant="h6" fontWeight={900}>Evolución de Comisiones e Impuestos Recibidos</Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>

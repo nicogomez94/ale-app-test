@@ -5,9 +5,10 @@ export const getTheme = (mode: 'light' | 'dark'): ThemeOptions => {
     palette: {
       mode,
       primary: {
-        main: '#1a237e',
-        light: '#534bae',
-        dark: '#000051',
+        main: mode === 'light' ? '#1a237e' : '#8c9eff',
+        light: mode === 'light' ? '#534bae' : '#b6c2ff',
+        dark: mode === 'light' ? '#000051' : '#536dfe',
+        contrastText: mode === 'light' ? '#ffffff' : '#101326',
       },
       secondary: {
         main: '#00c853',
@@ -38,6 +39,10 @@ export const getTheme = (mode: 'light' | 'dark'): ThemeOptions => {
           root: {
             borderCollapse: 'separate',
             borderSpacing: '0 16px',
+            backgroundColor: mode === 'light' ? '#f5f7fb' : '#0a0a0a',
+            '& > tbody > tr:not([data-detail-row])': {
+              backgroundColor: mode === 'light' ? '#ffffff' : '#181818',
+            },
             '& > tbody > tr:not([data-detail-row]) > td': {
               borderTop: `2px solid ${mode === 'light' ? '#303030' : '#666'}`,
               borderBottom: `2px solid ${mode === 'light' ? '#303030' : '#666'}`,
@@ -63,6 +68,7 @@ export const getTheme = (mode: 'light' | 'dark'): ThemeOptions => {
         styleOverrides: {
           root: {
             borderRadius: '8px',
+            backgroundColor: mode === 'light' ? '#f5f7fb' : '#0a0a0a',
           },
         },
       },
@@ -78,6 +84,7 @@ export const getTheme = (mode: 'light' | 'dark'): ThemeOptions => {
           root: {
             '&.MuiTableContainer-root': {
               borderRadius: '8px',
+              backgroundColor: mode === 'light' ? '#f5f7fb' : '#0a0a0a',
             },
           },
         },

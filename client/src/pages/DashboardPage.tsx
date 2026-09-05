@@ -1262,7 +1262,7 @@ export const Dashboard: React.FC = () => {
           <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, alignItems: { xs: 'stretch', lg: 'center' }, justifyContent: 'space-between', gap: 2 }}>
             <Box sx={{ minWidth: 0 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.25 }}>
-                <Filter size={20} color="#1a237e" />
+                <Filter size={20} color="currentColor" />
                 <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Filtrar por forma de pago</Typography>
               </Box>
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
